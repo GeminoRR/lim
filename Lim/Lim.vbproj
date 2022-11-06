@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Lim</RootNamespace>
+    <TargetFramework>net6.0</TargetFramework>
+    <ApplicationIcon>logo_compiler.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>C:\Users\gemin\Documents\Projets\Applications\Lim\Lim\Release\</OutputPath>
+  </PropertyGroup>
+
+</Project>
