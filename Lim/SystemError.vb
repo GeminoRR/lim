@@ -1,4 +1,4 @@
-﻿Module errorHandler
+﻿Module SystemError
 
     '=================================
     '========== BASIC ERROR ==========
@@ -59,7 +59,7 @@
 
         'Informations
         Console.ForegroundColor = ConsoleColor.Red
-        Console.WriteLine("<" & file.path & "> line " & line)
+        Console.WriteLine("<" & file.path & "> line " & line & " Code " & code)
 
         'Reset color
         Console.ResetColor()

@@ -13,6 +13,10 @@ Public Class LimFile
     Public path As String
     Public content As String = ""
 
+    Public variables As New List(Of DeclareVariableNode)
+    Public functions As New List(Of FunctionNode)
+    Public classs As New List(Of ClassNode)
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
@@ -45,8 +49,47 @@ Public Class LimFile
         Dim tokens As List(Of token) = (New lexer()).parse(Me)
 
         'Generate AST (Abstract syntax tree)
+        Dim parser As New AST()
+        parser.parse(tokens, Me)
 
+        Console.WriteLine(Me.ToString())
+        endApp()
 
     End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+
+        'Variable
+        Dim strVariables As String = ""
+        Dim strFunctions As String = ""
+        Dim strClasss As String = ""
+
+        'Loops
+        For Each code As Node In Me.variables
+            strVariables &= ", " & code.ToString()
+        Next
+        For Each code As Node In Me.functions
+            strFunctions &= ", " & code.ToString()
+        Next
+        For Each code As Node In Me.classs
+            strClasss &= ", " & code.ToString()
+        Next
+
+        'Fix
+        If strVariables.StartsWith(", ") Then
+            strVariables = "PROPRETIES: " & strVariables.Substring(2)
+        End If
+        If strFunctions.StartsWith(", ") Then
+            strFunctions = "FUNCTIONS: " & strFunctions.Substring(2)
+        End If
+        If strClasss.StartsWith(", ") Then
+            strClasss = "CLASSS: " & strClasss.Substring(2)
+        End If
+
+        'Return
+        Return "(" & name & "{" & strVariables & " " & strFunctions & " " & strClasss & "}" & ")"
+
+    End Function
 
 End Class

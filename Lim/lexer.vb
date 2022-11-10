@@ -215,6 +215,8 @@ Public Class lexer
                         tokens.Add(New token(tokenType.KW_FUNC, startPos, charCounter - 1))
                     Case "import"
                         tokens.Add(New token(tokenType.KW_IMPORT, startPos, charCounter - 1))
+                    Case "export"
+                        tokens.Add(New token(tokenType.KW_EXPORT, startPos, charCounter - 1))
                     Case Else
                         tokens.Add(New token(tokenType.CT_TEXT, startPos, charCounter - 1, create_var))
                 End Select

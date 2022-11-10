@@ -51,6 +51,7 @@ Public Enum tokenType
     KW_VAR
     KW_LET
 
+    KW_EXPORT
     KW_NEW
 
     KW_RETURN
