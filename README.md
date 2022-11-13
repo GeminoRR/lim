@@ -3,10 +3,10 @@
 Lim Compiler is the programming language compiler I am creating.
 Please don't look at my horrible code.
 
-![Alt text](https://github.com/GeminoRR/LimCompiler/blob/master/LimCompiler/logo_compiler.ico?raw=true "LimCompiler's logo")
+![Alt text](https://github.com/GeminoRR/Lim/blob/master/Lim/logo_compiler.ico?raw=true "LimCompiler's logo")
 
 ## The particularities of lim
-- Different reference management *(especially for objects)*
+- Reference management which differs slightly from other languages
 - Statically Typed
 - Compatible with OOP
 - Indentation-based statements

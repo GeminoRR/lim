@@ -15,6 +15,8 @@ Public Class FunctionNode
     Public compiled As Boolean
     Public compiling As Boolean
 
+    Public export As Boolean = False
+
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
         MyBase.New(positionStart, positionEnd)

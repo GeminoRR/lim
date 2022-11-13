@@ -1,0 +1,95 @@
+/////////////////////////
+/////// INT CLASS ///////
+/////////////////////////
+class int
+	//Propreties
+	$"Public value As Integer = 0"
+
+	//New
+	$"Public Sub New(ByVal value As Integer)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func str:str
+		$"Return New str(Me.value.ToString())"
+
+/////////////////////////
+/////// STR CLASS ///////
+/////////////////////////
+class str
+	//Propreties
+	$'Public value As String = ""'
+
+	//New
+	$"Public Sub New(ByVal value As String)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func str:str
+		$"Return Me"
+
+func puts(message:str)
+	$'Console.WriteLine(message.value)'
+
+///////////////////////////
+/////// FLOAT CLASS ///////
+///////////////////////////
+class float
+	//Propreties
+	$"Public value As Double = 0.0"
+
+	//New
+	$"Public Sub New(ByVal value As Double)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func str:str
+		$"Return New str(Me.value.ToString())"
+
+//////////////////////////
+/////// BOOL CLASS ///////
+//////////////////////////
+class bool
+	//Propreties
+	$"Public value As Boolean = True"
+
+	//New
+	$"Public Sub New(ByVal value As Boolean)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func str:str
+		$"Return New str(Me.value.ToString())"
+
+/////////////////////////
+/////// FUN CLASS ///////
+/////////////////////////
+class fun
+	//Propreties
+	$"Public value As Integer = -1"
+
+	//New
+	$"Public Sub New(ByVal value As Integer)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func str:str
+		$"Return New str(Me.value.ToString())"
+
+/////////////////////////
+/////// IO - PUTS ///////
+/////////////////////////
+func puts(message:str)
+	$'Console.WriteLine(message.value)'
+
+/////////////////////////
+/////// IO - GETS ///////
+/////////////////////////
+func gets(message:str):str
+	$"Console.Write(message.value)"
+	$"Return New str(Console.ReadLine())"

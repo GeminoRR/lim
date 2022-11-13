@@ -62,11 +62,11 @@ End Enum
 '===============================
 Public Class safeType
 
-    Public Struct As ClassNode
+    Public TargetClass As ClassNode
     Public Dimensions As New List(Of ValueType)
 
     Public Sub New(ByVal Struct As ClassNode, Optional ByVal Dimensions As List(Of ValueType) = Nothing)
-        Me.Struct = Struct
+        Me.TargetClass = Struct
         If Not Dimensions Is Nothing Then
             For Each Dimension As ValueType In Dimensions
                 Me.Dimensions.Add(Dimension)
@@ -86,7 +86,7 @@ Public Class safeType
                     str &= "?"
             End Select
         Next
-        Return Struct.Name & str
+        Return TargetClass.Name & str
     End Function
 
     Public Function getParentType() As safeType
@@ -97,13 +97,13 @@ Public Class safeType
         If parentDimension.Count > 0 Then
             parentDimension.RemoveAt(parentDimension.Count - 1)
         End If
-        Return New safeType(Me.Struct, parentDimension)
+        Return New safeType(Me.TargetClass, parentDimension)
     End Function
 
     Public Function IsTheSameAs(ByVal other As safeType) As Boolean
 
         'Name
-        If Not Me.Struct.compiledName = other.Struct.compiledName Then
+        If Not Me.TargetClass.compiledName = other.TargetClass.compiledName Then
             Return False
         End If
 

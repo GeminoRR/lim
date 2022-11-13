@@ -13,12 +13,19 @@ Public Class ClassNode
     Public declareVariables As New List(Of DeclareVariableNode)
     Public methods As New List(Of FunctionNode)
 
+    Public addSourceDirectly As New List(Of AddSourceNode)
+
+    Public export As Boolean = False
+
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String)
 
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.compiled = False
+        Dim clone_mehtod As FunctionNode = New FunctionNode(0, 0, "clone", New List(Of FunctionArgument), New typeNode(0, 0, Me.Name, New List(Of ValueType)))
+        clone_mehtod.parentNode = Me
+        Me.methods.Add(clone_mehtod)
 
     End Sub
 

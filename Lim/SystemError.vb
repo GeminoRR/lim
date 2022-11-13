@@ -24,29 +24,34 @@
 
     End Sub
 
-    '==================================
-    '========== SYNTAX ERROR ==========
-    '==================================
-    Public Sub addSyntaxError(ByVal code As String, ByVal message As String, ByVal file As LimFile, ByVal positionStart As Integer, ByVal positionEnd As Integer, Optional ByVal trymessage As String = "")
+    '===================================
+    '========== COMPLEX ERROR ==========
+    '===================================
+    Public Sub addComplexError(ByVal code As String, ByVal title As String, ByVal message As String, ByVal file As LimFile, ByVal positionStart As Integer, ByVal positionEnd As Integer, Optional ByVal trymessage As String = "")
 
         'Title
         Console.ForegroundColor = ConsoleColor.Red
-        Console.WriteLine("SYNTAX ERROR: " & message)
+        Console.WriteLine(title.ToUpper() & ": " & message)
 
         'Exeption
-        Dim line As String = getLinePosition(file.content, positionStart).ToString()
-        Dim endLine As String = getLinePosition(file.content, positionEnd).ToString()
-        Dim brutline As String = getLineFromPosition(file.content, line)
+        Dim line As String = ""
+        If (Not positionStart = -1) And (Not positionEnd = -1) Then
 
-        Console.ResetColor()
-        Console.WriteLine(line & "| " & brutline.Replace(vbTab, " "))
+            line = getLinePosition(file.content, positionStart).ToString()
+            Dim endLine As String = getLinePosition(file.content, positionEnd).ToString()
+            Dim brutline As String = getLineFromPosition(file.content, line)
 
-        If Not endLine = line Then
-            Console.WriteLine(StrDup(line.Length, " ") & "| ...")
-            Console.WriteLine(endLine & "| " & getLineFromPosition(file.content, endLine))
-        Else
-            Dim lineStartPosition = getLineStartPosition(file.content, positionStart)
-            Console.WriteLine(StrDup(line.Length + 2, " ") & StrDup(positionStart - lineStartPosition, " ") & StrDup(positionEnd - positionStart, "^"))
+            Console.ResetColor()
+            Console.WriteLine(line & "| " & brutline.Replace(vbTab, " "))
+
+            If Not endLine = line Then
+                Console.WriteLine(StrDup(line.Length, " ") & "| ...")
+                Console.WriteLine(endLine & "| " & getLineFromPosition(file.content, endLine))
+            Else
+                Dim lineStartPosition = getLineStartPosition(file.content, positionStart)
+                Console.WriteLine(StrDup(line.Length + 2, " ") & StrDup(positionStart - lineStartPosition, " ") & StrDup(positionEnd - positionStart, "^"))
+            End If
+
         End If
 
         'Try
@@ -59,13 +64,74 @@
 
         'Informations
         Console.ForegroundColor = ConsoleColor.Red
-        Console.WriteLine("<" & file.path & "> line " & line & " Code " & code)
+        If line = "" Then
+            Console.WriteLine("<" & file.name & "> Code " & code)
+        Else
+            Console.WriteLine("<" & file.name & "> line " & line & " Code " & code)
+        End If
 
         'Reset color
         Console.ResetColor()
 
         'End app
         endApp()
+
+    End Sub
+
+    '==================================
+    '========== SYNTAX ERROR ==========
+    '==================================
+    Public Sub addSyntaxError(ByVal code As String, ByVal message As String, ByVal file As LimFile, ByVal positionStart As Integer, ByVal positionEnd As Integer, Optional ByVal trymessage As String = "")
+
+        addComplexError(code, "SYNTAX ERROR", message, file, positionStart, positionEnd, trymessage)
+
+    End Sub
+
+    '=======================================
+    '========== NODE SYNTAX ERROR ==========
+    '=======================================
+    Public Sub addNodeSyntaxError(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal trymessage As String = "")
+
+        'Execute addSyntaxError
+        addSyntaxError(code, message, getNodeParentFile(node), node.positionStart, node.positionEnd, trymessage)
+
+    End Sub
+
+    '==================================
+    '========== NAMING ERROR ==========
+    '==================================
+    Public Sub addNamingError(ByVal code As String, ByVal message As String, ByVal file As LimFile, ByVal positionStart As Integer, ByVal positionEnd As Integer, Optional ByVal trymessage As String = "")
+
+        addComplexError(code, "NAMING ERROR", message, file, positionStart, positionEnd, trymessage)
+
+    End Sub
+
+    '=======================================
+    '========== NODE NAMING ERROR ==========
+    '=======================================
+    Public Sub addNodeNamingError(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal trymessage As String = "")
+
+        'Execute addSyntaxError
+        addNamingError(code, message, getNodeParentFile(node), node.positionStart, node.positionEnd, trymessage)
+
+    End Sub
+
+    '================================
+    '========== TYPE ERROR ==========
+    '================================
+    Public Sub addTypeError(ByVal code As String, ByVal message As String, ByVal file As LimFile, ByVal positionStart As Integer, ByVal positionEnd As Integer, Optional ByVal trymessage As String = "")
+
+        addComplexError(code, "TYPE ERROR", message, file, positionStart, positionEnd, trymessage)
+
+    End Sub
+
+    '=====================================
+    '========== NODE TYPE ERROR ==========
+    '=====================================
+    Public Sub addNodeTypeError(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal trymessage As String = "")
+
+        'Execute addSyntaxError
+        addTypeError(code, message, getNodeParentFile(node), node.positionStart, node.positionEnd, trymessage)
 
     End Sub
 

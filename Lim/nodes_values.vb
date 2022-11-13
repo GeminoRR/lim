@@ -262,6 +262,30 @@ Public Class StringNode
 
 End Class
 
+'=================================
+'========= AddSourceNode =========
+'=================================
+Public Class AddSourceNode
+    Inherits Node
+
+    'Variables
+    Public value As String
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal value As String)
+
+        MyBase.New(positionStart, positionEnd)
+        Me.value = value
+
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Return "<""" & value & """>"
+    End Function
+
+End Class
+
 '=============================
 '========= ValueNode =========
 '=============================

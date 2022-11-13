@@ -46,7 +46,6 @@ Public Enum tokenType
 
     CT_LINESTART
 
-
     'Keywords (KW)
     KW_VAR
     KW_LET
@@ -70,7 +69,7 @@ Public Enum tokenType
     OP_LBRACE
     OP_RBRACE
     OP_TWOPOINT
-    OP_SPACEARROW
+    OP_ADDSOURCE
 
     OP_PLUS
     OP_MINUS

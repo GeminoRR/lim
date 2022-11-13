@@ -45,10 +45,14 @@ Module Program
             End If
 
             'Compile
-            Dim compiler As New VB_Compiler(args(0), AppData & "/Compiled")
+            Dim compiler As New VB_Compiler(args(0), AppData & "/compiled")
+            Process.Start("cmd.exe", "/c start " & AppData & "/compiled/Program.vb")
 
             'Run
-            'Process.Start("cmd.exe", "/c cd """ & AppData & "/Compiled" & """ & dotnet run")
+            Process.Start("cmd.exe", "/c cd """ & AppData & "/Compiled" & """ & dotnet run")
+
+            'End app
+            endApp()
 
         End If
 
@@ -69,7 +73,7 @@ Module Program
 
         'Example
         Console.ForegroundColor = ConsoleColor.DarkGreen
-        Console.WriteLine("RUN : lim <input_file>")
+        Console.WriteLine("RUN : Lim <input_file>")
         Console.WriteLine("COMPILE: lim <input_file> <output_file> [-arguments]")
 
         'Explains

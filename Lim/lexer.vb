@@ -73,6 +73,11 @@ Public Class lexer
                 tokens.Add(New token(tokenType.CT_STRING, posStart, charCounter + 1, create_string))
                 advance()
 
+            ElseIf currentChar = "$" And file.limlib Then
+                'Create addSource token
+                tokens.Add(New token(tokenType.OP_ADDSOURCE, charCounter, charCounter + 1))
+                advance()
+
             ElseIf currentChar = "." Then
                 'Point
                 tokens.Add(New token(tokenType.OP_POINT, charCounter, charCounter + 1))
@@ -321,7 +326,10 @@ Public Class lexer
 
         End While
 
-        tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter + 1, "0"))
+        If Not tokens(tokens.Count - 1).type = tokenType.CT_LINESTART Then
+            tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter + 1, "0"))
+        End If
+
         Return tokens
 
 

@@ -49,12 +49,15 @@
         While tok_index < tokens.Count - 1
 
             Dim obj As Node = struct()
+            obj.parentNode = file
             If TypeOf obj Is DeclareVariableNode Then
-                file.variables.Add(obj)
+                file.declareVariables.Add(obj)
             ElseIf TypeOf obj Is FunctionNode Then
                 file.functions.Add(obj)
             ElseIf TypeOf obj Is ClassNode Then
                 file.classs.Add(obj)
+            ElseIf TypeOf obj Is AddSourceNode And file.LimLib Then
+                file.addSourceDirectly.Add(obj)
             Else
                 addSyntaxError("ASTP01", "An element of type <" & obj.GetType().FullName & "> has nothing to do here.", file, obj.positionStart, obj.positionEnd)
             End If
@@ -253,6 +256,37 @@
 
     End Function
 
+    '==============================
+    '========= ADD SOURCE =========
+    '==============================
+    Private Function addSource() As Node
+
+        'Other
+        If Not current_tok.type = tokenType.OP_ADDSOURCE Then
+
+            'Something else
+            Return factor()
+
+        End If
+
+        'Get start position
+        Dim positionStart As Integer = current_tok.positionStart
+
+        'Get value
+        advance()
+        If Not current_tok.type = tokenType.CT_STRING Then
+            addSyntaxError("ASTAS01", "A string was expected here.", file, current_tok.positionStart, current_tok.positionEnd)
+        End If
+
+        'Create token
+        Dim currentNode As New AddSourceNode(positionStart, current_tok.positionEnd, current_tok.value)
+        advance()
+
+        'Return
+        Return currentNode
+
+    End Function
+
     '================================
     '========= FunctionCall =========
     '================================
@@ -262,7 +296,7 @@
         If Not current_tok.type = tokenType.CT_TEXT Then
 
             'Something else
-            Return factor()
+            Return addSource()
 
         End If
 
@@ -277,7 +311,7 @@
         'Check if it's a function call node
         If Not current_tok.type = tokenType.OP_LPAR Then
             recede(recedeIndex)
-            Return factor()
+            Return addSource()
         End If
         advance()
 
@@ -492,9 +526,16 @@
         End If
 
         'Function call
-        If TypeOf left Is FunctionCallNode Then
+        If TypeOf left Is FunctionCallNode Or TypeOf left Is childNode Then
 
             'Add node
+            Return left
+
+        End If
+
+        'AddSource
+        If TypeOf left Is AddSourceNode And file.LimLib Then
+
             Return left
 
         End If
@@ -563,7 +604,7 @@
 
                     'Variables
                     Dim LastArgumentName As String = ""
-                    Dim LastArgumentDeclarationType As VariableDeclarationType = VariableDeclarationType._var_
+                    Dim LastArgumentDeclarationType As VariableDeclarationType = VariableDeclarationType._let_
                     Dim LastArgumentUnsafeType As typeNode = Nothing
 
                     'Search for a ref
@@ -705,12 +746,20 @@
             End If
 
             Dim toAdd As Node = func()
+            toAdd.parentNode = currentStruct
+
             If TypeOf toAdd Is FunctionNode Then
                 currentStruct.methods.Add(DirectCast(toAdd, FunctionNode))
+
             ElseIf TypeOf toAdd Is DeclareVariableNode Then
                 currentStruct.declareVariables.Add(DirectCast(toAdd, DeclareVariableNode))
+
+            ElseIf TypeOf toAdd Is AddSourceNode And file.LimLib Then
+                currentStruct.addSourceDirectly.Add(DirectCast(toAdd, AddSourceNode))
+
             Else
                 addSyntaxError("NPSW01", "The following line of code cannot be located in this frame, it will not be taken into account.", file, toAdd.positionStart, toAdd.positionEnd)
+
             End If
 
         End While

@@ -36,6 +36,8 @@ Public Class DeclareVariableNode
     Public value As Node
     Public declarationType As VariableDeclarationType
 
+    Public export As Boolean = False
+
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal declarationType As VariableDeclarationType, ByVal variableName As String, ByVal value As Node, ByVal variableUnsafeType As typeNode)
         MyBase.New(positionStart, positionEnd)
