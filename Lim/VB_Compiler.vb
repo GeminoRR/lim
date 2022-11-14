@@ -375,6 +375,13 @@ Public Class VB_Compiler
                     End If
                 Next
             End If
+            If TypeOf currentBlock Is ClassNode Then
+                For Each currentVariable As Variable In DirectCast(currentBlock, ClassNode).variables
+                    If currentVariable.name = name Then
+                        Return currentVariable
+                    End If
+                Next
+            End If
 
             currentBlock = currentBlock.parentNode
 
@@ -1042,6 +1049,20 @@ Public Class VB_Compiler
 
         End If
 
+        'New node
+        If TypeOf node Is newNode Then
+
+            'Castednode
+            Dim castedNode As newNode = DirectCast(node, newNode)
+
+            'Get class
+            Dim targetClass As ClassNode = getClass(castedNode.className, castedNode)
+
+            'Get type
+            Return New safeType(targetClass)
+
+        End If
+
         'Return
         addNodeTypeError("VBGNT01", "Unable to resolve node type", node)
         Return Nothing
@@ -1122,6 +1143,11 @@ Public Class VB_Compiler
 
             'Compile
             Return compileComparison(DirectCast(node, ComparisonNode), content)
+
+        ElseIf TypeOf node Is newNode Then
+
+            'Compile
+            Return compileNew(DirectCast(node, newNode), content)
 
         ElseIf TypeOf node Is AddSourceNode Then
 
@@ -1269,13 +1295,13 @@ Public Class VB_Compiler
                 If Not (indexType.TargetClass.compiledName = "int" And indexType.Dimensions.Count = 0) Then
                     addNodeTypeError("VBCBS03", "An index of a list must be an integer (<int>)", node.index)
                 End If
-                Return compileNode(node.Target, content) & "(" & compileNode(node.index, content) & ".value)"
+                Return String.Format("{0}({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
 
             Case ValueType.map
                 If Not (indexType.TargetClass.compiledName = "str" And indexType.Dimensions.Count = 0) Then
                     addNodeTypeError("VBCBS04", "An key name of a map must be an string (<str>)", node.index)
                 End If
-                Return compileNode(node.Target, content) & "(" & compileNode(node.index, content) & ".value)"
+                Return String.Format("{0}({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
 
         End Select
 
@@ -1546,6 +1572,74 @@ Public Class VB_Compiler
 
         'Finish compile
         Return helpVar
+
+    End Function
+
+    '===========================================
+    '========== COMPILE FUNCTION CALL ==========
+    '===========================================
+    Private Function compileNew(ByVal node As newNode, ByVal content As List(Of String)) As String
+
+        'Get class
+        Dim targetClass As ClassNode = getClass(node.className, node)
+
+        'No arguments
+        If node.arguments.Count = 0 Then
+            Return String.Format("(New {0}())", targetClass.compiledName)
+        End If
+
+        'Get constructor
+        Dim fun As FunctionNode = Nothing
+        For Each method As FunctionNode In targetClass.methods
+            If method.Name = "create" Then
+                fun = method
+            End If
+        Next
+        If fun Is Nothing Then
+            addNodeSyntaxError("VBCCN01", "Class <" & targetClass.Name & "> does not contain a constructor", node, "Add a ""create"" method to the class")
+        End If
+
+        'Handle argument error
+        If node.arguments.Count < fun.Arguments.Count Then
+            addNodeSyntaxError("VBCCN02", (fun.Arguments.Count - node.arguments.Count).ToString() & " arguments are missing", node)
+        End If
+        If node.arguments.Count > fun.Arguments.Count Then
+            addNodeSyntaxError("VBCCN03", (node.arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
+        End If
+
+        'Argument
+        Dim arguments As String = ""
+        For i As Integer = 0 To fun.Arguments.Count - 1
+
+            'Variables
+            Dim argModel As FunctionArgument = fun.Arguments(i)
+            Dim argNode As Node = node.arguments(i)
+
+            'Handle type error
+            If Not (typenodeToSafeType(argModel.type).IsTheSameAs(getNodeType(argNode))) Then
+                addNodeTypeError("VBCCN04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+            End If
+
+            'Add node
+            Select Case argModel.declareType
+                Case VariableDeclarationType._let_
+                    arguments &= ", " & compileNode(argNode, content)
+
+                Case VariableDeclarationType._var_
+                    arguments &= ", " & compileNode(argNode, content) & ".clone()"
+
+                Case Else
+                    Throw New NotImplementedException
+
+            End Select
+
+        Next
+        If arguments.StartsWith(", ") Then
+            arguments = arguments.Substring(2)
+        End If
+
+        'Return
+        Return String.Format("(New {0}({1})", targetClass.compiledName, arguments)
 
     End Function
 

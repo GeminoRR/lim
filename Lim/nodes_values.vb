@@ -408,3 +408,39 @@ Public Class childNode
     End Function
 
 End Class
+
+'============================
+'========= New Node =========
+'============================
+Public Class newNode
+    Inherits Node
+
+    'Variables
+    Public className As String
+    Public arguments As List(Of Node)
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal functionCall As FunctionCallNode)
+
+        MyBase.New(positionStart, positionEnd)
+        className = functionCall.FunctionName
+        arguments = functionCall.Arguments
+        For Each arg As Node In arguments
+            arg.parentNode = Me
+        Next
+
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Dim argSTR As String = ""
+        For Each arg As Node In arguments
+            argSTR &= ", " & arg.ToString()
+        Next
+        If argSTR.StartsWith(", ") Then
+            argSTR = argSTR.Substring(2)
+        End If
+        Return String.Format("(New {0}({1}))", className, argSTR)
+    End Function
+
+End Class

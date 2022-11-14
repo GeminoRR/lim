@@ -108,14 +108,15 @@ Public Class safeType
         End If
 
         'Dimensions
+        If Not Me.Dimensions.Count = other.Dimensions.Count Then
+            Return False
+        End If
         For i As Integer = 0 To Me.Dimensions.Count - 1
-            If Not i < other.Dimensions.Count Then
-                Return False
-            End If
-            If Not Me.Dimensions(0) = other.Dimensions(0) Then
+            If Not Me.Dimensions(i) = other.Dimensions(i) Then
                 Return False
             End If
         Next
+
         'Pass all checks
         Return True
 

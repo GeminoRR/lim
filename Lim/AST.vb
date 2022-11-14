@@ -188,6 +188,14 @@
         ElseIf tok.type = tokenType.OP_LBRACKET Then
             advance()
             Dim list As New ListNode(tok.positionStart, 0)
+
+            'Empty
+            If current_tok.type = tokenType.OP_RBRACKET Then
+                addSyntaxError("NPF06", "You cannot use an empty list because its type cannot be determined.", file, tok.positionStart, current_tok.positionEnd)
+                list.positionEnd = current_tok.positionEnd
+                Return list
+            End If
+
             While True
 
                 'Get value
@@ -243,7 +251,7 @@
                 End If
 
                 'Error
-                addSyntaxError("NPF04", "A comma or right brace was expected here.", file, current_tok.positionStart, current_tok.positionEnd)
+                addSyntaxError("NPF05", "A comma or right brace was expected here.", file, current_tok.positionStart, current_tok.positionEnd)
 
             End While
             advance()
@@ -345,15 +353,37 @@
 
     End Function
 
+    '============================
+    '========= New Node =========
+    '============================
+    Private Function newClass() As Node
+
+        'Not new node
+        If Not current_tok.type = tokenType.KW_NEW Then
+            Return functionCall()
+        End If
+
+        'New node
+        Dim startPosition As Integer = current_tok.positionStart
+        advance()
+
+        'Get function call
+        Dim callFunction = functionCall()
+
+        'Create node
+        Return New newNode(startPosition, callFunction.positionEnd, callFunction)
+
+    End Function
+
     '==============================
     '========= Child Node =========
     '==============================
     Private Function child() As Node
 
-        Dim left = functionCall()
+        Dim left = newClass()
         While current_tok.type = tokenType.OP_POINT
             advance()
-            Dim right = functionCall()
+            Dim right = newClass()
             left = New childNode(left.positionStart, right.positionEnd, left, right)
         End While
 
@@ -386,11 +416,11 @@
     '========================
     Private Function term() As Node
 
-        Dim left = child()
+        Dim left = BracketsSelector()
         While current_tok.type = tokenType.OP_MULTIPLICATION Or current_tok.type = tokenType.OP_DIVISION Or current_tok.type = tokenType.OP_MODULO
             Dim op = current_tok
             advance()
-            Dim right = child()
+            Dim right = BracketsSelector()
             left = New binOpNode(left.positionStart, right.positionEnd, left, op, right)
         End While
 

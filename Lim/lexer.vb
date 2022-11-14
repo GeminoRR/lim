@@ -58,7 +58,7 @@ Public Class lexer
                     create_string &= currentChar
                     advance()
                 End While
-                tokens.Add(New token(tokenType.CT_STRING, posStart, charCounter + 1, create_string))
+                tokens.Add(New token(tokenType.CT_STRING, posStart, charCounter, create_string))
                 advance()
 
             ElseIf currentChar = "'" Then
@@ -70,38 +70,38 @@ Public Class lexer
                     create_string &= currentChar
                     advance()
                 End While
-                tokens.Add(New token(tokenType.CT_STRING, posStart, charCounter + 1, create_string))
+                tokens.Add(New token(tokenType.CT_STRING, posStart, charCounter, create_string))
                 advance()
 
             ElseIf currentChar = "$" And file.limlib Then
                 'Create addSource token
-                tokens.Add(New token(tokenType.OP_ADDSOURCE, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_ADDSOURCE, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "." Then
                 'Point
-                tokens.Add(New token(tokenType.OP_POINT, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_POINT, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "+" Then
                 'Plus operator
-                tokens.Add(New token(tokenType.OP_PLUS, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_PLUS, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "-" Then
                 'Minus operator
-                tokens.Add(New token(tokenType.OP_MINUS, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_MINUS, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "*" Then
                 'Multiply operator
-                tokens.Add(New token(tokenType.OP_MULTIPLICATION, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_MULTIPLICATION, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "/" Then
                 'Divide operator
                 If charCounter + 1 < text.Length Then
-                    If text(charCounter + 1) = "/" Then
+                    If text(charCounter) = "/" Then
                         advance(2)
                         While Not (currentChar = vbCr Or currentChar = Environment.NewLine)
                             advance()
@@ -109,58 +109,58 @@ Public Class lexer
                         Continue While
                     End If
                 End If
-                tokens.Add(New token(tokenType.OP_DIVISION, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_DIVISION, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "%" Then
                 'Modulo operator
-                tokens.Add(New token(tokenType.OP_MODULO, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_MODULO, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "=" Then
                 'Equal operator
-                tokens.Add(New token(tokenType.OP_EQUAL, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_EQUAL, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = ":" Then
                 'TwoPoint operator
-                tokens.Add(New token(tokenType.OP_TWOPOINT, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_TWOPOINT, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "!" Then
                 'Not operator
                 If charCounter + 1 < text.Length Then
                     If text(charCounter + 1) = "=" Then
-                        tokens.Add(New token(tokenType.OP_NOTEQUAL, charCounter, charCounter + 2))
+                        tokens.Add(New token(tokenType.OP_NOTEQUAL, charCounter, charCounter + 1))
                         advance(2)
                         Continue While
                     End If
                 End If
-                tokens.Add(New token(tokenType.OP_NOT, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_NOT, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = ">" Then
                 'MoreThan operator
                 If charCounter + 1 < text.Length Then
                     If text(charCounter + 1) = "=" Then
-                        tokens.Add(New token(tokenType.OP_MORETHANEQUAL, charCounter, charCounter + 2))
+                        tokens.Add(New token(tokenType.OP_MORETHANEQUAL, charCounter, charCounter + 1))
                         advance(2)
                         Continue While
                     End If
                 End If
-                tokens.Add(New token(tokenType.OP_MORETHAN, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_MORETHAN, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "<" Then
                 'LessThan operator
                 If charCounter + 1 < text.Length Then
                     If text(charCounter + 1) = "=" Then
-                        tokens.Add(New token(tokenType.OP_LESSTHANEQUAL, charCounter, charCounter + 2))
+                        tokens.Add(New token(tokenType.OP_LESSTHANEQUAL, charCounter, charCounter + 1))
                         advance(2)
                         Continue While
                     End If
                 End If
-                tokens.Add(New token(tokenType.OP_LESSTHAN, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_LESSTHAN, charCounter, charCounter))
                 advance()
 
             ElseIf digits.Contains(currentChar) Then
@@ -232,7 +232,7 @@ Public Class lexer
 
             ElseIf currentChar = vbCr Then
                 indentationCounter = 0
-                tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter + 1, indentationCounter))
+                tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter, indentationCounter))
                 advance(2) 'Cariage Return + Line feed
 
             ElseIf currentChar = vbLf Then
@@ -240,7 +240,7 @@ Public Class lexer
 
             ElseIf currentChar = Environment.NewLine Then
                 indentationCounter = 0
-                tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter + 1, indentationCounter))
+                tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter, indentationCounter))
                 While currentChar = Environment.NewLine
                     advance()
                 End While
@@ -266,42 +266,42 @@ Public Class lexer
 
             ElseIf currentChar = "," Then
                 'Separator
-                tokens.Add(New token(tokenType.OP_COMMA, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_COMMA, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "(" Then
                 'lPar
-                tokens.Add(New token(tokenType.OP_LPAR, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_LPAR, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = ")" Then
                 'rPar
-                tokens.Add(New token(tokenType.OP_RPAR, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_RPAR, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "[" Then
                 'lBracket
-                tokens.Add(New token(tokenType.OP_LBRACKET, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_LBRACKET, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "]" Then
                 'rBracket
-                tokens.Add(New token(tokenType.OP_RBRACKET, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_RBRACKET, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "{" Then
                 'Left Brace
-                tokens.Add(New token(tokenType.OP_LBRACE, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_LBRACE, charCounter, charCounter))
                 advance()
 
             ElseIf currentChar = "}" Then
                 'Right Brace
-                tokens.Add(New token(tokenType.OP_RBRACE, charCounter, charCounter + 1))
+                tokens.Add(New token(tokenType.OP_RBRACE, charCounter, charCounter))
                 advance()
 
             Else
                 'Error : Unauthorized character
-                addSyntaxError("LP01", "The """ & currentChar & """ character was unexpected.", file, charCounter, charCounter + 1)
+                addSyntaxError("LP01", "The """ & currentChar & """ character was unexpected.", file, charCounter, charCounter)
             End If
 
         End While
@@ -327,7 +327,7 @@ Public Class lexer
         End While
 
         If Not tokens(tokens.Count - 1).type = tokenType.CT_LINESTART Then
-            tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter + 1, "0"))
+            tokens.Add(New token(tokenType.CT_LINESTART, charCounter, charCounter, "0"))
         End If
 
         Return tokens

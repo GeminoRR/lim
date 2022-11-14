@@ -49,7 +49,7 @@
                 Console.WriteLine(endLine & "| " & getLineFromPosition(file.content, endLine))
             Else
                 Dim lineStartPosition = getLineStartPosition(file.content, positionStart)
-                Console.WriteLine(StrDup(line.Length + 2, " ") & StrDup(positionStart - lineStartPosition, " ") & StrDup(positionEnd - positionStart, "^"))
+                Console.WriteLine(StrDup(line.Length + 2, " ") & StrDup(positionStart - lineStartPosition, " ") & StrDup(positionEnd + 1 - positionStart, "^"))
             End If
 
         End If

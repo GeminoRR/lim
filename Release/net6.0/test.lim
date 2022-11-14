@@ -1,0 +1,6 @@
+import "spp.limlib"
+
+func main
+	let age:int = str_to_int(gets("Age : "))
+	let naissance = 2022 - age
+	puts("Vous ête nez en " + int_to_str(naissance) + " !")
