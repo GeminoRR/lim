@@ -8,48 +8,86 @@ Module Program
     '================================
     Sub Main(args As String())
 
-        'Run mode ?
-        If args.Count = 1 Then
+        'Get template folder
+        templateFolder = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName
+        templateFolder = Directory.GetParent(templateFolder).FullName.Replace("\", "/") & "/templates"
+        If Not Directory.Exists(templateFolder) Then
+            addBasicError("Folder not found", "The ""templates"" folder could not be found. Try reinstalling lim.")
+        End If
 
-            'File exist ?
-            args(0) = args(0).Replace("\", "/")
-            If Not File.Exists(args(0)) Then
+        'Variables
+        Dim flags As New List(Of String)
+        Dim arguments As New List(Of String)
 
-                'Get filename
-                Dim filename As String = args(0)
-                If filename.Contains("/") Then
-                    filename = args(0).Substring(args(0).LastIndexOf("/"))
-                End If
+        'Parse command
+        For Each arg As String In args
 
-                'Check file
-                If File.Exists(args(0) & ".lim") Then
-
-                    'File but missing .lim
-                    args(0) &= ".lim"
-                    addBasicWarning("file not found", "Did you mean """ & filename & ".lim"" ?")
-
-                Else
-
-                    'No file
-                    addBasicError("file not found", "The file """ & filename & """ does not exist.")
-
-                End If
+            If arg.StartsWith("-") Then
+                flags.Add(arg)
+            Else
+                arguments.Add(arg)
             End If
 
-            'Lim file ?
-            If Not args(0).EndsWith(".lim") Then
+        Next
 
-                'No file
-                addBasicError("incorrect file", "The specified file is not a lim source file (does not end with .lim)")
+        'Get input
+        If Not arguments.Count > 0 Then
+            showHelp()
+            endApp()
+        End If
+        Dim inputFile As String = arguments(0)
 
-            End If
+        'Get output
+        Dim outputFile As String = ""
+        If arguments.Count > 1 Then
+            outputFile = arguments(1)
+        End If
 
-            'Compile
-            Dim compiler As New VB_Compiler(args(0), AppData & "/compiled")
-            Process.Start("cmd.exe", "/c start " & AppData & "/compiled/Program.vb")
+        'Compile
+        If outputFile = "" Then
 
             'Run
-            Process.Start("cmd.exe", "/c cd """ & AppData & "/Compiled" & """ & dotnet run")
+            Dim compiler As New VB_Compiler()
+            compiler.runCode(inputFile, Directory.GetCurrentDirectory(), flags)
+
+            'End app
+            endApp()
+
+        Else
+
+            'Fix output
+            If Not outputFile.EndsWith(".exe") Then
+                outputFile &= ".exe"
+            End If
+
+            'Get compiling target
+            If flags.Contains("-c") Or flags.Contains("--c") Then
+
+                'C
+                addBasicError("feature unavailable", "Compilation on the C language is not yet available")
+
+            ElseIf flags.Contains("-m") Or flags.Contains("--macos") Then
+
+                'MacOs
+                addBasicError("feature unavailable", "Compilation to MacOs is not yet available")
+
+            ElseIf flags.Contains("-l") Or flags.Contains("--linux") Then
+
+                'Linux
+                addBasicError("feature unavailable", "Compilation to Linux is not yet available")
+
+            ElseIf flags.Contains("-vb") Or flags.Contains("--visualbasic") Then
+
+                'Visual Basic
+                addBasicError("feature unavailable", "Compilation to MacOs is not yet available")
+
+            Else
+
+                'Windows
+                Dim compiler As New VB_Compiler()
+                compiler.compile(inputFile, outputFile, flags)
+
+            End If
 
             'End app
             endApp()
@@ -62,7 +100,7 @@ Module Program
     '========== CLOSE ==========
     '===========================
     Public Sub endApp()
-        Console.ReadKey()
+        'Console.ReadKey()
         End
     End Sub
 
@@ -81,11 +119,12 @@ Module Program
         Console.WriteLine("<input_file>" & vbTab & "Path of the .lim file to compile")
         Console.WriteLine("<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
         Console.WriteLine("[-arguments]" & vbTab & "Optional. Argument list.")
-        Console.WriteLine(vbTab & "-vb" & vbTab & vbTab & "Compiles to a .vb file (VisualBasic)")
-        Console.WriteLine(vbTab & "-c" & vbTab & vbTab & "Compiles to a .c file (C)")
-        Console.WriteLine(vbTab & "-windows" & vbTab & "Compiles to a .exe file (Executable)")
-        Console.WriteLine(vbTab & "-linux" & vbTab & vbTab & "Compiles to a linux executable")
-        Console.WriteLine(vbTab & "-macos" & vbTab & vbTab & "Compiles to a MacOS executable")
+        Console.WriteLine(vbTab & "-vb" & vbTab & "--visualbasic" & vbTab & "Compiles to a .vb file (VisualBasic)")
+        Console.WriteLine(vbTab & "-c" & vbTab & "--c" & vbTab & vbTab & "Compiles to a .c file (C)")
+        Console.WriteLine(vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles to a .exe file (Executable)")
+        Console.WriteLine(vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles to a linux executable")
+        Console.WriteLine(vbTab & "-m" & vbTab & "--macos" & vbTab & vbTab & "Compiles to a MacOS executable")
+        Console.WriteLine(vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show more logs")
         Console.WriteLine("If no arguments are entered, lim will compile to your operating system's executable.")
 
     End Sub

@@ -25,10 +25,104 @@ Public Class VB_Compiler
     Private stdBool As ClassNode
     Private stdFun As ClassNode
 
-    '================================
-    '========== MAIN ENTRY ==========
-    '================================
-    Public Sub New(ByVal inputFile As String, ByVal outputFolder As String)
+    Private logs As Boolean = False
+
+    '==============================
+    '========== RUN CODE ==========
+    '==============================
+    Public Sub runCode(ByVal inputFile As String, ByVal workingDirectory As String, ByVal flags As List(Of String))
+
+        'Compile
+        compileCode(inputFile)
+
+        'Run
+        Dim run As New Process()
+        run.StartInfo.FileName = "dotnet"
+        run.StartInfo.Arguments = "run"
+        run.StartInfo.WorkingDirectory = AppData & "/compiled"
+        run.Start()
+
+        'Wait until programs end
+        While Not run.HasExited
+            Threading.Thread.Sleep(200)
+        End While
+
+    End Sub
+
+    '=============================
+    '========== COMPILE ==========
+    '=============================
+    Public Sub compile(ByVal inputFile As String, ByVal outputPath As String, ByVal flags As List(Of String))
+
+        'Compile
+        compileCode(inputFile, True)
+
+        'Flags
+        Dim debugFlag As Boolean = (flags.Contains("-d") Or flags.Contains("--debug"))
+
+        'Set environment
+        If Directory.Exists(AppData & "/publish") Then
+            Try
+                Directory.Delete(AppData & "/publish", True)
+            Catch ex As Exception
+                addBasicError("Can't delete folder", ex.Message)
+            End Try
+        End If
+        Try
+            Directory.CreateDirectory(AppData & "/publish")
+        Catch ex As Exception
+            addBasicError("unable to create folder", ex.Message)
+        End Try
+        addLog("Renew dotnet environment: OK")
+
+        Dim dotnetCompiler As New Process()
+
+        dotnetCompiler.StartInfo.FileName = "cmd.exe"
+        dotnetCompiler.StartInfo.Arguments = "/c cd """ & AppData & """ & dotnet publish compiled/VB.vbproj --configuration final --framework net6.0 --self-contained True --output publish --runtime win-x64 --verbosity Normal /Property:PublishTrimmed=False /property:PublishSingleFile=True /property:IncludeNativeLibrariesForSelfExtract=True /property:DebugType=None /property:DebugSymbols=False /property:EnableCompressionInSingleFile=True"
+
+        If Not debugFlag Then
+            dotnetCompiler.StartInfo.Arguments &= ">nul"
+        End If
+
+        dotnetCompiler.Start()
+
+        'Wait
+        While Not dotnetCompiler.HasExited
+            If Not debugFlag Then
+                Console.Write(".")
+            End If
+            Threading.Thread.Sleep(200)
+        End While
+        Console.Write(Environment.NewLine)
+
+        'Final stage
+        If Not dotnetCompiler.ExitCode = 0 Then
+            'Error
+            Console.ForegroundColor = ConsoleColor.Red
+            Console.WriteLine("La compilation a réussi à échouer")
+            Console.ResetColor()
+            Console.WriteLine("An error occurred during the final stage of the compilation. Try again in another environment. If the problem persists please contact the developers.")
+            endApp()
+        End If
+
+        'Move executable
+        Try
+            File.Move(AppData & "/publish/VB.exe", outputPath, True)
+        Catch ex As Exception
+            addBasicError("Unable to move a file", ex.Message)
+        End Try
+
+        'Sucess
+        Console.ForegroundColor = ConsoleColor.DarkGreen
+        Console.WriteLine("Compilation successful.")
+        Console.ResetColor()
+
+    End Sub
+
+    '==================================
+    '========== COMPILE CODE ==========
+    '==================================
+    Public Sub compileCode(ByVal inputFile As String, Optional logs As Boolean = False)
 
         'Restore variables
         compiledVariables = ""
@@ -39,17 +133,24 @@ Public Class VB_Compiler
         functionCount = 0
         classCount = 0
         compileType = compileWay.console
+        Me.logs = logs
+        Dim outputFolder As String = AppData & "/compiled"
 
         'Get template
-        Dim templateFolder As String = System.Reflection.Assembly.GetExecutingAssembly().Location().Replace("\", "/")
-        templateFolder = templateFolder.Substring(0, templateFolder.LastIndexOf("/")) & "/templates/vb"
+        Dim vbTemplate As String = templateFolder & "/vb"
+        If Not Directory.Exists(vbTemplate) Then
+            addBasicError("Folder not found", "The ""templates/vb"" folder could not be found. Try reinstalling lim.")
+        End If
 
         'Add dimensions
-        compiledClasss &= Environment.NewLine & Environment.NewLine & Helper.getTemplate(templateFolder, "dimensions.vb")
+        compiledClasss &= Environment.NewLine & Environment.NewLine & Helper.getTemplate(vbTemplate, "dimensions.vb")
 
         'Analyse first file
         entryFile = New LimFile(inputFile, Me)
         files.Add(entryFile)
+        If logs Then
+            addLog("File analysis: OK")
+        End If
 
         'Get entry point
         Dim entryPoint As FunctionNode = Nothing
@@ -69,6 +170,9 @@ Public Class VB_Compiler
         stdStr = getClass("str", entryFile)
         stdBool = getClass("bool", entryFile)
         stdFun = getClass("fun", entryFile)
+        If logs Then
+            addLog("Load the ""std"" library: OK")
+        End If
 
         'Compile start
         compileFunction(entryPoint)
@@ -107,7 +211,9 @@ Public Class VB_Compiler
         If Not compiledFunctions = "" Then
             finalCode &= Environment.NewLine & Environment.NewLine & vbTab & "'///////////////////////////" & Environment.NewLine & vbTab & "'//////// FUNCTIONS ////////" & Environment.NewLine & vbTab & "'///////////////////////////" & compiledFunctions.Replace(Environment.NewLine, Environment.NewLine & vbTab)
         End If
-        addLog("Finish code compiling")
+        If logs Then
+            addLog("Compile the program: OK")
+        End If
 
         'Reload compile environment
         Try
@@ -130,12 +236,15 @@ Public Class VB_Compiler
                 folderTemplatePath = "window"
 
         End Select
-        If Not Directory.Exists(templateFolder & "/compileEnvironment/" & folderTemplatePath) Then
+        If Not Directory.Exists(vbTemplate & "/compileEnvironment/" & folderTemplatePath) Then
             addBasicError("File missing", "The """ & folderTemplatePath & """ model folder could not be found. Try reinstalling Lim.")
         End If
 
         'Copy template
-        Microsoft.VisualBasic.FileIO.FileSystem.CopyDirectory(templateFolder & "/compileEnvironment/" & folderTemplatePath, outputFolder)
+        Microsoft.VisualBasic.FileIO.FileSystem.CopyDirectory(vbTemplate & "/compileEnvironment/" & folderTemplatePath, outputFolder)
+        If logs Then
+            addLog("Renew the environment: OK")
+        End If
 
         'Check template file
         If Not File.Exists(outputFolder & "/Program.vb") Then
@@ -170,6 +279,9 @@ Public Class VB_Compiler
         Catch ex As Exception
             addBasicError("Cannot write file", ex.Message)
         End Try
+        If logs Then
+            addLog("Writing the final file: OK")
+        End If
 
     End Sub
 
@@ -741,11 +853,19 @@ Public Class VB_Compiler
 
         'Get name
         If fun.compiledName = "" Then
+
+            'Normal handling
             If getNodeParentFile(fun).LimLib Then
                 fun.compiledName = fun.Name
             Else
                 fun.compiledName = getFunctionName()
             End If
+
+            'Create (New)
+            If Not parentClass Is Nothing And fun.Name = "create" Then
+                fun.compiledName = "New"
+            End If
+
         End If
 
         'Clone
@@ -1043,9 +1163,49 @@ Public Class VB_Compiler
             'Castednode
             Dim castedNode As childNode = DirectCast(node, childNode)
 
-            'Get struct
-            'Dim struct As ClassNode = getStructOf(castedNode.parentStruct)
-            'TODO: fix this badboi
+            'Get class
+            Dim parentType As safeType = getNodeType(castedNode.parentStruct)
+
+            'Dimensions
+            If parentType.Dimensions.Count > 0 Then
+
+                Throw New NotImplementedException()
+                'TODO: Add dimensions support
+
+            End If
+
+            'No dimensions
+            If TypeOf castedNode.childNode Is VariableNode Then
+
+                'Variables
+                Dim searchName As String = DirectCast(castedNode.childNode, VariableNode).VariableName
+
+                'Search propertie
+                For Each var As Variable In parentType.TargetClass.variables
+                    If var.name = searchName Then
+                        Return var.type
+                    End If
+                Next
+
+                'Not found
+                addNodeNamingError("VBGNT06", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ propertie", castedNode.childNode)
+
+            ElseIf TypeOf castedNode.childNode Is FunctionCallNode Then
+
+                'Variables
+                Dim searchName As String = DirectCast(castedNode.childNode, FunctionCallNode).FunctionName
+
+                'Search method
+                For Each fun As FunctionNode In parentType.TargetClass.methods
+                    If fun.Name = searchName Then
+                        Return fun.ReturnType
+                    End If
+                Next
+
+                'Not found
+                addNodeNamingError("VBGNT06", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ method", castedNode.childNode)
+
+            End If
 
         End If
 
@@ -1149,27 +1309,138 @@ Public Class VB_Compiler
             'Compile
             Return compileNew(DirectCast(node, newNode), content)
 
+        ElseIf TypeOf node Is childNode Then
+
+            'Compile
+            Return compileChild(DirectCast(node, childNode), content)
+
         ElseIf TypeOf node Is AddSourceNode Then
 
-            'Check if file is limlib
-            If getNodeParentFile(node).LimLib Then
-
-                'Compile
-                content.Add(DirectCast(node, AddSourceNode).value)
-                Return ""
-
-            Else
-
-                'Error
-                addNodeSyntaxError("VBCCN02", "It is not possible to integrate source code outside of a ""limlib"" file.", node)
-
-            End If
+            'Compile
+            Return compileAddSource(DirectCast(node, AddSourceNode), content)
 
         End If
 
         'Return
         addNodeTypeError("VBCCN01", "Unable to resolve node type", node)
         Return Nothing
+
+    End Function
+
+    '========================================
+    '========== COMPILE ADD SOURCE ==========
+    '========================================
+    Private Function compileAddSource(ByVal node As AddSourceNode, ByVal content As List(Of String))
+
+        'Check if file is limlib
+        If getNodeParentFile(node).LimLib Then
+
+            'Compile
+            content.Add(DirectCast(node, AddSourceNode).value)
+            Return ""
+
+        Else
+
+            'Error
+            addNodeSyntaxError("VBCCN02", "It is not possible to integrate source code outside of a ""limlib"" file.", node)
+
+        End If
+
+    End Function
+
+    '===================================
+    '========== COMPILE CHILD ==========
+    '===================================
+    Private Function compileChild(ByVal node As childNode, ByVal content As List(Of String))
+
+        'Get class
+        Dim parentType As safeType = getNodeType(node.parentStruct)
+
+        'Dimensions
+        If parentType.Dimensions.Count > 0 Then
+
+            Throw New NotImplementedException()
+            'TODO: Add dimensions support
+
+        End If
+
+        'No dimensions
+        If TypeOf node.childNode Is VariableNode Then
+
+            'Variables
+            Dim searchName As String = DirectCast(node.childNode, VariableNode).VariableName
+
+            'Search propertie
+            For Each var As Variable In parentType.TargetClass.variables
+                If var.name = searchName Then
+                    Return String.Format("{0}.{1}", compileNode(node.parentStruct, content), var.compiledName)
+                End If
+            Next
+
+            'Not found
+            addNodeNamingError("VBCC01", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ propertie", node.childNode)
+
+        ElseIf TypeOf node.childNode Is FunctionCallNode Then
+
+            'Variables
+            Dim funCall As FunctionCallNode = DirectCast(node.childNode, FunctionCallNode)
+            Dim searchName As String = funCall.FunctionName
+
+            'Search method
+            For Each fun As FunctionNode In parentType.TargetClass.methods
+                If fun.Name = searchName Then
+
+                    'Handle argument error
+                    If funCall.Arguments.Count < fun.Arguments.Count Then
+                        addNodeTypeError("VBCC02", (fun.Arguments.Count - funCall.Arguments.Count).ToString() & " arguments are missing", node)
+                    End If
+                    If funCall.Arguments.Count > fun.Arguments.Count Then
+                        addNodeTypeError("VBCC03", (funCall.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
+                    End If
+
+                    'Argument
+                    Dim arguments As String = ""
+                    For i As Integer = 0 To fun.Arguments.Count - 1
+
+                        'Variables
+                        Dim argModel As FunctionArgument = fun.Arguments(i)
+                        Dim argNode As Node = funCall.Arguments(i)
+
+                        'Handle type error
+                        If Not (typenodeToSafeType(argModel.type).IsTheSameAs(getNodeType(argNode))) Then
+                            addNodeTypeError("VBCC04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+                        End If
+
+                        'Add node
+                        Select Case argModel.declareType
+                            Case VariableDeclarationType._let_
+                                arguments &= ", " & compileNode(argNode, content)
+
+                            Case VariableDeclarationType._var_
+                                arguments &= ", " & compileNode(argNode, content) & ".clone()"
+
+                            Case Else
+                                Throw New NotImplementedException
+
+                        End Select
+
+                    Next
+                    If arguments.StartsWith(", ") Then
+                        arguments = arguments.Substring(2)
+                    End If
+
+                    Return String.Format("{0}.{1}({2})", compileNode(node.parentStruct, content), fun.compiledName, arguments)
+
+                End If
+            Next
+
+            'Not found
+            addNodeNamingError("VBCC05", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ method", node.childNode)
+
+        End If
+
+        'Return
+        Return ""
 
     End Function
 
@@ -1575,9 +1846,9 @@ Public Class VB_Compiler
 
     End Function
 
-    '===========================================
-    '========== COMPILE FUNCTION CALL ==========
-    '===========================================
+    '=================================
+    '========== COMPILE NEW ==========
+    '=================================
     Private Function compileNew(ByVal node As newNode, ByVal content As List(Of String)) As String
 
         'Get class
@@ -1639,7 +1910,7 @@ Public Class VB_Compiler
         End If
 
         'Return
-        Return String.Format("(New {0}({1})", targetClass.compiledName, arguments)
+        Return String.Format("(New {0}({1}))", targetClass.compiledName, arguments)
 
     End Function
 
@@ -1712,8 +1983,31 @@ Public Class VB_Compiler
             addNodeTypeError("VBCSV01", "Cannot change a value of type <" & variableType.ToString() & "> to <" & valueType.ToString() & ">", castedNode)
         End If
 
+        'Get variable
+        Dim var As Variable = Nothing
+        If TypeOf castedNode.Target Is VariableNode Then
+            var = getVariable(DirectCast(castedNode.Target, VariableNode).VariableName, castedNode.Target)
+
+        ElseIf TypeOf castedNode.Target Is BracketsSelectorNode Then
+
+
+        ElseIf TypeOf castedNode.Target Is childNode Then
+
+
+        Else
+            addNodeSyntaxError("VBCSV02", "It is not possible to assign a value to this target", castedNode.Target)
+
+        End If
+        If var Is Nothing Then
+            'Throw New NotImplementedException()
+        End If
+
         'Compile
-        content.Add(String.Format("{0} = {1}.Clone()", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+        If True Then
+            content.Add(String.Format("{0} = {1}", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+        Else
+            content.Add(String.Format("{0} = {1}.Clone()", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+        End If
 
         'Return
         Return ""

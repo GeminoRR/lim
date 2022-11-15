@@ -3,7 +3,7 @@
     "Lim": {
       "commandName": "Project",
       "commandLineArgs": "code.lim",
-      "workingDirectory": "C:\\Users\\gemin\\Documents\\Projets\\Applications\\Lim\\Debug"
+      "workingDirectory": "../Debug"
     }
   }
 }

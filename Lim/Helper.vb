@@ -4,7 +4,7 @@ Module Helper
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public ReadOnly TemplatesFolder As String = (System.Reflection.Assembly.GetExecutingAssembly().Location().Substring(0, System.Reflection.Assembly.GetExecutingAssembly().Location().LastIndexOf("\")) & "\templates").Replace("\", "/")
+    Public templateFolder As String = ""
     Public ReadOnly AppData As String = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).Replace("\", "/") & "/Lim"
 
     '==================================

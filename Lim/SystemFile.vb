@@ -68,7 +68,7 @@ Public Class LimFile
 
         'Import std
         If Not Me.path.EndsWith("vb/libs/std.limlib") Then
-            importFile(TemplatesFolder & "/vb/libs/std.limlib")
+            importFile(templateFolder & "/vb/libs/std.limlib")
         End If
 
         'Handle import statement

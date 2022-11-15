@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <OutputPath>C:\Users\gemin\Documents\Projets\Applications\Lim\Lim\Release\</OutputPath>
+    <OutputPath>../Release\</OutputPath>
   </PropertyGroup>
 
 </Project>
