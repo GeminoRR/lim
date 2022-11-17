@@ -122,4 +122,12 @@ Public Class safeType
 
     End Function
 
+    Public Function clone() As safeType
+        Dim dims As New List(Of ValueType)
+        For Each dimension As ValueType In Dimensions
+            dims.Add(dimension)
+        Next
+        Return New safeType(TargetClass, dims)
+    End Function
+
 End Class

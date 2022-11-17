@@ -222,6 +222,16 @@ Public Class lexer
                         tokens.Add(New token(tokenType.KW_IMPORT, startPos, charCounter - 1))
                     Case "export"
                         tokens.Add(New token(tokenType.KW_EXPORT, startPos, charCounter - 1))
+                    Case "while"
+                        tokens.Add(New token(tokenType.KW_WHILE, startPos, charCounter - 1))
+                    Case "for"
+                        tokens.Add(New token(tokenType.KW_FOR, startPos, charCounter - 1))
+                    Case "if"
+                        tokens.Add(New token(tokenType.KW_IF, startPos, charCounter - 1))
+                    Case "else"
+                        tokens.Add(New token(tokenType.KW_ELSE, startPos, charCounter - 1))
+                    Case "elseif"
+                        tokens.Add(New token(tokenType.KW_ELSEIF, startPos, charCounter - 1))
                     Case Else
                         tokens.Add(New token(tokenType.CT_TEXT, startPos, charCounter - 1, create_var))
                 End Select

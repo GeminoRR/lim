@@ -16,7 +16,11 @@
         If tok_index < tokens.Count Then
             current_tok = tokens(tok_index)
         Else
-            addSyntaxError("NPA01", "Something was expected here", file, current_tok.positionEnd, current_tok.positionEnd + 1)
+            If current_tok Is Nothing Then
+                addBasicError("NPA01", "Something was expected in <" & file.name & ">")
+            Else
+                addSyntaxError("NPA01", "Something was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            End If
         End If
     End Sub
 
@@ -375,31 +379,15 @@
 
     End Function
 
-    '==============================
-    '========= Child Node =========
-    '==============================
-    Private Function child() As Node
-
-        Dim left = newClass()
-        While current_tok.type = tokenType.OP_POINT
-            advance()
-            Dim right = newClass()
-            left = New childNode(left.positionStart, right.positionEnd, left, right)
-        End While
-
-        Return left
-
-    End Function
-
     '====================================
     '========= BracketsSelector =========
     '====================================
     Private Function BracketsSelector() As Node
 
-        Dim Target As Node = child()
+        Dim Target As Node = newClass()
         While current_tok.type = tokenType.OP_LBRACKET
             advance()
-            Dim Index As Node = child()
+            Dim Index As Node = newClass()
             Target = New BracketsSelectorNode(Target.positionStart, Index.positionEnd, Target, Index)
             If Not current_tok.type = tokenType.OP_RBRACKET Then
                 addSyntaxError("NPBS01", "A ""]"" was expected here", file, current_tok.positionStart, current_tok.positionEnd)
@@ -411,16 +399,32 @@
 
     End Function
 
+    '==============================
+    '========= Child Node =========
+    '==============================
+    Private Function child() As Node
+
+        Dim left = BracketsSelector()
+        While current_tok.type = tokenType.OP_POINT
+            advance()
+            Dim right = BracketsSelector()
+            left = New childNode(left.positionStart, right.positionEnd, left, right)
+        End While
+
+        Return left
+
+    End Function
+
     '========================
     '========= TERM =========
     '========================
     Private Function term() As Node
 
-        Dim left = BracketsSelector()
+        Dim left = child()
         While current_tok.type = tokenType.OP_MULTIPLICATION Or current_tok.type = tokenType.OP_DIVISION Or current_tok.type = tokenType.OP_MODULO
             Dim op = current_tok
             advance()
-            Dim right = BracketsSelector()
+            Dim right = child()
             left = New binOpNode(left.positionStart, right.positionEnd, left, op, right)
         End While
 
@@ -465,7 +469,7 @@
     '========================
     '========= LINE =========
     '========================
-    Private Function line() As Node
+    Private Function line(ByVal currentLineIndentation As Integer) As Node
 
         'It's another thing that a line
         If Not current_tok.type = tokenType.CT_LINESTART Then
@@ -486,6 +490,43 @@
             advance()
             Dim value As Node = comparison()
             Return New ReturnNode(startPosition, current_tok.positionEnd, value)
+
+        End If
+
+        'While loop
+        If current_tok.type = tokenType.KW_WHILE Then
+
+            'Variables
+            Dim startPosition As Integer = current_tok.positionStart
+            advance()
+
+            'Get condition
+            Dim condition As Node = comparison()
+
+            'Create while object
+            Dim while_statement As New whileStatementNode(positionStart, current_tok.positionEnd, condition)
+
+            'Get lines
+            While True
+
+                If Not current_tok.type = tokenType.CT_LINESTART Then
+                    addSyntaxError("NPF05", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                End If
+                Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                If addLineIndentation <= currentLineIndentation Then
+                    Exit While
+                End If
+
+                while_statement.addNodeToCode(line(addLineIndentation))
+
+            End While
+
+            'Set position end
+            while_statement.positionEnd = tokens(tok_index - 1).positionEnd
+
+            'Return
+            Return while_statement
 
         End If
 
@@ -597,7 +638,7 @@
             If needToRecede = True Then
                 recede(tok_index - 1)
             End If
-            Return line()
+            Return line(funcIndentation)
 
         End If
 
@@ -711,7 +752,7 @@
                 Exit While
             End If
 
-            currentFunction.addNodeToCode(line())
+            currentFunction.addNodeToCode(line(currentLineIndentation))
 
         End While
 

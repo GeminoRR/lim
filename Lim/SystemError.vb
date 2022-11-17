@@ -44,12 +44,14 @@
             Console.ResetColor()
             Console.WriteLine(line & "| " & brutline.Replace(vbTab, " "))
 
-            If Not endLine = line Then
-                Console.WriteLine(StrDup(line.Length, " ") & "| ...")
-                Console.WriteLine(endLine & "| " & getLineFromPosition(file.content, endLine))
-            Else
+            If endLine = line Then
                 Dim lineStartPosition = getLineStartPosition(file.content, positionStart)
                 Console.WriteLine(StrDup(line.Length + 2, " ") & StrDup(positionStart - lineStartPosition, " ") & StrDup(positionEnd + 1 - positionStart, "^"))
+            ElseIf endLine = line + 1 Then
+                Console.WriteLine(endLine & "| " & getLineFromPosition(file.content, endLine).Replace(vbTab, " "))
+            Else
+                Console.WriteLine(StrDup(line.Length, " ") & "| ...")
+                Console.WriteLine(endLine & "| " & getLineFromPosition(file.content, endLine).Replace(vbTab, " "))
             End If
 
         End If

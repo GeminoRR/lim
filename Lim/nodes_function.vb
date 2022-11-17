@@ -12,6 +12,7 @@ Public Class FunctionNode
     Public ReturnType As safeType = Nothing
 
     Public compiledName As String = ""
+    Public compiledID As Integer = 0
     Public compiled As Boolean
     Public compiling As Boolean
 
@@ -31,6 +32,7 @@ Public Class FunctionNode
         End If
         Me.compiled = False
         Me.compiling = False
+        Me.compiledID = get_new_id()
     End Sub
 
     'ToString

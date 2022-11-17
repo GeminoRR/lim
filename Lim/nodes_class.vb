@@ -23,6 +23,7 @@ Public Class ClassNode
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.compiled = False
+
         Dim clone_mehtod As FunctionNode = New FunctionNode(0, 0, "clone", New List(Of FunctionArgument), New typeNode(0, 0, Me.Name, New List(Of ValueType)))
         clone_mehtod.parentNode = Me
         Me.methods.Add(clone_mehtod)

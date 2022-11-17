@@ -6,6 +6,15 @@ Module Helper
     '===============================
     Public templateFolder As String = ""
     Public ReadOnly AppData As String = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).Replace("\", "/") & "/Lim"
+    Private lastID As Integer = 0
+
+    '================================
+    '========== GET NEW ID ==========
+    '================================
+    Public Function get_new_id() As Integer
+        lastID += 1
+        Return lastID
+    End Function
 
     '==================================
     '========== GET TEMPLATE ==========

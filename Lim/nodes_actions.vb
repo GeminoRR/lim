@@ -78,3 +78,26 @@ Public Enum VariableDeclarationType
     _let_
     _var_
 End Enum
+
+'===================================
+'========= WHILE STATEMENT =========
+'===================================
+Public Class whileStatementNode
+    Inherits containerNode
+
+    'Variable
+    Public condition As Node
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal condition As Node)
+        MyBase.New(positionStart, positionEnd)
+        Me.condition = condition
+        Me.condition.parentNode = Me
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Return "(While " & condition.ToString() & " Do " & Me.codes.Count.ToString() & " things)"
+    End Function
+
+End Class

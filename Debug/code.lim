@@ -1,14 +1,5 @@
 func main
-	let bob = new user(gets("Enter your name : "), 16)
-	puts(bob.hello())
-
-class user
-	let username:str
-	let age:int
-
-	func create(_username:str, _age:int)
-		username = _username
-		age = _age
-
-	func hello()
-		return "Hello " + username + " !"
+	let i = 0
+	while i < 5
+		puts("Hello " + i.str())
+		i = i + 1

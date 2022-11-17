@@ -11,7 +11,7 @@ class int
 	$"End Sub"
 
 	//Str
-	func str:str
+	func __str__:str
 		$"Return New str(Me.value.ToString())"
 
 /////////////////////////
@@ -27,11 +27,52 @@ class str
 	$"End Sub"
 
 	//Str
-	func str:str
+	func __str__:str
 		$"Return Me"
 
-func puts(message:str)
-	$'Console.WriteLine(message.value)'
+	//Int
+	func __int__:int
+		$"Try"
+		$"    Return New int(Convert.ToInt32(Me.value))"
+		$"Catch ex As Exception"
+		$"    Return Nothing"
+		$"End Try"
+
+	//Boolean
+	func __bool__:bool
+		$"If Me.value = 1 Then"
+		$"	Return new bool(True)"
+		$"End If"
+		$"Return new bool(False)"
+
+	//Float
+	func __float__:float
+		$"Try"
+		$"    Return New float(Convert.ToDouble(Me.value))"
+		$"Catch ex As Exception"
+		$"    Return Nothing"
+		$"End Try"
+
+	//Substring
+	func substring(positionStart:int, length:int):str
+		//Check if position start is in string
+		$"If Not (positionStart.value >= 0 And positionStart.value < Me.value.Length) Then"
+		$"	Return Nothing"
+		$"End If"
+
+		//Substring
+		$"If length.value = -1"
+		$"	Return New str(Me.value.Substring(positionStart.value))"
+		$"Else"
+		$"	If Not (positionStart.value + length.value <= Me.value.Length) Then"
+		$"		Return Nothing"
+		$"	End If"
+		$"	Return New str(Me.value.Substring(positionStart.value, length.value))"
+		$"End If"
+
+	//Len
+	func len:int
+		$"Return New int(Me.value.Length)"
 
 ///////////////////////////
 /////// FLOAT CLASS ///////
@@ -46,7 +87,7 @@ class float
 	$"End Sub"
 
 	//Str
-	func str:str
+	func __str__:str
 		$"Return New str(Me.value.ToString())"
 
 //////////////////////////
@@ -62,7 +103,7 @@ class bool
 	$"End Sub"
 
 	//Str
-	func str:str
+	func __str__:str
 		$"Return New str(Me.value.ToString())"
 
 /////////////////////////
@@ -78,7 +119,7 @@ class fun
 	$"End Sub"
 
 	//Str
-	func str:str
+	func __str__:str
 		$"Return New str(Me.value.ToString())"
 
 /////////////////////////

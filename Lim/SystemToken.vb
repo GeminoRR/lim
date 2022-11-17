@@ -50,6 +50,12 @@ Public Enum tokenType
     KW_VAR
     KW_LET
 
+    KW_WHILE
+    KW_FOR
+    KW_IF
+    KW_ELSE
+    KW_ELSEIF
+
     KW_EXPORT
     KW_NEW
 

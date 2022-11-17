@@ -66,6 +66,11 @@ Public Class LimFile
         'Compile tokens (Keywords)
         Dim tokens As List(Of token) = (New lexer()).parse(Me)
 
+        'Nothing
+        If tokens.Count = 0 Then
+            Exit Sub
+        End If
+
         'Import std
         If Not Me.path.EndsWith("vb/libs/std.limlib") Then
             importFile(templateFolder & "/vb/libs/std.limlib")
@@ -94,12 +99,25 @@ Public Class LimFile
             tokens.RemoveAt(0)
 
             'Handle filename
-            If Not tokens(0).type = tokenType.CT_STRING Then
+            If tokens(0).type = tokenType.CT_STRING Then
+
+                'Import file
+                importFile(tokens(0).value)
+
+            ElseIf tokens(0).type = tokenType.CT_TEXT Then
+
+                'Check file
+                If Not File.Exists(templateFolder & "/vb/libs/" & tokens(0).value & ".limlib") Then
+                    addBasicError("File not found", "the """ & tokens(0).value & """ library does not exist or has not been installed.")
+                End If
+
+                'Import file
+                importFile(templateFolder & "/vb/libs/" & tokens(0).value & ".limlib")
+
+            Else
+
                 addSyntaxError("SFN01", "The keyword ""import"" is followed by the link to the file that you want to import.", Me, tokens(0).positionStart, tokens(0).positionEnd, "import ""my_file.lim""")
             End If
-
-            'Import flie
-            importFile(tokens(0).value)
 
             'Remove tokens
             tokens.RemoveAt(0)

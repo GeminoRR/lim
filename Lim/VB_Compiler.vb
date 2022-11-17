@@ -20,7 +20,7 @@ Public Class VB_Compiler
     Private compileType As compileWay
 
     Private stdInt As ClassNode
-    Private strFloat As ClassNode
+    Private stdFloat As ClassNode
     Private stdStr As ClassNode
     Private stdBool As ClassNode
     Private stdFun As ClassNode
@@ -165,11 +165,20 @@ Public Class VB_Compiler
         End If
 
         'Get std's classs
-        stdInt = getClass("int", entryFile)
-        strFloat = getClass("float", entryFile)
-        stdStr = getClass("str", entryFile)
-        stdBool = getClass("bool", entryFile)
-        stdFun = getClass("fun", entryFile)
+        stdInt = getClass("int", entryFile, False)
+        stdFloat = getClass("float", entryFile, False)
+        stdStr = getClass("str", entryFile, False)
+        stdBool = getClass("bool", entryFile, False)
+        stdFun = getClass("fun", entryFile, False)
+
+        'Compiles classs
+        compileStruct(stdInt)
+        compileStruct(stdFloat)
+        compileStruct(stdBool)
+        compileStruct(stdBool)
+        compileStruct(stdFun)
+
+        'Logs
         If logs Then
             addLog("Load the ""std"" library: OK")
         End If
@@ -439,7 +448,7 @@ Public Class VB_Compiler
     '===============================
     '========== GET CLASS ==========
     '===============================
-    Public Function getClass(ByVal name As String, ByVal nodeCaller As Node) As ClassNode
+    Public Function getClass(ByVal name As String, ByVal nodeCaller As Node, Optional ByVal compileClass As Boolean = True) As ClassNode
 
         'Get file
         Dim currentFile As LimFile = getNodeParentFile(nodeCaller)
@@ -447,7 +456,9 @@ Public Class VB_Compiler
         'Search in Current file
         For Each currentClass As ClassNode In currentFile.classs
             If currentClass.Name = name Then
-                compileStruct(currentClass)
+                If compileClass Then
+                    compileStruct(currentClass)
+                End If
                 Return currentClass
             End If
         Next
@@ -456,7 +467,9 @@ Public Class VB_Compiler
         For Each file As LimFile In currentFile.FilesImports
             For Each currentClass As ClassNode In file.classs
                 If currentClass.Name = name And currentClass.export Then
-                    compileStruct(currentClass)
+                    If compileClass Then
+                        compileStruct(currentClass)
+                    End If
                     Return currentClass
                 End If
             Next
@@ -754,6 +767,7 @@ Public Class VB_Compiler
 
         'Some variables
         Dim content As New List(Of String)
+        Dim propreties_init As New List(Of String)
 
         'Add source directly
         If currentClass.addSourceDirectly.Count > 0 Then
@@ -786,7 +800,8 @@ Public Class VB_Compiler
                     var.type = getNodeType(def.value)
 
                     'Compile
-                    content.Add(String.Format("Public {0} As {1} = {2}", var.compiledName, compileSafeType(var.type), compileNode(def.value, content)))
+                    content.Add(String.Format("Public {0} As {1}", var.compiledName, compileSafeType(var.type)))
+                    propreties_init.Add(String.Format("{0g} = {1}", var.compiledName, compileNode(def.value, propreties_init)))
 
                 Else
 
@@ -805,15 +820,68 @@ Public Class VB_Compiler
 
         End If
 
+        'Has function
+        Dim hasStr As Boolean = False
+        Dim hasCreate As Boolean = False
+
         'Get functions
         If currentClass.methods.Count > 0 Then
             content.Add("")
             content.Add("'Methods")
             For Each def As FunctionNode In currentClass.methods
+
+                'Compile
                 content.Add("")
                 content.Add(compileFunction(def).Replace(Environment.NewLine, Environment.NewLine & vbTab))
+
+                'Type
+                If def.Name = "str" Then
+                    hasStr = True
+                ElseIf def.Name = "create" Then
+                    hasCreate = True
+                End If
+
             Next
         End If
+
+        'Str function
+        If Not hasStr Then
+            Dim str_method As FunctionNode = New FunctionNode(0, 0, "str", New List(Of FunctionArgument), New typeNode(0, 0, "str", New List(Of ValueType)))
+            str_method.compiled = True
+            str_method.parentNode = currentClass
+            str_method.compiledName = "__str__"
+            str_method.ReturnType = New safeType(stdStr)
+            currentClass.methods.Add(str_method)
+            content.Add("")
+            content.Add("'str()")
+            content.Add("Public Function __str__() As str")
+            content.Add("   Return New str(""<" & currentClass.Name & ">"")")
+            content.Add("End Function")
+        End If
+
+        'Create function
+        If Not hasCreate And Not getNodeParentFile(currentClass).LimLib Then
+            Dim create_method As FunctionNode = New FunctionNode(0, 0, "create", New List(Of FunctionArgument), Nothing)
+            create_method.compiled = True
+            create_method.parentNode = currentClass
+            create_method.compiledName = "New"
+            create_method.ReturnType = Nothing
+            currentClass.methods.Add(create_method)
+            content.Add("")
+            content.Add("'Create")
+            content.Add("Public Sub New()")
+            content.Add("   Me.load_properties()")
+            content.Add("End Sub")
+        End If
+
+        'Load properties
+        content.Add("")
+        content.Add("'Load properties")
+        content.Add("Private Sub load_properties()")
+        For Each line As String In propreties_init
+            content.Add(vbTab & line)
+        Next
+        content.Add("End Sub")
 
         'Final
         Dim finalString As String = "Public Class " & currentClass.compiledName
@@ -851,11 +919,14 @@ Public Class VB_Compiler
             fun.ReturnType = typenodeToSafeType(fun.unsafeReturnType)
         End If
 
+        'Some variables
+        Dim content As New List(Of String)
+
         'Get name
         If fun.compiledName = "" Then
 
             'Normal handling
-            If getNodeParentFile(fun).LimLib Then
+            If getNodeParentFile(fun).LimLib And Not (fun.Name.StartsWith("__") And fun.Name.EndsWith("__")) Then
                 fun.compiledName = fun.Name
             Else
                 fun.compiledName = getFunctionName()
@@ -864,18 +935,26 @@ Public Class VB_Compiler
             'Create (New)
             If Not parentClass Is Nothing And fun.Name = "create" Then
                 fun.compiledName = "New"
+                content.Add("'Load properties")
+                content.Add("Me.load_properties()")
+                content.Add("")
+                content.Add("'Content")
             End If
 
         End If
+
+        'Fix name
+        If getNodeParentFile(fun).LimLib And (fun.Name.StartsWith("__") And fun.Name.EndsWith("__")) Then
+            fun.Name = fun.Name.Substring(2)
+            fun.Name = fun.Name.Substring(0, fun.Name.Count - 2)
+        End If
+
 
         'Clone
         If Not parentClass Is Nothing And fun.Name = "clone" Then
             fun.compiling = False
             Return "'clone" & Environment.NewLine & "Public Function clone() As " & compileSafeType(fun.ReturnType) & Environment.NewLine & vbTab & "Return DirectCast(Me.MemberwiseClone(), " & compileSafeType(fun.ReturnType) & ")" & Environment.NewLine & "End Function"
         End If
-
-        'Some variables
-        Dim content As New List(Of String)
 
         'Argument list
         Dim compiled_arguments As String = ""
@@ -959,7 +1038,7 @@ Public Class VB_Compiler
                     Return New safeType(stdInt)
 
                 Case tokenType.CT_FLOAT
-                    Return New safeType(strFloat)
+                    Return New safeType(stdFloat)
 
                 Case Else
                     addBasicError("Type error", "Cannot get type of the folowing token <" & castedNode.tok.ToString() & ">")
@@ -988,7 +1067,7 @@ Public Class VB_Compiler
                     Return Nothing
 
             End Select
-
+            Dim t As String = "".Substring(0, 1)
         End If
 
         'binOpNode
@@ -1015,7 +1094,7 @@ Public Class VB_Compiler
                     If left.TargetClass.compiledName = right.TargetClass.compiledName Then
                         Return New safeType(stdInt)
                     End If
-                    Return New safeType(strFloat)
+                    Return New safeType(stdFloat)
 
                 Case tokenType.OP_PLUS
                     If left.TargetClass.compiledName = "str" And right.TargetClass.compiledName = "str" Then
@@ -1023,7 +1102,7 @@ Public Class VB_Compiler
                     ElseIf left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "int" Then
                         Return New safeType(stdInt)
                     End If
-                    Return New safeType(strFloat)
+                    Return New safeType(stdFloat)
 
                 Case tokenType.OP_MULTIPLICATION
                     If left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "int" Then
@@ -1033,14 +1112,14 @@ Public Class VB_Compiler
                     ElseIf left.TargetClass.compiledName = "str" And right.TargetClass.compiledName = "int" Then
                         Return New safeType(stdStr)
                     End If
-                    Return New safeType(strFloat)
+                    Return New safeType(stdFloat)
 
                 Case tokenType.OP_MODULO
                     Return New safeType(stdInt)
                     'TODO: Better modulo type
 
                 Case tokenType.OP_DIVISION
-                    Return New safeType(strFloat)
+                    Return New safeType(stdFloat)
                     'TODO: Better modulo type
 
                 Case Else
@@ -1157,6 +1236,20 @@ Public Class VB_Compiler
 
         End If
 
+        'New node
+        If TypeOf node Is newNode Then
+
+            'Castednode
+            Dim castedNode As newNode = DirectCast(node, newNode)
+
+            'Get class
+            Dim targetClass As ClassNode = getClass(castedNode.className, castedNode)
+
+            'Get type
+            Return New safeType(targetClass)
+
+        End If
+
         'ChildNode
         If TypeOf node Is childNode Then
 
@@ -1169,8 +1262,121 @@ Public Class VB_Compiler
             'Dimensions
             If parentType.Dimensions.Count > 0 Then
 
-                Throw New NotImplementedException()
-                'TODO: Add dimensions support
+                If parentType.Dimensions(parentType.Dimensions.Count - 1) = ValueType.list Then
+
+                    'LIST
+
+                    'child type
+                    If TypeOf castedNode.childNode Is VariableNode Then
+
+                        'Variables
+                        Dim propertieName As String = DirectCast(castedNode.childNode, VariableNode).VariableName
+
+                        'Return type
+                        Select Case propertieName
+                            Case Else
+                                addNodeNamingError("VBGNT07", "The <" & parentType.ToString() & "> list does not contain a """ & propertieName & """ propertie", castedNode.childNode)
+
+                        End Select
+
+
+                    ElseIf TypeOf castedNode.childNode Is FunctionCallNode Then
+
+                        'FunctionCall
+                        Dim funCall As FunctionCallNode = DirectCast(castedNode.childNode, FunctionCallNode)
+
+                        'Return type
+                        Select Case funCall.FunctionName
+                            Case "len"
+                                Return New safeType(stdInt)
+
+                            Case "contains"
+                                Return New safeType(stdBool)
+
+                            Case "str"
+                                Return New safeType(stdStr)
+
+                            Case "clone"
+                                Return parentType.clone()
+
+                            Case "add"
+                                addNodeSyntaxError("VBGNT09", "The ""add"" method returns no value.", castedNode.childNode)
+
+                            Case "remove"
+                                addNodeSyntaxError("VBGNT10", "The ""remove"" method returns no value.", castedNode.childNode)
+
+                            Case "removeAt"
+                                addNodeSyntaxError("VBGNT11", "The ""remove"" method returns no value.", castedNode.childNode)
+
+                            Case Else
+                                addNodeNamingError("VBGNT08", "The <" & parentType.ToString() & "> list does not contain a """ & funCall.FunctionName & """ method", castedNode.childNode)
+
+                        End Select
+
+                    End If
+
+                ElseIf parentType.Dimensions(parentType.Dimensions.Count - 1) = ValueType.map Then
+
+                    'MAP
+
+                    'child type
+                    If TypeOf castedNode.childNode Is VariableNode Then
+
+                        'Variables
+                        Dim propertieName As String = DirectCast(castedNode.childNode, VariableNode).VariableName
+
+                        'Return type
+                        Select Case propertieName
+                            Case "keys"
+                                Return New safeType(stdStr)
+
+                            Case Else
+                                addNodeNamingError("VBGNT12", "The <" & parentType.ToString() & "> map does not contain a """ & propertieName & """ propertie", castedNode.childNode)
+
+                        End Select
+
+
+                    ElseIf TypeOf castedNode.childNode Is FunctionCallNode Then
+
+                        'FunctionCall
+                        Dim funCall As FunctionCallNode = DirectCast(castedNode.childNode, FunctionCallNode)
+
+                        'Return type
+                        Select Case funCall.FunctionName
+                            Case "len"
+                                Return New safeType(stdInt)
+
+                            Case "containsKey"
+                                Return New safeType(stdBool)
+
+                            Case "str"
+                                Return New safeType(stdStr)
+
+                            Case "clone"
+                                Return parentType.clone()
+
+                            Case "add"
+                                addNodeSyntaxError("VBGNT13", "The ""add"" method returns no value.", castedNode.childNode)
+
+                            Case "remove"
+                                addNodeSyntaxError("VBGNT14", "The ""remove"" method returns no value.", castedNode.childNode)
+
+                            Case "removeAt"
+                                addNodeSyntaxError("VBGNT15", "The ""remove"" method returns no value.", castedNode.childNode)
+
+                            Case Else
+                                addNodeNamingError("VBGNT16", "The <" & parentType.ToString() & "> map does not contain a """ & funCall.FunctionName & """ method", castedNode.childNode)
+
+                        End Select
+
+                    End If
+
+                Else
+                    'Not implemented
+                    Throw New NotImplementedException()
+
+                End If
+
 
             End If
 
@@ -1206,20 +1412,6 @@ Public Class VB_Compiler
                 addNodeNamingError("VBGNT06", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ method", castedNode.childNode)
 
             End If
-
-        End If
-
-        'New node
-        If TypeOf node Is newNode Then
-
-            'Castednode
-            Dim castedNode As newNode = DirectCast(node, newNode)
-
-            'Get class
-            Dim targetClass As ClassNode = getClass(castedNode.className, castedNode)
-
-            'Get type
-            Return New safeType(targetClass)
 
         End If
 
@@ -1319,11 +1511,49 @@ Public Class VB_Compiler
             'Compile
             Return compileAddSource(DirectCast(node, AddSourceNode), content)
 
+        ElseIf TypeOf node Is whileStatementNode Then
+
+            'Compile
+            Return compileWhileStatement(DirectCast(node, whileStatementNode), content)
+
         End If
 
         'Return
         addNodeTypeError("VBCCN01", "Unable to resolve node type", node)
         Return Nothing
+
+    End Function
+
+    '=============================================
+    '========== COMPILE WHILE STATEMENT ==========
+    '=============================================
+    Private Function compileWhileStatement(ByVal node As whileStatementNode, ByVal content As List(Of String))
+
+        'Check type
+        Dim conditionType As safeType = getNodeType(node.condition)
+        If Not conditionType.IsTheSameAs(New safeType(stdBool)) Then
+            addNodeTypeError("VBCWS01", "The condition of a while loop must be of type <bool>. However, you indicate a value of type <" & conditionType.ToString() & ">", node.condition)
+        End If
+
+        'Compile while header
+        content.Add("")
+        content.Add(String.Format("While {0}.value", compileNode(node.condition, content)))
+
+        'Compile core
+        Dim core As New List(Of String)
+        For Each line As Node In node.codes
+            core.Add(compileNode(line, core))
+        Next
+        For Each line As String In core
+            content.Add(vbTab & line)
+        Next
+
+        'End
+        content.Add("End While")
+        content.Add("")
+
+        'Return
+        Return ""
 
     End Function
 
@@ -1337,7 +1567,6 @@ Public Class VB_Compiler
 
             'Compile
             content.Add(DirectCast(node, AddSourceNode).value)
-            Return ""
 
         Else
 
@@ -1345,6 +1574,9 @@ Public Class VB_Compiler
             addNodeSyntaxError("VBCCN02", "It is not possible to integrate source code outside of a ""limlib"" file.", node)
 
         End If
+
+        'Return
+        Return ""
 
     End Function
 
@@ -1359,8 +1591,124 @@ Public Class VB_Compiler
         'Dimensions
         If parentType.Dimensions.Count > 0 Then
 
-            Throw New NotImplementedException()
-            'TODO: Add dimensions support
+            If parentType.Dimensions(parentType.Dimensions.Count - 1) = ValueType.list Then
+
+                'LIST
+
+                'child type
+                If TypeOf node.childNode Is VariableNode Then
+
+                    'Variables
+                    Dim propertieName As String = DirectCast(node.childNode, VariableNode).VariableName
+
+                    'Return type
+                    Select Case propertieName
+                        Case Else
+                            addNodeNamingError("VBGNT07", "The <" & parentType.ToString() & "> list does not contain a """ & propertieName & """ propertie", node.childNode)
+
+                    End Select
+
+
+                ElseIf TypeOf node.childNode Is FunctionCallNode Then
+
+                    'FunctionCall
+                    Dim funCall As FunctionCallNode = DirectCast(node.childNode, FunctionCallNode)
+
+                    'Return type
+                    Select Case funCall.FunctionName
+                        Case "len"
+                            validateChildFunction(Nothing, funCall.Arguments, funCall)
+                            Return String.Format("(New int({0}.Count))", compileNode(node.parentStruct, content))
+
+                        Case "contains"
+                            validateChildFunction({parentType.getParentType()}.ToList(), funCall.Arguments, funCall)
+                            Return String.Format("(New bool({0}.Contains({1})))", compileNode(node.parentStruct, content), compileNode(funCall.Arguments(0), content))
+
+                        Case "str"
+                            validateChildFunction(Nothing, funCall.Arguments, funCall)
+                            Return String.Format("({0}.__str__())", compileNode(node.parentStruct, content))
+
+                        Case "clone"
+                            validateChildFunction(Nothing, funCall.Arguments, funCall)
+                            Return String.Format("({0}.clone())", compileNode(node.parentStruct, content))
+
+                        Case "add"
+
+                        Case "remove"
+
+                        Case "removeAt"
+
+                        Case Else
+                            addNodeNamingError("VBCC09", "The <" & parentType.ToString() & "> list does not contain a """ & funCall.FunctionName & """ method", node.childNode)
+
+                    End Select
+
+                End If
+
+            ElseIf parentType.Dimensions(parentType.Dimensions.Count - 1) = ValueType.map Then
+
+                'MAP
+
+                'child type
+                If TypeOf node.childNode Is VariableNode Then
+
+                    'Variables
+                    Dim propertieName As String = DirectCast(node.childNode, VariableNode).VariableName
+
+                    'Return type
+                    Select Case propertieName
+                        Case "keys"
+                            Return New safeType(stdStr)
+
+                        Case Else
+                            addNodeNamingError("VBCC10", "The <" & parentType.ToString() & "> map does not contain a """ & propertieName & """ propertie", node.childNode)
+
+                    End Select
+
+
+                ElseIf TypeOf node.childNode Is FunctionCallNode Then
+
+                    'FunctionCall
+                    Dim funCall As FunctionCallNode = DirectCast(node.childNode, FunctionCallNode)
+
+                    'Return type
+                    Select Case funCall.FunctionName
+                        Case "len"
+                            validateChildFunction(Nothing, funCall.Arguments, funCall)
+                            Return String.Format("(New int({0}.Count))", compileNode(node.parentStruct, content))
+
+                        Case "containsKey"
+
+
+                        Case "str"
+                            validateChildFunction(Nothing, funCall.Arguments, funCall)
+                            Return String.Format("({0}.__str__())", compileNode(node.parentStruct, content))
+
+                        Case "clone"
+                            validateChildFunction(Nothing, funCall.Arguments, funCall)
+                            Return String.Format("({0}.clone())", compileNode(node.parentStruct, content))
+
+                        Case "add"
+                            addNodeSyntaxError("VBCC11", "The ""add"" method returns no value.", node.childNode)
+
+                        Case "remove"
+                            addNodeSyntaxError("VBCC12", "The ""remove"" method returns no value.", node.childNode)
+
+                        Case "removeAt"
+                            addNodeSyntaxError("VBCC13", "The ""remove"" method returns no value.", node.childNode)
+
+                        Case Else
+                            addNodeNamingError("VBCC14", "The <" & parentType.ToString() & "> map does not contain a """ & funCall.FunctionName & """ method", node.childNode)
+
+                    End Select
+
+                End If
+
+            Else
+                'Not implemented
+                Throw New NotImplementedException()
+
+            End If
 
         End If
 
@@ -1443,6 +1791,35 @@ Public Class VB_Compiler
         Return ""
 
     End Function
+    Private Sub validateChildFunction(ByVal model_arguments As List(Of safeType), ByVal passed_arguments As List(Of Node), ByVal from As Node)
+
+        'Variable
+        If model_arguments Is Nothing Then
+            model_arguments = New List(Of safeType)
+        End If
+
+        'Handle argument error
+        If passed_arguments.Count < model_arguments.Count Then
+            addNodeTypeError("VBVCF01", (model_arguments.Count - passed_arguments.Count).ToString() & " arguments are missing", from)
+        End If
+        If passed_arguments.Count > model_arguments.Count Then
+            addNodeTypeError("VBVCF02", (passed_arguments.Count - model_arguments.Count).ToString() & " arguments are useless (too many arguments)", from)
+        End If
+
+        'Argument
+        Dim arguments As String = ""
+        For i As Integer = 0 To model_arguments.Count - 1
+
+            'Variables
+            Dim argType As safeType = getNodeType(passed_arguments(i))
+
+            If Not model_arguments(i).IsTheSameAs(argType) Then
+                addNodeTypeError("VBVCF03", "The " & (i + 1).ToString() & " argument is of type <" & argType.ToString() & "> instead of being <" & model_arguments(i).ToString() & ">", passed_arguments(i))
+            End If
+
+        Next
+
+    End Sub
 
     '======================================
     '========== COMPILE VARIABLE ==========
@@ -1566,13 +1943,13 @@ Public Class VB_Compiler
                 If Not (indexType.TargetClass.compiledName = "int" And indexType.Dimensions.Count = 0) Then
                     addNodeTypeError("VBCBS03", "An index of a list must be an integer (<int>)", node.index)
                 End If
-                Return String.Format("{0}({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
+                Return String.Format("{0}.getAt({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
 
             Case ValueType.map
                 If Not (indexType.TargetClass.compiledName = "str" And indexType.Dimensions.Count = 0) Then
                     addNodeTypeError("VBCBS04", "An key name of a map must be an string (<str>)", node.index)
                 End If
-                Return String.Format("{0}({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
+                Return String.Format("{0}.getBy({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
 
         End Select
 
@@ -1854,11 +2231,6 @@ Public Class VB_Compiler
         'Get class
         Dim targetClass As ClassNode = getClass(node.className, node)
 
-        'No arguments
-        If node.arguments.Count = 0 Then
-            Return String.Format("(New {0}())", targetClass.compiledName)
-        End If
-
         'Get constructor
         Dim fun As FunctionNode = Nothing
         For Each method As FunctionNode In targetClass.methods
@@ -1867,7 +2239,11 @@ Public Class VB_Compiler
             End If
         Next
         If fun Is Nothing Then
-            addNodeSyntaxError("VBCCN01", "Class <" & targetClass.Name & "> does not contain a constructor", node, "Add a ""create"" method to the class")
+            If node.arguments.Count = 0 Then
+                Return String.Format("(New {0}())", targetClass.compiledName)
+            Else
+                addNodeSyntaxError("VBCCN01", "Class <" & targetClass.Name & "> does not contain a constructor", node, "Add a ""create"" method to the class")
+            End If
         End If
 
         'Handle argument error
@@ -1921,7 +2297,6 @@ Public Class VB_Compiler
 
         'Get function
         Dim fun As FunctionNode = getFunction(node.FunctionName, node)
-
         'Handle argument error
         If node.Arguments.Count < fun.Arguments.Count Then
             addNodeTypeError("VBCFC01", (fun.Arguments.Count - node.Arguments.Count).ToString() & " arguments are missing", node)
@@ -2003,11 +2378,13 @@ Public Class VB_Compiler
         End If
 
         'Compile
+        content.Add("")
         If True Then
             content.Add(String.Format("{0} = {1}", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
         Else
             content.Add(String.Format("{0} = {1}.Clone()", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
         End If
+        content.Add("")
 
         'Return
         Return ""
@@ -2020,6 +2397,7 @@ Public Class VB_Compiler
     Private Function compileDeclareVariable(ByVal node As DeclareVariableNode, ByVal content As List(Of String)) As String
 
         'Declare variable
+        content.Add("")
         content.Add(String.Format("'{0}", node.variableName))
 
         'Set variable
@@ -2077,6 +2455,7 @@ Public Class VB_Compiler
         getNodeParentContainer(node).variables.Add(var)
 
         'Return
+        content.Add("")
         Return ""
 
     End Function
@@ -2106,7 +2485,9 @@ Public Class VB_Compiler
         End If
 
         'Compile
+        content.Add("")
         content.Add("Return " & compileNode(node.value, content))
+        content.Add("")
 
         'Return
         Return ""
