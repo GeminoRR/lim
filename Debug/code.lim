@@ -1,9 +1,44 @@
+import graphics
+
 func main
-	while true
-		let value = gets("Value : ").lower()
-		if value = "bob"
-			puts("Bob is bob, hello bob")
-		elseif value = "pierre"
-			puts("Pierre ?")
-		else
-			puts("Hello " + value + " !")
+	initWindow("Lim go brrrr 🚀", 600, 400)
+	rectangles.add(new rectangle(10, 10, 60, 40, "#00FF00"))
+	rectangles.add(new rectangle(0, 60, 40, 60, "#0000FF"))
+	rectangles.add(new rectangle(5, 130, 100, 40, "#FF0000"))
+
+let rectangles:rectangle[]
+
+func drawFrame(screen:image)
+	//Clean screen
+	screen.fillRectangle(0, 0, 600, 400, "#FFFFFF")
+
+	//Draw rectangles
+	for i in rectangles
+		i.draw(screen)
+
+	//Move rectangles
+	for i in rectangles
+		i.move()
+
+class rectangle
+
+	let _posX:int
+	let _posY:int
+	let _width:int
+	let _height:int
+	let _color:str
+
+	func create(posX:int, posY:int, width:int, height:int, color:str)
+		_posX = posX
+		_posY = posY
+		_width = width
+		_height = height
+		_color = color
+
+	func draw(screen:image)
+		screen.fillRectangle(_posX, _posY, _width, _height, _color)
+
+	func move()
+		_posX = _posX + 1
+		if _posX > 600
+			_posX = -(_width)

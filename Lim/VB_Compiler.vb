@@ -18,6 +18,7 @@ Public Class VB_Compiler
     Private classCount As Integer = 0
 
     Private compileType As compileWay
+    Public graphicsDrawFunction As FunctionNode
 
     Private stdInt As ClassNode
     Private stdFloat As ClassNode
@@ -78,7 +79,8 @@ Public Class VB_Compiler
         Dim dotnetCompiler As New Process()
 
         dotnetCompiler.StartInfo.FileName = "cmd.exe"
-        dotnetCompiler.StartInfo.Arguments = "/c cd """ & AppData & """ & dotnet publish compiled/VB.vbproj --configuration final --framework net6.0 --self-contained True --output publish --runtime win-x64 --verbosity Normal /Property:PublishTrimmed=False /property:PublishSingleFile=True /property:IncludeNativeLibrariesForSelfExtract=True /property:DebugType=None /property:DebugSymbols=False /property:EnableCompressionInSingleFile=True"
+        'dotnetCompiler.StartInfo.Arguments = "/c cd """ & AppData & """ & dotnet publish compiled/VB.vbproj --configuration final --framework net6.0 --self-contained True --output publish --runtime win-x64 --verbosity Normal /Property:PublishTrimmed=False /property:PublishSingleFile=True /property:IncludeNativeLibrariesForSelfExtract=True /property:DebugType=None /property:DebugSymbols=False /property:EnableCompressionInSingleFile=True"
+        dotnetCompiler.StartInfo.Arguments = "/c cd """ & AppData & "/compiled"" & dotnet publish"
 
         If Not debugFlag Then
             dotnetCompiler.StartInfo.Arguments &= ">nul"
@@ -107,7 +109,8 @@ Public Class VB_Compiler
 
         'Move executable
         Try
-            File.Move(AppData & "/publish/VB.exe", outputPath, True)
+            'File.Move(AppData & "/publish/VB.exe", outputPath, True)
+            File.Move(AppData & "/compiled/bin/Debug/net6.0-windows/win-x64/publish/VB.exe", outputPath, True)
         Catch ex As Exception
             addBasicError("Unable to move a file", ex.Message)
         End Try
@@ -133,6 +136,7 @@ Public Class VB_Compiler
         functionCount = 0
         classCount = 0
         compileType = compileWay.console
+        graphicsDrawFunction = Nothing
         Me.logs = logs
         Dim outputFolder As String = AppData & "/compiled"
 
@@ -178,6 +182,11 @@ Public Class VB_Compiler
         compileStruct(stdBool)
         compileStruct(stdFun)
 
+        'Get graphics
+        If graphicsDrawFunction IsNot Nothing Then
+            compileType = compileWay.window
+        End If
+
         'Logs
         If logs Then
             addLog("Load the ""std"" library: OK")
@@ -185,6 +194,14 @@ Public Class VB_Compiler
 
         'Compile start
         compileFunction(entryPoint)
+
+        'Compile drawFrame
+        If compileType = compileWay.window Then
+            If graphicsDrawFunction Is Nothing Then
+                addBasicError("Graphics lib", "The ""drawFrame"" function was not found")
+            End If
+            compileFunction(graphicsDrawFunction)
+        End If
 
         'Compile limlibs
         Dim CompiledAddSourceDirectly As String = ""
@@ -249,7 +266,7 @@ Public Class VB_Compiler
             addBasicError("File missing", "The """ & folderTemplatePath & """ model folder could not be found. Try reinstalling Lim.")
         End If
 
-        'Copy template
+        'Copy template;
         Microsoft.VisualBasic.FileIO.FileSystem.CopyDirectory(vbTemplate & "/compileEnvironment/" & folderTemplatePath, outputFolder)
         If logs Then
             addLog("Renew the environment: OK")
@@ -274,11 +291,7 @@ Public Class VB_Compiler
         Select Case compileType
 
             Case compileWay.window
-                'If graphicsDrawFunction Is Nothing Then
-                '    addCustomSyntaxWarning("VBCW01", "No ""drawFrame"" function was found in the __init__ space. The window will therefore remain empty throughout the execution of the program. Proposal: Add the following function: ""func drawFrame(@screen:image)""", mainFile.name)
-                'Else
-                '    Program = Program.Replace("'{DRAWFRAME}'", graphicsDrawFunction.compiledName)
-                'End If
+                Program = Program.Replace("'{DRAWFRAME}'", graphicsDrawFunction.compiledName)
 
         End Select
 
@@ -1795,6 +1808,11 @@ Public Class VB_Compiler
                             Return String.Format("({0}.clone())", compileNode(node.parentStruct, content))
 
                         Case "add"
+                            validateChildFunction({parentType.getParentType()}.ToList(), funCall.Arguments, funCall)
+                            content.Add("")
+                            content.Add(String.Format("{0}.add({1})", compileNode(node.parentStruct, content), compileNode(funCall.Arguments(0), content)))
+                            content.Add("")
+                            Return ""
 
                         Case "remove"
 
@@ -1872,80 +1890,82 @@ Public Class VB_Compiler
 
             End If
 
-        End If
+        Else
 
-        'No dimensions
-        If TypeOf node.childNode Is VariableNode Then
+            'No dimensions
+            If TypeOf node.childNode Is VariableNode Then
 
-            'Variables
-            Dim searchName As String = DirectCast(node.childNode, VariableNode).VariableName
+                'Variables
+                Dim searchName As String = DirectCast(node.childNode, VariableNode).VariableName
 
-            'Search propertie
-            For Each var As Variable In parentType.TargetClass.variables
-                If var.name = searchName Then
-                    Return String.Format("{0}.{1}", compileNode(node.parentStruct, content), var.compiledName)
-                End If
-            Next
-
-            'Not found
-            addNodeNamingError("VBCC01", "The <" & parentType.TargetClass.Name & "> Class does Not contain a """ & searchName & """ propertie", node.childNode)
-
-        ElseIf TypeOf node.childNode Is FunctionCallNode Then
-
-            'Variables
-            Dim funCall As FunctionCallNode = DirectCast(node.childNode, FunctionCallNode)
-            Dim searchName As String = funCall.FunctionName
-
-            'Search method
-            For Each fun As FunctionNode In parentType.TargetClass.methods
-                If fun.Name = searchName Then
-
-                    'Handle argument error
-                    If funCall.Arguments.Count < fun.Arguments.Count Then
-                        addNodeTypeError("VBCC02", (fun.Arguments.Count - funCall.Arguments.Count).ToString() & " arguments are missing", node)
+                'Search propertie
+                For Each var As Variable In parentType.TargetClass.variables
+                    If var.name = searchName Then
+                        Return String.Format("{0}.{1}", compileNode(node.parentStruct, content), var.compiledName)
                     End If
-                    If funCall.Arguments.Count > fun.Arguments.Count Then
-                        addNodeTypeError("VBCC03", (funCall.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
-                    End If
+                Next
 
-                    'Argument
-                    Dim arguments As String = ""
-                    For i As Integer = 0 To fun.Arguments.Count - 1
+                'Not found
+                addNodeNamingError("VBCC01", "The <" & parentType.TargetClass.Name & "> Class does Not contain a """ & searchName & """ propertie", node.childNode)
 
-                        'Variables
-                        Dim argModel As FunctionArgument = fun.Arguments(i)
-                        Dim argNode As Node = funCall.Arguments(i)
+            ElseIf TypeOf node.childNode Is FunctionCallNode Then
 
-                        'Handle type error
-                        If Not (typenodeToSafeType(argModel.type).IsTheSameAs(getNodeType(argNode))) Then
-                            addNodeTypeError("VBCC04", "The " & (i + 1).ToString() & " argument Is Of type <" & getNodeType(argNode).ToString() & "> instead Of being <" & argModel.type.ToString() & ">", argNode)
+                'Variables
+                Dim funCall As FunctionCallNode = DirectCast(node.childNode, FunctionCallNode)
+                Dim searchName As String = funCall.FunctionName
+
+                'Search method
+                For Each fun As FunctionNode In parentType.TargetClass.methods
+                    If fun.Name = searchName Then
+
+                        'Handle argument error
+                        If funCall.Arguments.Count < fun.Arguments.Count Then
+                            addNodeTypeError("VBCC02", (fun.Arguments.Count - funCall.Arguments.Count).ToString() & " arguments are missing", node)
+                        End If
+                        If funCall.Arguments.Count > fun.Arguments.Count Then
+                            addNodeTypeError("VBCC03", (funCall.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
                         End If
 
-                        'Add node
-                        Select Case argModel.declareType
-                            Case VariableDeclarationType._let_
-                                arguments &= ", " & compileNode(argNode, content)
+                        'Argument
+                        Dim arguments As String = ""
+                        For i As Integer = 0 To fun.Arguments.Count - 1
 
-                            Case VariableDeclarationType._var_
-                                arguments &= ", " & compileNode(argNode, content) & ".clone()"
+                            'Variables
+                            Dim argModel As FunctionArgument = fun.Arguments(i)
+                            Dim argNode As Node = funCall.Arguments(i)
 
-                            Case Else
-                                Throw New NotImplementedException
+                            'Handle type error
+                            If Not (typenodeToSafeType(argModel.type).IsTheSameAs(getNodeType(argNode))) Then
+                                addNodeTypeError("VBCC04", "The " & (i + 1).ToString() & " argument Is Of type <" & getNodeType(argNode).ToString() & "> instead Of being <" & argModel.type.ToString() & ">", argNode)
+                            End If
 
-                        End Select
+                            'Add node
+                            Select Case argModel.declareType
+                                Case VariableDeclarationType._let_
+                                    arguments &= ", " & compileNode(argNode, content)
 
-                    Next
-                    If arguments.StartsWith(", ") Then
-                        arguments = arguments.Substring(2)
+                                Case VariableDeclarationType._var_
+                                    arguments &= ", " & compileNode(argNode, content) & ".clone()"
+
+                                Case Else
+                                    Throw New NotImplementedException
+
+                            End Select
+
+                        Next
+                        If arguments.StartsWith(", ") Then
+                            arguments = arguments.Substring(2)
+                        End If
+
+                        Return String.Format("{0}.{1}({2})", compileNode(node.parentStruct, content), fun.compiledName, arguments)
+
                     End If
+                Next
 
-                    Return String.Format("{0}.{1}({2})", compileNode(node.parentStruct, content), fun.compiledName, arguments)
+                'Not found
+                addNodeNamingError("VBCC05", "The <" & parentType.TargetClass.Name & "> Class does Not contain a """ & searchName & """ method", node.childNode)
 
-                End If
-            Next
-
-            'Not found
-            addNodeNamingError("VBCC05", "The <" & parentType.TargetClass.Name & "> Class does Not contain a """ & searchName & """ method", node.childNode)
+            End If
 
         End If
 

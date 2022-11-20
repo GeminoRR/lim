@@ -1,0 +1,25 @@
+///////////////////////////
+/////// INIT WINDOW ///////
+///////////////////////////
+func initWindow(var name:str, var width:int, var height:int)
+	$"Me.text = name.value"
+	$"Me.Width = width.value"
+	$"Me.Height = height.value"
+	$"screen = New image(New int(Me.Width), New int(Me.Height))"
+
+/////////////////////
+/////// IMAGE ///////
+/////////////////////
+class image
+	//Variables
+	$"Public img As Bitmap"
+	$"Public gr As Graphics"
+
+	//New
+	func create(var width:int, var height:int)
+		$"Me.img = New Bitmap(width.value, height.value)"
+		$"Me.gr = Graphics.FromImage(Me.img)"
+
+	//Fill rectangle
+	func fillRectangle(var x:int, var y:int, var w:int, var h:int, var c:str)
+		$"gr.FillRectangle(New SolidBrush(ColorTranslator.FromHtml(c.value)), x.value, y.value, w.value, h.value)"

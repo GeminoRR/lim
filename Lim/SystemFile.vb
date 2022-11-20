@@ -77,6 +77,7 @@ Public Class LimFile
         End If
 
         'Handle import statement
+        Dim needDrawFrameFunction As Boolean = False
         While True
 
             'Tokens count
@@ -106,9 +107,17 @@ Public Class LimFile
 
             ElseIf tokens(0).type = tokenType.CT_TEXT Then
 
+                'Lower()
+                tokens(0).value = tokens(0).value.ToString().ToLower()
+
                 'Check file
                 If Not File.Exists(templateFolder & "/vb/libs/" & tokens(0).value & ".limlib") Then
                     addBasicError("File not found", "the """ & tokens(0).value & """ library does not exist or has not been installed.")
+                End If
+
+                'Graphics
+                If tokens(0).value = "graphics" Then
+                    needDrawFrameFunction = True
                 End If
 
                 'Import file
@@ -127,6 +136,44 @@ Public Class LimFile
         'Generate AST (Abstract syntax tree)
         Dim parser As New AST()
         parser.parse(tokens, Me)
+
+        'Get function
+        For Each fun As FunctionNode In Me.functions
+
+            If fun.Name = "drawFrame" Then
+
+                'Set function
+                Me.compiler.graphicsDrawFunction = fun
+
+                'Handle type
+                If Not fun.unsafeReturnType Is Nothing Then
+                    addBasicWarning("Graphics lib", "The ""drawFrame"" function returns no value.")
+                End If
+
+                'Arguments
+                If fun.Arguments.Count = 0 Then
+                    addNodeSyntaxError("SFN01", "The ""drawFrame"" function must take an argument of type <image>.", fun, "func drawFrame(screen:image)")
+                End If
+
+                'Too many arguments
+                If fun.Arguments.Count > 1 Then
+                    addNodeSyntaxError("SFN02", "The ""drawFrame"" function must take an argument of type <image>.", fun, "func drawFrame(screen:image)")
+                End If
+
+                'Argument type
+                If Not fun.Arguments(0).type.className = "image" Then
+                    addNodeSyntaxError("SFN03", "The ""drawFrame"" function must take an argument of type <image>, the type of the argument indicate is <" & fun.Arguments(0).type.ToString() & ">.", fun, "func drawFrame(screen:image)")
+                End If
+                If Not fun.Arguments(0).type.Dimensions.Count = 0 Then
+                    addNodeSyntaxError("SFN04", "The ""drawFrame"" function must take an argument of type <image>, the type of the argument indicate is <" & fun.Arguments(0).type.ToString() & ">.", fun, "func drawFrame(screen:image)")
+                End If
+                If Not fun.Arguments(0).declareType = VariableDeclarationType._let_ Then
+                    addNodeSyntaxError("SFN05", "The ""drawFrame"" function must take an argument in reference", fun, "func drawFrame(screen:image)")
+                End If
+
+            End If
+
+        Next
 
         'Set export
         Dim has_any_export As Boolean = False

@@ -11,15 +11,17 @@
     '===========================
     '========= ADVANCE =========
     '===========================
-    Private Sub advance()
+    Private Sub advance(Optional ByVal try_get As Boolean = False)
         tok_index += 1
         If tok_index < tokens.Count Then
             current_tok = tokens(tok_index)
         Else
-            If current_tok Is Nothing Then
-                addBasicError("NPA01", "Something was expected in <" & file.name & ">")
-            Else
-                addSyntaxError("NPA01", "Something was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            If Not try_get Then
+                If current_tok Is Nothing Then
+                    addBasicError("NPA01", "Something was expected in <" & file.name & ">")
+                Else
+                    addSyntaxError("NPA01", "Something was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                End If
             End If
         End If
     End Sub
@@ -622,7 +624,7 @@
             While current_tok.type = tokenType.CT_LINESTART
 
                 'Advance
-                advance()
+                advance(True)
 
                 'Keyword
                 If Not current_tok.type = tokenType.KW_ELSEIF Then
@@ -661,7 +663,7 @@
             If Not current_tok.type = tokenType.CT_LINESTART Then
                 addSyntaxError("NPL12", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
             End If
-            advance()
+            advance(True)
 
             'Else
             Dim else_statement As New List(Of Node)
@@ -688,7 +690,7 @@
 
             Else
 
-                recede(tok_index)
+                recede(recedeIndex)
 
             End If
 
