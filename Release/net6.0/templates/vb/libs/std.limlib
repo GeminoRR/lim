@@ -74,6 +74,14 @@ class str
 	func len:int
 		$"Return New int(Me.value.Length)"
 
+	//Lower
+	func lower():str
+		$"Return New str(Me.value.ToLower())"
+
+	//Upper
+	func upper():str
+		$"Return New str(Me.value.ToUpper())"
+
 ///////////////////////////
 /////// FLOAT CLASS ///////
 ///////////////////////////
@@ -134,3 +142,13 @@ func puts(message:str)
 func gets(message:str):str
 	$"Console.Write(message.value)"
 	$"Return New str(Console.ReadLine())"
+
+/////////////////////
+/////// RANGE ///////
+/////////////////////
+func range(max:int):int[]
+	$"Dim temp As New LimList(Of int)"
+	$"For i As Integer = 0 To max.value - 1"
+	$"	temp.add(new int(i))"
+	$"Next"
+	$"Return temp"

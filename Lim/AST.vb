@@ -510,7 +510,7 @@
             While True
 
                 If Not current_tok.type = tokenType.CT_LINESTART Then
-                    addSyntaxError("NPF05", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                    addSyntaxError("NPL05", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
                 End If
                 Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
 
@@ -527,6 +527,173 @@
 
             'Return
             Return while_statement
+
+        End If
+
+        'For loop
+        If current_tok.type = tokenType.KW_FOR Then
+
+            'Variables
+            Dim startPosition As Integer = current_tok.positionStart
+            advance()
+
+            'Declaration
+            Dim declarationType As VariableDeclarationType = VariableDeclarationType._let_
+            If current_tok.type = tokenType.KW_VAR Then
+                declarationType = VariableDeclarationType._var_
+                advance()
+            ElseIf current_tok.type = tokenType.KW_LET Then
+                declarationType = VariableDeclarationType._let_
+                advance()
+            End If
+
+            'Get variable name
+            If Not current_tok.type = tokenType.CT_TEXT Then
+                addSyntaxError("NPF06", "A variable name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            End If
+            Dim variableName As String = current_tok.value
+            advance()
+
+            'Get in
+            If Not current_tok.type = tokenType.OP_IN Then
+                addSyntaxError("NPF07", "A ""in"" token was expected here", file, current_tok.positionStart, current_tok.positionEnd, "for variable_name in a_list")
+            End If
+            advance()
+
+            'Get target
+            Dim target As Node = comparison()
+
+            'Create for object
+            Dim for_statement As New forStatementNode(positionStart, current_tok.positionEnd, target, variableName, declarationType)
+
+            'Get lines
+            While True
+
+                If Not current_tok.type = tokenType.CT_LINESTART Then
+                    addSyntaxError("NPF08", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                End If
+                Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                If addLineIndentation <= currentLineIndentation Then
+                    Exit While
+                End If
+
+                for_statement.addNodeToCode(line(addLineIndentation))
+
+            End While
+
+            'Set position end
+            for_statement.positionEnd = tokens(tok_index - 1).positionEnd
+
+            'Return
+            Return for_statement
+
+        End If
+
+        'If statement
+        If current_tok.type = tokenType.KW_IF Then
+
+            'Variables
+            Dim startPosition As Integer = current_tok.positionStart
+            advance()
+
+            'Get condition
+            Dim condition As Node = comparison()
+
+            'Get if lines
+            Dim if_statements As New List(Of Node)
+            While True
+
+                If Not current_tok.type = tokenType.CT_LINESTART Then
+                    addSyntaxError("NPF09", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                End If
+                Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                If addLineIndentation <= currentLineIndentation Then
+                    Exit While
+                End If
+
+                if_statements.Add(line(addLineIndentation))
+
+            End While
+
+            'Else if
+            Dim elseif_statement As New List(Of Tuple(Of Node, List(Of Node)))
+            While current_tok.type = tokenType.CT_LINESTART
+
+                'Advance
+                advance()
+
+                'Keyword
+                If Not current_tok.type = tokenType.KW_ELSEIF Then
+                    recede(tok_index - 1)
+                    Exit While
+                End If
+                advance()
+
+                'Get condition
+                Dim elseif_condition As Node = comparison()
+
+                'Get if lines
+                Dim elseif_lines As New List(Of Node)
+                While True
+
+                    If Not current_tok.type = tokenType.CT_LINESTART Then
+                        addSyntaxError("NPF10", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                    End If
+                    Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                    If addLineIndentation <= currentLineIndentation Then
+                        Exit While
+                    End If
+
+                    elseif_lines.Add(line(addLineIndentation))
+
+                End While
+
+                'Add
+                elseif_statement.Add(New Tuple(Of Node, List(Of Node))(elseif_condition, elseif_lines))
+
+            End While
+
+            'Else
+            Dim recedeIndex As Integer = tok_index
+            If Not current_tok.type = tokenType.CT_LINESTART Then
+                addSyntaxError("NPL12", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            End If
+            advance()
+
+            'Else
+            Dim else_statement As New List(Of Node)
+            If current_tok.type = tokenType.KW_ELSE Then
+
+                'Advance
+                advance()
+
+                'Get if lines
+                While True
+
+                    If Not current_tok.type = tokenType.CT_LINESTART Then
+                        addSyntaxError("NPF11", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                    End If
+                    Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                    If addLineIndentation <= currentLineIndentation Then
+                        Exit While
+                    End If
+
+                    else_statement.Add(line(addLineIndentation))
+
+                End While
+
+            Else
+
+                recede(tok_index)
+
+            End If
+
+            'Return
+            Return New ifStatementNode(positionStart, tokens(tok_index - 1).positionEnd, condition, if_statements, elseif_statement, else_statement)
 
         End If
 
@@ -648,7 +815,7 @@
 
         'Get error
         If Not current_tok.type = tokenType.CT_TEXT Then
-            addSyntaxError("NPF01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            addSyntaxError("NPFU01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
         'Get name

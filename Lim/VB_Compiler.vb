@@ -874,6 +874,13 @@ Public Class VB_Compiler
             content.Add("End Sub")
         End If
 
+        'To String
+        content.Add("")
+        content.Add("'ToString")
+        content.Add("Public Overrides Function ToString() As String")
+        content.Add("   Return Me.__str__().value")
+        content.Add("End Function")
+
         'Load properties
         content.Add("")
         content.Add("'Load properties")
@@ -926,19 +933,28 @@ Public Class VB_Compiler
         If fun.compiledName = "" Then
 
             'Normal handling
-            If getNodeParentFile(fun).LimLib And Not (fun.Name.StartsWith("__") And fun.Name.EndsWith("__")) Then
+            If getNodeParentFile(fun).LimLib Then
                 fun.compiledName = fun.Name
             Else
                 fun.compiledName = getFunctionName()
             End If
 
-            'Create (New)
-            If Not parentClass Is Nothing And fun.Name = "create" Then
-                fun.compiledName = "New"
-                content.Add("'Load properties")
-                content.Add("Me.load_properties()")
-                content.Add("")
-                content.Add("'Content")
+            'Custom method
+            If Not parentClass Is Nothing Then
+
+                If fun.Name = "create" Then
+                    'New
+                    fun.compiledName = "New"
+                    content.Add("'Load properties")
+                    content.Add("Me.load_properties()")
+                    content.Add("")
+                    content.Add("'Content")
+
+                ElseIf fun.Name = "str" Then
+                    '__str__
+                    fun.compiledName = "__str__"
+
+                End If
             End If
 
         End If
@@ -1516,6 +1532,16 @@ Public Class VB_Compiler
             'Compile
             Return compileWhileStatement(DirectCast(node, whileStatementNode), content)
 
+        ElseIf TypeOf node Is forStatementNode Then
+
+            'Compile
+            Return compileForStatement(DirectCast(node, forStatementNode), content)
+
+        ElseIf TypeOf node Is ifStatementNode Then
+
+            'Compile
+            Return compileIfStatement(DirectCast(node, ifStatementNode), content)
+
         End If
 
         'Return
@@ -1557,6 +1583,142 @@ Public Class VB_Compiler
 
     End Function
 
+    '===========================================
+    '========== COMPILE FOR STATEMENT ==========
+    '===========================================
+    Private Function compileForStatement(ByVal node As forStatementNode, ByVal content As List(Of String))
+
+        'Check type
+        Dim targetType As safeType = getNodeType(node.looperTarget)
+        If Not targetType.Dimensions.Count > 0 Then
+            addNodeTypeError("VBCFS01", "A ""for"" loop can only iterate through a list.", node.looperTarget)
+        End If
+        If Not targetType.Dimensions(targetType.Dimensions.Count - 1) = ValueType.list Then
+            addNodeTypeError("VBCFS02", "A ""for"" loop can only iterate through a list.", node.looperTarget)
+        End If
+
+        'Create variable
+        Dim compiledVariableName As String
+        If getNodeParentFile(node).LimLib Then
+            compiledVariableName = node.variableName
+        Else
+            compiledVariableName = getVariableName()
+        End If
+        Dim var As New Variable(node.variableName, getNodeType(node.looperTarget).getParentType(), compiledVariableName, node.variableDeclareType)
+        node.variables.Add(var)
+
+        'Compile while header
+        content.Add("")
+        content.Add(String.Format("For Each {0} As {1} In {2}", var.compiledName, compileSafeType(var.type), compileNode(node.looperTarget, content)))
+
+        'Clone
+        If var.declarationType = VariableDeclarationType._var_ Then
+            content.Add(vbTab & String.Format("{0} = {0}.clone()", var.compiledName))
+        End If
+
+        'Compile core
+        Dim core As New List(Of String)
+        For Each line As Node In node.codes
+            core.Add(compileNode(line, core))
+        Next
+        For Each line As String In core
+            content.Add(vbTab & line)
+        Next
+
+        'End
+        content.Add("Next")
+        content.Add("")
+
+        'Return
+        Return ""
+
+    End Function
+
+    '==========================================
+    '========== COMPILE IF STATEMENT ==========
+    '==========================================
+    Private Function compileIfStatement(ByVal node As ifStatementNode, ByVal content As List(Of String))
+
+        'Check type
+        Dim if_condition_type As safeType = getNodeType(node.condition)
+        If Not if_condition_type.IsTheSameAs(New safeType(stdBool)) Then
+            addNodeTypeError("VBCIS01", "An ""if"" block needs a condition", node.condition)
+        End If
+
+        'Variables
+        Dim headerContent As New List(Of String)
+        Dim tempContent As New List(Of String)
+
+        'Compile while header
+        tempContent.Add("")
+        tempContent.Add(String.Format("If {0}.value Then", compileNode(node.condition, headerContent)))
+
+        'Compile if core
+        Dim core As New List(Of String)
+        For Each line As Node In node.if_statements
+            core.Add(compileNode(line, core))
+        Next
+        For Each line As String In core
+            tempContent.Add(vbTab & line)
+        Next
+
+        'Else if
+        For Each elseif_statement As Tuple(Of Node, List(Of Node)) In node.elseif_statements
+
+            'Check type
+            Dim elseif_condition_type As safeType = getNodeType(elseif_statement.Item1)
+            If Not elseif_condition_type.IsTheSameAs(New safeType(stdBool)) Then
+                addNodeTypeError("VBCIS01", "An ""elseif"" block needs a condition", elseif_statement.Item1)
+            End If
+
+            'Compile
+            tempContent.Add(String.Format("ElseIf {0}.value Then", compileNode(elseif_statement.Item1, headerContent)))
+
+            'Compile if core
+            core.Clear()
+            For Each line As Node In elseif_statement.Item2
+                core.Add(compileNode(line, core))
+            Next
+            For Each line As String In core
+                tempContent.Add(vbTab & line)
+            Next
+
+        Next
+
+        'Else
+        If node.else_statement.Count > 0 Then
+
+            'Compile
+            tempContent.Add("Else")
+
+            'Compile if core
+            core.Clear()
+            For Each line As Node In node.else_statement
+                core.Add(compileNode(line, core))
+            Next
+            For Each line As String In core
+                tempContent.Add(vbTab & line)
+            Next
+
+        End If
+
+        'End
+        tempContent.Add("End If")
+        tempContent.Add("")
+
+        'Fix
+        For Each line As String In headerContent
+            content.Add(line)
+        Next
+        For Each line As String In tempContent
+            content.Add(line)
+        Next
+
+        'Return
+        Return ""
+
+    End Function
+
     '========================================
     '========== COMPILE ADD SOURCE ==========
     '========================================
@@ -1571,7 +1733,7 @@ Public Class VB_Compiler
         Else
 
             'Error
-            addNodeSyntaxError("VBCCN02", "It is not possible to integrate source code outside of a ""limlib"" file.", node)
+            addNodeSyntaxError("VBCCN02", "It Is Not possible To integrate source code outside Of a ""limlib"" file.", node)
 
         End If
 
@@ -1604,7 +1766,7 @@ Public Class VB_Compiler
                     'Return type
                     Select Case propertieName
                         Case Else
-                            addNodeNamingError("VBGNT07", "The <" & parentType.ToString() & "> list does not contain a """ & propertieName & """ propertie", node.childNode)
+                            addNodeNamingError("VBGNT07", "The <" & parentType.ToString() & "> list does Not contain a """ & propertieName & """ propertie", node.childNode)
 
                     End Select
 
@@ -1639,7 +1801,7 @@ Public Class VB_Compiler
                         Case "removeAt"
 
                         Case Else
-                            addNodeNamingError("VBCC09", "The <" & parentType.ToString() & "> list does not contain a """ & funCall.FunctionName & """ method", node.childNode)
+                            addNodeNamingError("VBCC09", "The <" & parentType.ToString() & "> list does Not contain a """ & funCall.FunctionName & """ method", node.childNode)
 
                     End Select
 
@@ -1661,7 +1823,7 @@ Public Class VB_Compiler
                             Return New safeType(stdStr)
 
                         Case Else
-                            addNodeNamingError("VBCC10", "The <" & parentType.ToString() & "> map does not contain a """ & propertieName & """ propertie", node.childNode)
+                            addNodeNamingError("VBCC10", "The <" & parentType.ToString() & "> map does Not contain a """ & propertieName & """ propertie", node.childNode)
 
                     End Select
 
@@ -1698,7 +1860,7 @@ Public Class VB_Compiler
                             addNodeSyntaxError("VBCC13", "The ""remove"" method returns no value.", node.childNode)
 
                         Case Else
-                            addNodeNamingError("VBCC14", "The <" & parentType.ToString() & "> map does not contain a """ & funCall.FunctionName & """ method", node.childNode)
+                            addNodeNamingError("VBCC14", "The <" & parentType.ToString() & "> map does Not contain a """ & funCall.FunctionName & """ method", node.childNode)
 
                     End Select
 
@@ -1726,7 +1888,7 @@ Public Class VB_Compiler
             Next
 
             'Not found
-            addNodeNamingError("VBCC01", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ propertie", node.childNode)
+            addNodeNamingError("VBCC01", "The <" & parentType.TargetClass.Name & "> Class does Not contain a """ & searchName & """ propertie", node.childNode)
 
         ElseIf TypeOf node.childNode Is FunctionCallNode Then
 
@@ -1756,7 +1918,7 @@ Public Class VB_Compiler
 
                         'Handle type error
                         If Not (typenodeToSafeType(argModel.type).IsTheSameAs(getNodeType(argNode))) Then
-                            addNodeTypeError("VBCC04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+                            addNodeTypeError("VBCC04", "The " & (i + 1).ToString() & " argument Is Of type <" & getNodeType(argNode).ToString() & "> instead Of being <" & argModel.type.ToString() & ">", argNode)
                         End If
 
                         'Add node
@@ -1783,7 +1945,7 @@ Public Class VB_Compiler
             Next
 
             'Not found
-            addNodeNamingError("VBCC05", "The <" & parentType.TargetClass.Name & "> class does not contain a """ & searchName & """ method", node.childNode)
+            addNodeNamingError("VBCC05", "The <" & parentType.TargetClass.Name & "> Class does Not contain a """ & searchName & """ method", node.childNode)
 
         End If
 
@@ -1814,7 +1976,7 @@ Public Class VB_Compiler
             Dim argType As safeType = getNodeType(passed_arguments(i))
 
             If Not model_arguments(i).IsTheSameAs(argType) Then
-                addNodeTypeError("VBVCF03", "The " & (i + 1).ToString() & " argument is of type <" & argType.ToString() & "> instead of being <" & model_arguments(i).ToString() & ">", passed_arguments(i))
+                addNodeTypeError("VBVCF03", "The " & (i + 1).ToString() & " argument Is Of type <" & argType.ToString() & "> instead Of being <" & model_arguments(i).ToString() & ">", passed_arguments(i))
             End If
 
         Next
@@ -1887,7 +2049,7 @@ Public Class VB_Compiler
         'Get value type
         Dim valueType As safeType = getNodeType(node.node)
         If valueType.Dimensions.Count > 0 Then
-            addNodeTypeError("VBCUO02", "The """ & node.op.ToString() & """ operator cannot be applied to a <" & valueType.ToString() & ">", node)
+            addNodeTypeError("VBCUO02", "The """ & node.op.ToString() & """ Operator cannot be applied To a <" & valueType.ToString() & ">", node)
         End If
 
         'Return
@@ -1913,7 +2075,7 @@ Public Class VB_Compiler
         End Select
 
         'Error
-        addNodeTypeError("VBCUO01", "The """ & node.op.ToString() & """ operator cannot be applied to a <" & valueType.ToString() & ">", node)
+        addNodeTypeError("VBCUO01", "The """ & node.op.ToString() & """ Operator cannot be applied To a <" & valueType.ToString() & ">", node)
         Return Nothing
 
     End Function
@@ -1928,10 +2090,10 @@ Public Class VB_Compiler
 
         'Handle error
         If Not targetType.Dimensions.Count > 0 Then
-            addNodeTypeError("VBCBS01", "Chosen item must be at least map or list to select index/key", node.Target)
+            addNodeTypeError("VBCBS01", "Chosen item must be at least map Or list To Select index/key", node.Target)
         End If
         If Not {ValueType.list, ValueType.map}.Contains(targetType.Dimensions(targetType.Dimensions.Count - 1)) Then
-            addNodeTypeError("VBCBS02", "Chosen item must be at least map or list to select index/key", node.Target)
+            addNodeTypeError("VBCBS02", "Chosen item must be at least map Or list To Select index/key", node.Target)
         End If
 
         'Get type
@@ -1941,13 +2103,13 @@ Public Class VB_Compiler
         Select Case targetType.Dimensions(targetType.Dimensions.Count - 1)
             Case ValueType.list
                 If Not (indexType.TargetClass.compiledName = "int" And indexType.Dimensions.Count = 0) Then
-                    addNodeTypeError("VBCBS03", "An index of a list must be an integer (<int>)", node.index)
+                    addNodeTypeError("VBCBS03", "An index Of a list must be an Integer (<int>)", node.index)
                 End If
                 Return String.Format("{0}.getAt({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
 
             Case ValueType.map
                 If Not (indexType.TargetClass.compiledName = "str" And indexType.Dimensions.Count = 0) Then
-                    addNodeTypeError("VBCBS04", "An key name of a map must be an string (<str>)", node.index)
+                    addNodeTypeError("VBCBS04", "An key name Of a map must be an String (<str>)", node.index)
                 End If
                 Return String.Format("{0}.getBy({1}.value)", compileNode(node.Target, content), compileNode(node.index, content))
 
@@ -1975,7 +2137,7 @@ Public Class VB_Compiler
 
                 'Check error
                 If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO01", "Both elements cannot be a list to allow a ""+"" operation.", node)
+                    addNodeTypeError("VBCBO01", "Both elements cannot be a list To allow a ""+"" operation.", node)
                 End If
 
                 'Number operation
@@ -1996,7 +2158,7 @@ Public Class VB_Compiler
 
                 'Check error
                 If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO02", "Both elements cannot be a list to allow a ""-"" operation.", node)
+                    addNodeTypeError("VBCBO02", "Both elements cannot be a list To allow a ""-"" operation.", node)
                 End If
 
                 'Number operation
@@ -2012,7 +2174,7 @@ Public Class VB_Compiler
 
                 'Check error
                 If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO03", "Both elements cannot be a list to allow a ""*"" operation.", node)
+                    addNodeTypeError("VBCBO03", "Both elements cannot be a list To allow a ""*"" operation.", node)
                 End If
 
                 'Number operation

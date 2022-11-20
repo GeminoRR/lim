@@ -1,5 +1,9 @@
 func main
-	let i = 0
-	while i < 5
-		puts("Hello " + i.str())
-		i = i + 1
+	while true
+		let value = gets("Value : ").lower()
+		if value = "bob"
+			puts("Bob is bob, hello bob")
+		elseif value = "pierre"
+			puts("Pierre ?")
+		else
+			puts("Hello " + value + " !")

@@ -101,3 +101,84 @@ Public Class whileStatementNode
     End Function
 
 End Class
+
+'=================================
+'========= FOR STATEMENT =========
+'=================================
+Public Class forStatementNode
+    Inherits containerNode
+
+    'Variable
+    Public looperTarget As Node
+    Public variableName As String
+    Public variableDeclareType As VariableDeclarationType
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal looperTarget As Node, ByVal variableName As String, ByVal variableDeclareType As VariableDeclarationType)
+        MyBase.New(positionStart, positionEnd)
+        Me.looperTarget = looperTarget
+        Me.looperTarget.parentNode = Me
+        Me.variableName = variableName
+        Me.variableDeclareType = variableDeclareType
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Dim declarationType As String = ""
+        Select Case variableDeclareType
+            Case VariableDeclarationType._let_
+                declarationType = "let "
+            Case VariableDeclarationType._var_
+                declarationType = "var"
+        End Select
+
+        Return "(For " & declarationType & " " & variableName & " in (" & looperTarget.ToString() & ") do " & Me.codes.Count.ToString() & " things)"
+    End Function
+
+End Class
+
+'================================
+'========= IF STATEMENT =========
+'================================
+Public Class ifStatementNode
+    Inherits containerNode
+
+    'Variable
+    Public condition As Node
+    Public if_statements As List(Of Node)
+    Public elseif_statements As List(Of Tuple(Of Node, List(Of Node)))
+    Public else_statement As List(Of Node)
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, condition As Node, ByVal if_statement As List(Of Node), ByVal elseif_statements As List(Of Tuple(Of Node, List(Of Node))), ByVal else_statement As List(Of Node))
+        MyBase.New(positionStart, positionEnd)
+
+        Me.condition = condition
+        Me.condition.parentNode = Me
+
+        Me.if_statements = if_statement
+        For Each statement As Node In Me.if_statements
+            statement.parentNode = Me
+        Next
+
+        Me.elseif_statements = elseif_statements
+        For Each statement As Tuple(Of Node, List(Of Node)) In Me.elseif_statements
+            statement.Item1.parentNode = Me
+            For Each statement2 As Node In statement.Item2
+                statement2.parentNode = Me
+            Next
+        Next
+
+        Me.else_statement = else_statement
+        For Each statement As Node In Me.else_statement
+            statement.parentNode = Me
+        Next
+
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Return "(If " & Me.condition.ToString() & " Do ...)"
+    End Function
+
+End Class
