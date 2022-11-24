@@ -84,6 +84,8 @@ Public Enum tokenType
     OP_MODULO
 
     OP_NOT
+    OP_AND
+    OP_OR
     OP_EQUAL
     OP_NOTEQUAL
     OP_LESSTHAN

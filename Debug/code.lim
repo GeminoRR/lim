@@ -1,44 +1,109 @@
 import graphics
 
-func main
-	initWindow("Lim go brrrr 🚀", 600, 400)
-	rectangles.add(new rectangle(10, 10, 60, 40, "#00FF00"))
-	rectangles.add(new rectangle(0, 60, 40, 60, "#0000FF"))
-	rectangles.add(new rectangle(5, 130, 100, 40, "#FF0000"))
+let leftPlayerPos = 0
+let rightPlayerPos = 0
 
-let rectangles:rectangle[]
+let ballPositionX = 0.0
+let ballPositionY = 0.0
+let ballVectorX = 5.0
+let ballVectorY = 2.0
+
+let score = 0
+let scene = 0
+
+func main
+	initWindow("Pong", 800, 500)
 
 func drawFrame(screen:image)
-	//Clean screen
-	screen.fillRectangle(0, 0, 600, 400, "#FFFFFF")
+	if scene = 0
+		scene0(screen)
+	elseif scene = 1
+		scene1(screen)
+	elseif scene = 2
+		scene2(screen)
 
-	//Draw rectangles
-	for i in rectangles
-		i.draw(screen)
+func scene0(screen:image)
+	//Fill background
+	screen.fillRectangle(0, 0, 800, 500, "#000000")
 
-	//Move rectangles
-	for i in rectangles
-		i.move()
+	//Perdu
+	screen.drawString(320, 150, "Pong!", "#FFFFFF", 40)
+	screen.drawString(220, 250, "Appuyer sur <espace> pour commencer", "#FFFFFF", 15)
 
-class rectangle
+	//Play
+	if keyPressed("space")
+		leftPlayerPos = 0
+		rightPlayerPos = 0
+		ballPositionX = 11.0
+		ballPositionY = 0.0
+		ballVectorX = 5.0
+		ballVectorY = 2.0
+		score = 0
+		scene = 1
 
-	let _posX:int
-	let _posY:int
-	let _width:int
-	let _height:int
-	let _color:str
+func scene1(screen:image)
+	//Fill background
+	screen.fillRectangle(0, 0, 800, 500, "#000000")
 
-	func create(posX:int, posY:int, width:int, height:int, color:str)
-		_posX = posX
-		_posY = posY
-		_width = width
-		_height = height
-		_color = color
+	//Draw player left
+	screen.fillRectangle(0, leftPlayerPos, 10, 60, "#FFFFFF")
 
-	func draw(screen:image)
-		screen.fillRectangle(_posX, _posY, _width, _height, _color)
+	//Draw score left
+	screen.drawString(380, 10, score.str(), "#FFFFFF", 20)
 
-	func move()
-		_posX = _posX + 1
-		if _posX > 600
-			_posX = -(_width)
+	//Player left move
+	if keyPressed("z")
+		leftPlayerPos = leftPlayerPos - 5
+	elseif keyPressed("s")
+		leftPlayerPos = leftPlayerPos + 5
+	if leftPlayerPos < 0
+		leftPlayerPos = 0
+	elseif leftPlayerPos > 740
+		leftPlayerPos = 740
+
+	//Draw player right
+	screen.fillRectangle(774, rightPlayerPos, 10, 60, "#FFFFFF")
+
+	//Player right move
+	if keyPressed("p") 
+		rightPlayerPos = rightPlayerPos - 5
+	elseif keyPressed("m")
+		rightPlayerPos = rightPlayerPos + 5
+	if rightPlayerPos < 0
+		rightPlayerPos = 0
+	elseif rightPlayerPos > 740
+		rightPlayerPos = 740
+
+	//Fill ball
+	screen.fillEllipse(ballPositionX.int(), ballPositionY.int(), 20, 20, "#FF0000")
+
+	//Ball position
+	ballPositionX = ballPositionX + ballVectorX
+	ballPositionY = ballPositionY + ballVectorY
+	if ballPositionY > 440.0 or ballPositionY < 0.0
+		ballVectorY = -ballVectorY
+	if ballPositionX <= 10.0
+		if ballPositionY > leftPlayerPos and ballPositionY < leftPlayerPos + 60
+			ballVectorX = -ballVectorX
+			score = score + 1
+		else
+			scene = 2
+	if ballPositionX >= 754.0
+		if ballPositionY > rightPlayerPos and ballPositionY < rightPlayerPos + 60
+			ballVectorX = -ballVectorX
+			score = score + 1
+		else
+			scene = 2
+
+func scene2(screen:image)	
+	//Fill background
+	screen.fillRectangle(0, 0, 800, 500, "#000000")
+
+	//Perdu
+	screen.drawString(320, 150, "Perdu!", "#FFFFFF", 40)
+	screen.drawString(320, 215, "Le score est de " + score.str() + "point(s)", "#FFFFFF", 10)
+	screen.drawString(220, 250, "Appuyer sur <entrer> pour continuer", "#FFFFFF", 15)
+
+	//Scene
+	if keyPressed("enter")
+		scene = 0

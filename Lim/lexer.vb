@@ -232,6 +232,10 @@ Public Class lexer
                         tokens.Add(New token(tokenType.KW_ELSE, startPos, charCounter - 1))
                     Case "elseif"
                         tokens.Add(New token(tokenType.KW_ELSEIF, startPos, charCounter - 1))
+                    Case "and"
+                        tokens.Add(New token(tokenType.OP_AND, startPos, charCounter - 1))
+                    Case "or"
+                        tokens.Add(New token(tokenType.OP_OR, startPos, charCounter - 1))
                     Case Else
                         tokens.Add(New token(tokenType.CT_TEXT, startPos, charCounter - 1, create_var))
                 End Select

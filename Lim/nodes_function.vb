@@ -7,6 +7,8 @@ Public Class FunctionNode
     'Variable
     Public Name As String
     Public Arguments As List(Of FunctionArgument)
+    Public maxArguments As Integer
+    Public minArguments As Integer
 
     Public unsafeReturnType As typeNode = Nothing
     Public ReturnType As safeType = Nothing
@@ -23,8 +25,19 @@ Public Class FunctionNode
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.Arguments = Arguments
+        Me.maxArguments = Me.Arguments.Count
+        Me.minArguments = 0
+        Dim lastArgWasOptional As Boolean = False
         For Each arg As FunctionArgument In Me.Arguments
             arg.type.parentNode = Me
+            If arg.value IsNot Nothing Then
+                arg.value.parentNode = Me
+                lastArgWasOptional = True
+            ElseIf lastArgWasOptional Then
+                addNodeSyntaxError("NFN01", "A non-optional argument cannot follow an optional argument", Me, "Put optional arguments at the end of the argument list.")
+            Else
+                Me.minArguments += 1
+            End If
         Next
         Me.unsafeReturnType = unsafeReturnType
         If Not Me.unsafeReturnType Is Nothing Then
@@ -67,10 +80,12 @@ Public Class FunctionArgument
     Public name As String
     Public type As typeNode
     Public declareType As VariableDeclarationType
-    Public Sub New(ByVal name As String, ByVal type As typeNode, ByVal declareType As VariableDeclarationType)
+    Public value As Node
+    Public Sub New(ByVal name As String, ByVal type As typeNode, ByVal declareType As VariableDeclarationType, Optional value As Node = Nothing)
         Me.name = name
         Me.type = type
         Me.declareType = declareType
+        Me.value = value
     End Sub
 
     Public Overrides Function ToString() As String

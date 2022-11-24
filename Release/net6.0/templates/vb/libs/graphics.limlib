@@ -23,3 +23,17 @@ class image
 	//Fill rectangle
 	func fillRectangle(var x:int, var y:int, var w:int, var h:int, var c:str)
 		$"gr.FillRectangle(New SolidBrush(ColorTranslator.FromHtml(c.value)), x.value, y.value, w.value, h.value)"
+
+	//Fill ellipse
+	func fillEllipse(var x:int, var y:int, var w:int, var h:int, var c:str)
+		$"gr.FillEllipse(New SolidBrush(ColorTranslator.FromHtml(c.value)), x.value, y.value, w.value, h.value)"
+
+	//Draw string
+	func drawString(var x:int, var y:int, var content:str, var color:str = "#000000", var fontSize:int = 10, var fontName:str = "Segoe ui")
+		$'gr.DrawString(content.value, New System.Drawing.Font(fontName.value, fontSize.value, FontStyle.Regular), New SolidBrush(ColorTranslator.FromHtml(color.value)), x.value, y.value)'
+
+///////////////////////////
+/////// KEY PRESSED ///////
+///////////////////////////
+func keyPressed(key:str):bool
+	$"Return New bool(checkKeyPressed(key.value))"

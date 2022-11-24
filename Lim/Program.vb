@@ -100,7 +100,7 @@ Module Program
     '========== CLOSE ==========
     '===========================
     Public Sub endApp()
-        Console.ReadKey()
+        'Console.ReadKey()
         End
     End Sub
 
@@ -119,11 +119,11 @@ Module Program
         Console.WriteLine("<input_file>" & vbTab & "Path of the .lim file to compile")
         Console.WriteLine("<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
         Console.WriteLine("[-arguments]" & vbTab & "Optional. Argument list.")
-        Console.WriteLine(vbTab & "-vb" & vbTab & "--visualbasic" & vbTab & "Compiles to a .vb file (VisualBasic)")
-        Console.WriteLine(vbTab & "-c" & vbTab & "--c" & vbTab & vbTab & "Compiles to a .c file (C)")
-        Console.WriteLine(vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles to a .exe file (Executable)")
-        Console.WriteLine(vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles to a linux executable")
-        Console.WriteLine(vbTab & "-m" & vbTab & "--macos" & vbTab & vbTab & "Compiles to a MacOS executable")
+        'Console.WriteLine(vbTab & "-vb" & vbTab & "--visualbasic" & vbTab & "Compiles to a .vb file (VisualBasic)")
+        'Console.WriteLine(vbTab & "-c" & vbTab & "--c" & vbTab & vbTab & "Compiles to a .c file (C)")
+        'Console.WriteLine(vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles to a .exe file (Executable)")
+        'Console.WriteLine(vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles to a linux executable")
+        'Console.WriteLine(vbTab & "-m" & vbTab & "--macos" & vbTab & vbTab & "Compiles to a MacOS executable")
         Console.WriteLine(vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show more logs")
         Console.WriteLine("If no arguments are entered, lim will compile to your operating system's executable.")
 

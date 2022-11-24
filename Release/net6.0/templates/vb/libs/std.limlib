@@ -14,6 +14,10 @@ class int
 	func __str__:str
 		$"Return New str(Me.value.ToString())"
 
+	//Float
+	func __float__:float
+		$"Return New float(Me.value)"
+
 /////////////////////////
 /////// STR CLASS ///////
 /////////////////////////
@@ -97,6 +101,10 @@ class float
 	//Str
 	func __str__:str
 		$"Return New str(Me.value.ToString())"
+
+	//Int
+	func __int__:int
+		$"Return New int(Math.Round(Me.value))"
 
 //////////////////////////
 /////// BOOL CLASS ///////

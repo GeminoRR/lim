@@ -380,6 +380,36 @@ Public Class binOpNode
 End Class
 
 '==============================
+'========= BoolOpNode =========
+'==============================
+Public Class boolOpNode
+    Inherits Node
+
+    'Variables
+    Public leftNode As Node
+    Public op As token
+    Public rightNode As Node
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal leftNode As Node, ByVal op As token, ByVal rightNode As Node)
+
+        MyBase.New(positionStart, positionEnd)
+        Me.leftNode = leftNode
+        Me.leftNode.parentNode = Me
+        Me.op = op
+        Me.rightNode = rightNode
+        Me.rightNode.parentNode = Me
+
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Return String.Format("({0} {1} {2})", leftNode, op, rightNode)
+    End Function
+
+End Class
+
+'==============================
 '========= Child Node =========
 '==============================
 Public Class childNode

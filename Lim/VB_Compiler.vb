@@ -988,15 +988,34 @@ Public Class VB_Compiler
         'Argument list
         Dim compiled_arguments As String = ""
         For Each arg As FunctionArgument In fun.Arguments
+
             Dim compiledName As String
             If getNodeParentFile(fun).LimLib Then
                 compiledName = arg.name
             Else
                 compiledName = getVariableName()
             End If
+
             Dim var As New Variable(arg.name, typenodeToSafeType(arg.type), compiledName, arg.declareType)
-            compiled_arguments &= ", " & var.compiledName & " As " & compileSafeType(var.type)
             fun.variables.Add(var)
+
+            If arg.value IsNot Nothing Then
+
+                If Not ValueIsIndependent(arg.value) Then
+                    addNodeTypeError("VBCF01", "The value indicated as an optional parameter must be independent.", arg.value, "Put a default value, then, check in the function if the value of the argument is the default one. If yes, set the complex value.")
+                End If
+
+                compiled_arguments &= ", Optional " & var.compiledName & " As " & compileSafeType(var.type) & " = Nothing"
+                content.Add(String.Format("If {0} Is Nothing Then", var.compiledName))
+                content.Add(String.Format(" {0} = {1}", var.compiledName, compileNode(arg.value, content)))
+                content.Add("End If")
+
+            Else
+
+                compiled_arguments &= ", " & var.compiledName & " As " & compileSafeType(var.type)
+
+            End If
+
         Next
         If compiled_arguments.StartsWith(", ") Then
             compiled_arguments = compiled_arguments.Substring(2)
@@ -1169,6 +1188,14 @@ Public Class VB_Compiler
 
         'Boolean
         If TypeOf node Is BooleanNode Then
+
+            'Return
+            Return New safeType(stdBool)
+
+        End If
+
+        'BoolOp
+        If TypeOf node Is boolOpNode Then
 
             'Return
             Return New safeType(stdBool)
@@ -1555,6 +1582,11 @@ Public Class VB_Compiler
             'Compile
             Return compileIfStatement(DirectCast(node, ifStatementNode), content)
 
+        ElseIf TypeOf node Is boolOpNode Then
+
+            'Compile
+            Return compileBoolOp(DirectCast(node, boolOpNode), content)
+
         End If
 
         'Return
@@ -1919,16 +1951,16 @@ Public Class VB_Compiler
                     If fun.Name = searchName Then
 
                         'Handle argument error
-                        If funCall.Arguments.Count < fun.Arguments.Count Then
+                        If funCall.Arguments.Count < fun.minArguments Then
                             addNodeTypeError("VBCC02", (fun.Arguments.Count - funCall.Arguments.Count).ToString() & " arguments are missing", node)
                         End If
-                        If funCall.Arguments.Count > fun.Arguments.Count Then
+                        If funCall.Arguments.Count > fun.maxArguments Then
                             addNodeTypeError("VBCC03", (funCall.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
                         End If
 
                         'Argument
                         Dim arguments As String = ""
-                        For i As Integer = 0 To fun.Arguments.Count - 1
+                        For i As Integer = 0 To funCall.Arguments.Count - 1
 
                             'Variables
                             Dim argModel As FunctionArgument = fun.Arguments(i)
@@ -2235,6 +2267,48 @@ Public Class VB_Compiler
 
     End Function
 
+    '=====================================
+    '========== COMPILE BOOL OP ==========
+    '=====================================
+    Public Function compileBoolOp(ByVal node As boolOpNode, ByVal content As List(Of String)) As String
+
+        'Get value type
+        Dim leftType As safeType = getNodeType(node.leftNode)
+        Dim rightType As safeType = getNodeType(node.rightNode)
+
+        'Handle error
+        If leftType.Dimensions.Count > 0 Then
+            addNodeTypeError("VBCBOO01", "Left elements cannot be a list or a map To allow a boolean operation.", node.leftNode)
+        End If
+        If rightType.Dimensions.Count > 0 Then
+            addNodeTypeError("VBCBOO02", "Right elements cannot be a list or a map To allow a boolean operation.", node.rightNode)
+        End If
+        If Not leftType.TargetClass.compiledName = "bool" Then
+            addNodeTypeError("VBCBOO03", "The element is of type <" & leftType.ToString() & ">, it should be of type <bool> to allow boolean comparison.", node.leftNode)
+        End If
+        If Not rightType.TargetClass.compiledName = "bool" Then
+            addNodeTypeError("VBCBOO04", "The element is of type <" & rightType.ToString() & ">, it should be of type <bool> to allow boolean comparison.", node.rightNode)
+        End If
+
+        'Return
+        Select Case node.op.type
+
+            Case tokenType.OP_AND
+                'AND
+                Return String.Format("New bool({0}.value And {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+
+            Case tokenType.OP_OR
+                'OR
+                Return String.Format("New bool({0}.value Or {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+
+        End Select
+
+        'Error
+        addNodeTypeError("VBCBO01", "The """ & node.op.ToString() & """ operation between a member of type <" & leftType.ToString() & "> and <" & rightType.ToString() & "> is not possible.", node)
+        Return Nothing
+
+    End Function
+
     '========================================
     '========== COMPILE COMPARISON ==========
     '========================================
@@ -2429,10 +2503,10 @@ Public Class VB_Compiler
         End If
 
         'Handle argument error
-        If node.arguments.Count < fun.Arguments.Count Then
+        If node.arguments.Count < fun.minArguments Then
             addNodeSyntaxError("VBCCN02", (fun.Arguments.Count - node.arguments.Count).ToString() & " arguments are missing", node)
         End If
-        If node.arguments.Count > fun.Arguments.Count Then
+        If node.arguments.Count > fun.maxArguments Then
             addNodeSyntaxError("VBCCN03", (node.arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
         End If
 
@@ -2480,16 +2554,16 @@ Public Class VB_Compiler
         'Get function
         Dim fun As FunctionNode = getFunction(node.FunctionName, node)
         'Handle argument error
-        If node.Arguments.Count < fun.Arguments.Count Then
+        If node.Arguments.Count < fun.minArguments Then
             addNodeTypeError("VBCFC01", (fun.Arguments.Count - node.Arguments.Count).ToString() & " arguments are missing", node)
         End If
-        If node.Arguments.Count > fun.Arguments.Count Then
+        If node.Arguments.Count > fun.maxArguments Then
             addNodeTypeError("VBCFC02", (node.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
         End If
 
         'Argument
         Dim arguments As String = ""
-        For i As Integer = 0 To fun.Arguments.Count - 1
+        For i As Integer = 0 To node.Arguments.Count - 1
 
             'Variables
             Dim argModel As FunctionArgument = fun.Arguments(i)

@@ -1,0 +1,29 @@
+import graphics
+
+let leftPlayerPos = 0
+let rightPlayerPos = 0
+
+func main
+	initWindow("Pong", 800, 500)
+
+func drawFrame(screen:image)
+	//Fill background
+	screen.fillRectangle(0, 0, 800, 500, "#000000")
+
+	//Draw player left
+	screen.fillRectangle(0, leftPlayerPos, 10, 60, "#FFFFFF")
+
+	//Player left move
+	if keyPressed("z")
+		leftPlayerPos = leftPlayerPos - 5
+	elseif keyPressed("s")
+		leftPlayerPos = leftPlayerPos + 5
+
+	//Draw player right
+	screen.fillRectangle(490, rightPlayerPos, 10, 60, "#FFFFFF")
+
+	//Player right move
+	if keyPressed("p")
+		rightPlayerPos = rightPlayerPos - 5
+	elseif keyPressed("m")
+		rightPlayerPos = rightPlayerPos + 5

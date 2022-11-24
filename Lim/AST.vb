@@ -183,7 +183,7 @@
 
         ElseIf tok.type = tokenType.OP_LPAR Then
             advance()
-            Dim com = comparison()
+            Dim com = boolOp()
             If current_tok.type = tokenType.OP_RPAR Then
                 advance()
                 Return com
@@ -205,7 +205,7 @@
             While True
 
                 'Get value
-                list.addElement(comparison())
+                list.addElement(boolOp())
 
                 'End list ?Q
                 If current_tok.type = tokenType.OP_RBRACKET Then
@@ -232,14 +232,14 @@
             While True
 
                 'Get Key
-                Dim key As Node = comparison()
+                Dim key As Node = boolOp()
 
                 'Get value
                 If Not current_tok.type = tokenType.OP_TWOPOINT Then
                     addSyntaxError("NPF04", "A "":"" was expected here.", file, current_tok.positionStart, current_tok.positionEnd)
                 End If
                 advance()
-                Dim value As Node = comparison()
+                Dim value As Node = boolOp()
 
                 'Add key & value
                 map.addElement(key, value)
@@ -339,7 +339,7 @@
             End If
 
             'Get argument
-            arguments.Add(comparison())
+            arguments.Add(boolOp())
 
             'Comma
             If current_tok.type = tokenType.OP_COMMA Then
@@ -468,6 +468,23 @@
 
     End Function
 
+    '===========================
+    '========= BOOL OP =========
+    '===========================
+    Private Function boolOp() As Node
+
+        Dim left As Node = comparison()
+        While {tokenType.OP_AND, tokenType.OP_OR}.Contains(current_tok.type)
+            Dim op As token = current_tok
+            advance()
+            Dim right As Node = comparison()
+            left = New boolOpNode(left.positionStart, right.positionEnd, left, op, right)
+        End While
+
+        Return left
+
+    End Function
+
     '========================
     '========= LINE =========
     '========================
@@ -475,7 +492,7 @@
 
         'It's another thing that a line
         If Not current_tok.type = tokenType.CT_LINESTART Then
-            Return comparison()
+            Return boolOp()
         End If
 
         'Get startPosition
@@ -490,7 +507,7 @@
 
             'Get value
             advance()
-            Dim value As Node = comparison()
+            Dim value As Node = boolOp()
             Return New ReturnNode(startPosition, current_tok.positionEnd, value)
 
         End If
@@ -503,7 +520,7 @@
             advance()
 
             'Get condition
-            Dim condition As Node = comparison()
+            Dim condition As Node = boolOp()
 
             'Create while object
             Dim while_statement As New whileStatementNode(positionStart, current_tok.positionEnd, condition)
@@ -563,7 +580,7 @@
             advance()
 
             'Get target
-            Dim target As Node = comparison()
+            Dim target As Node = boolOp()
 
             'Create for object
             Dim for_statement As New forStatementNode(positionStart, current_tok.positionEnd, target, variableName, declarationType)
@@ -600,7 +617,7 @@
             advance()
 
             'Get condition
-            Dim condition As Node = comparison()
+            Dim condition As Node = boolOp()
 
             'Get if lines
             Dim if_statements As New List(Of Node)
@@ -634,7 +651,7 @@
                 advance()
 
                 'Get condition
-                Dim elseif_condition As Node = comparison()
+                Dim elseif_condition As Node = boolOp()
 
                 'Get if lines
                 Dim elseif_lines As New List(Of Node)
@@ -732,7 +749,7 @@
             Dim value As Node = Nothing
             If current_tok.type = tokenType.OP_EQUAL Then
                 advance()
-                value = comparison()
+                value = boolOp()
                 endPosition = value.positionEnd
             End If
 
@@ -747,7 +764,7 @@
         End If
 
         'Continue parsing
-        Dim left As Node = comparison()
+        Dim left As Node = boolOp()
 
         'Set variable
         If TypeOf left Is ComparisonNode Then
@@ -846,10 +863,16 @@
                     Dim LastArgumentName As String = ""
                     Dim LastArgumentDeclarationType As VariableDeclarationType = VariableDeclarationType._let_
                     Dim LastArgumentUnsafeType As typeNode = Nothing
+                    Dim LastArgumentValue As Node = Nothing
 
-                    'Search for a ref
+                    'Declare type
                     If current_tok.type = tokenType.KW_VAR Then
+                        'Search for a "var"
                         LastArgumentDeclarationType = VariableDeclarationType._var_
+                        advance()
+                    ElseIf current_tok.type = tokenType.KW_LET Then
+                        'Search for a "let"
+                        LastArgumentDeclarationType = VariableDeclarationType._let_
                         advance()
                     End If
 
@@ -867,8 +890,14 @@
                     advance()
                     LastArgumentUnsafeType = type()
 
+                    'Value
+                    If current_tok.type = tokenType.OP_EQUAL Then
+                        advance()
+                        LastArgumentValue = boolOp()
+                    End If
+
                     'Add argument
-                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, LastArgumentDeclarationType))
+                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, LastArgumentDeclarationType, LastArgumentValue))
 
                     'Search for end
                     If current_tok.type = tokenType.OP_COMMA Then
