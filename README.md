@@ -93,16 +93,22 @@ class user
 ```javascript
 import graphics
 
-var img:image
-
 func main
-	img = loadImage("among_us.png")
-	initWindow("My sussy program", 500, 500, drawFrame) //initWindow(windowsName, width, height, function_to_call_for_each_frame)
+	initWindow("My window", 500, 500) //initWindow(windowsName, width, height)
 
-func drawFrame(let screen:image)
+let rectangleX = 225
+let rectangleY = 0
+
+func drawFrame(screen:image)
 	//Draw background
-	screen.drawRectangle(0, 0, width, height, "#FFFFFF")
+	screen.fillRectangle(0, 0, 500, 500, "#FFFFFF")
 
-	//Draw among us image
-	screen.drawImage(50, 50, 400, 400, img)
+	//Draw the rectangle
+	screen.fillRectangle(rectangleX, rectangleY, 50, 50, "#27AE60")
+
+	//Move rectange
+	if keyPressed("up")
+		rectangleY = rectangleY - 5
+	elseif keyPressed("down")
+		rectangleY = rectangleY + 5
 ```
