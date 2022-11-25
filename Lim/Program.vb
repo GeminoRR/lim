@@ -113,6 +113,7 @@ Module Program
         Console.ForegroundColor = ConsoleColor.DarkGreen
         Console.WriteLine("RUN : Lim <input_file>")
         Console.WriteLine("COMPILE: lim <input_file> <output_file> [-arguments]")
+        Console.WriteLine("*Lim is in beta. Many bugs are to be deplored*")
 
         'Explains
         Console.ResetColor()

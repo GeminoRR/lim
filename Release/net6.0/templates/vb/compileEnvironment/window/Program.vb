@@ -56,13 +56,46 @@
         End If
     End Sub
 
+    '/////////////////////////////
+    '/////// MOUSE HANDLER ///////
+    '/////////////////////////////
+    Public Function getMouseX() As Integer
+        Return Cursor.Position.X - Me.Location.X - 9
+    End Function
+
+    Public Function getMouseY() As Integer
+        Return Cursor.Position.Y - Me.Location.Y - 31
+    End Function
+
+    '///////////////////////////
+    '/////// WINDOW SIZE ///////
+    '///////////////////////////
+    Public Function getWindowWidth() As Boolean
+        Return Me.Width
+    End Function
+    Public Function getWindowHeight() As Boolean
+        Return Me.Height
+    End Function
+
+    '//////////////////////////
+    '/////// PUSH ERROR ///////
+    '//////////////////////////
+    Public Sub pushError(ByVal message As String)
+        MsgBox(message, MsgBoxStyle.Critical, "LIM RUNTIME ERROR")
+        End
+    End Sub
+
     '///////////////////////////
     '/////// ENTRY POINT ///////
     '///////////////////////////
     Private Sub Renderer_Load() Handles MyBase.Load
         screen = New image(New int(Me.Width), New int(Me.Height))
         frameRefreshTimer.Interval = Math.Round(1000 / 60)
-        '{ENTRY_POINT}'
+        Try
+            '{ENTRY_POINT}'
+        Catch ex As Exception
+            pushError(ex.Message)
+        End Try
         frameRefreshTimer.Start()
     End Sub
 
@@ -72,7 +105,11 @@
     Dim screen As image
     Private Sub frameRefreshTimer_Tick() Handles frameRefreshTimer.Tick
 
-        '{DRAWFRAME}'(screen)
+        Try
+            '{DRAWFRAME}'(screen)
+        Catch ex As Exception
+            pushError(ex.Message)
+        End Try
         display.Image = screen.img        
         display.Refresh()
 

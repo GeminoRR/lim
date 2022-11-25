@@ -54,7 +54,7 @@
 
         While tok_index < tokens.Count - 1
 
-            Dim obj As Node = struct()
+            Dim obj As Node = getClass()
             obj.parentNode = file
             If TypeOf obj Is DeclareVariableNode Then
                 file.declareVariables.Add(obj)
@@ -959,10 +959,10 @@
 
     End Function
 
-    '==========================
-    '========= STRUCT =========
-    '==========================
-    Private Function struct() As Node
+    '=========================
+    '========= CLASS =========
+    '=========================
+    Private Function getClass() As Node
 
         'Check indentation
         Dim needToRecede As Boolean = False
@@ -1032,6 +1032,9 @@
             End If
 
         End While
+
+        'Fix clone
+        currentStruct.fixClone()
 
         'Add node
         Return currentStruct

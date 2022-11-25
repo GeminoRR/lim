@@ -176,11 +176,11 @@ Public Class VB_Compiler
         stdFun = getClass("fun", entryFile, False)
 
         'Compiles classs
-        compileStruct(stdInt)
-        compileStruct(stdFloat)
-        compileStruct(stdBool)
-        compileStruct(stdBool)
-        compileStruct(stdFun)
+        compileClass(stdInt)
+        compileClass(stdFloat)
+        compileClass(stdBool)
+        compileClass(stdBool)
+        compileClass(stdFun)
 
         'Get graphics
         If graphicsDrawFunction IsNot Nothing Then
@@ -453,7 +453,7 @@ Public Class VB_Compiler
     Private Function typenodeToSafeType(ByVal typenode As typeNode) As safeType
 
         Dim TypeClass As ClassNode = getClass(typenode.className, typenode)
-        compileStruct(TypeClass)
+        compileClass(TypeClass)
         Return New safeType(TypeClass, typenode.Dimensions)
 
     End Function
@@ -470,7 +470,7 @@ Public Class VB_Compiler
         For Each currentClass As ClassNode In currentFile.classs
             If currentClass.Name = name Then
                 If compileClass Then
-                    compileStruct(currentClass)
+                    Me.compileClass(currentClass)
                 End If
                 Return currentClass
             End If
@@ -481,7 +481,7 @@ Public Class VB_Compiler
             For Each currentClass As ClassNode In file.classs
                 If currentClass.Name = name And currentClass.export Then
                     If compileClass Then
-                        compileStruct(currentClass)
+                        Me.compileClass(currentClass)
                     End If
                     Return currentClass
                 End If
@@ -758,10 +758,10 @@ Public Class VB_Compiler
 
     End Function
 
-    '====================================
-    '========== COMPILE STRUCT ==========
-    '====================================
-    Private Sub compileStruct(ByRef currentClass As ClassNode)
+    '===================================
+    '========== COMPILE CLASS ==========
+    '===================================
+    Private Sub compileClass(ByRef currentClass As ClassNode)
 
         'State handler
         If currentClass.compiled Then
@@ -978,13 +978,6 @@ Public Class VB_Compiler
             fun.Name = fun.Name.Substring(0, fun.Name.Count - 2)
         End If
 
-
-        'Clone
-        If Not parentClass Is Nothing And fun.Name = "clone" Then
-            fun.compiling = False
-            Return "'clone" & Environment.NewLine & "Public Function clone() As " & compileSafeType(fun.ReturnType) & Environment.NewLine & vbTab & "Return DirectCast(Me.MemberwiseClone(), " & compileSafeType(fun.ReturnType) & ")" & Environment.NewLine & "End Function"
-        End If
-
         'Argument list
         Dim compiled_arguments As String = ""
         For Each arg As FunctionArgument In fun.Arguments
@@ -1044,7 +1037,11 @@ Public Class VB_Compiler
         If fun.ReturnType Is Nothing Then
             finalString &= Environment.NewLine & Environment.NewLine & "End Sub"
         Else
-            finalString &= Environment.NewLine & Environment.NewLine & vbTab & "'Return empty" & Environment.NewLine & vbTab & "Return Nothing" & Environment.NewLine & Environment.NewLine & "End Function"
+            If Not parentClass Is Nothing And fun.Name = "clone" Then
+                finalString &= Environment.NewLine & Environment.NewLine & vbTab & "'Return basic copy" & Environment.NewLine & vbTab & "Return DirectCast(Me.MemberwiseClone(), " & compileSafeType(fun.ReturnType) & ")" & Environment.NewLine & Environment.NewLine & "End Function"
+            Else
+                finalString &= Environment.NewLine & Environment.NewLine & vbTab & "'Return empty" & Environment.NewLine & vbTab & "Return Nothing" & Environment.NewLine & Environment.NewLine & "End Function"
+            End If
         End If
         finalString = "'" & fun.Name & Environment.NewLine & finalString
 
@@ -2257,6 +2254,19 @@ Public Class VB_Compiler
                     content.Add(String.Format("{0}{1} &= {2}.value", vbTab, helpVar, compileNode(node.leftNode, content)))
                     content.Add("Next")
                     Return String.Format("New str({0})", helpVar)
+                End If
+
+            Case tokenType.OP_DIVISION
+                'DIVISION
+
+                'Check error
+                If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
+                    addNodeTypeError("VBCBO04", "Both elements cannot be a list To allow a ""/"" operation.", node)
+                End If
+
+                'Number operation
+                If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
+                    Return String.Format("New float({0}.value / {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
                 End If
 
         End Select

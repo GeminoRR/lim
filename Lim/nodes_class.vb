@@ -24,6 +24,27 @@ Public Class ClassNode
         Me.Name = Name
         Me.compiled = False
 
+    End Sub
+
+    'fixClone
+    Public Sub fixClone()
+
+        For Each method As FunctionNode In Me.methods
+            If method.Name = "clone" Then
+                If method.minArguments > 0 Then
+                    addNodeSyntaxError("NCFC01", "The ""clone"" method cannot contain an argument.", method)
+                End If
+                If method.unsafeReturnType IsNot Nothing Then
+                    If Not (method.unsafeReturnType.className = Name And method.unsafeReturnType.Dimensions.Count = 0) Then
+                        addNodeSyntaxError("NCFC01", "The ""clone"" method can only return itself.", method.unsafeReturnType)
+                    End If
+                Else
+                    method.unsafeReturnType = New typeNode(method.positionEnd, method.positionEnd, Me.Name, New List(Of ValueType))
+                End If
+                Exit Sub
+            End If
+        Next
+
         Dim clone_mehtod As FunctionNode = New FunctionNode(0, 0, "clone", New List(Of FunctionArgument), New typeNode(0, 0, Me.Name, New List(Of ValueType)))
         clone_mehtod.parentNode = Me
         Me.methods.Add(clone_mehtod)

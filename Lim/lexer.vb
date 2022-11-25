@@ -101,7 +101,7 @@ Public Class lexer
             ElseIf currentChar = "/" Then
                 'Divide operator
                 If charCounter + 1 < text.Length Then
-                    If text(charCounter) = "/" Then
+                    If text(charCounter + 1) = "/" Then
                         advance(2)
                         While Not (currentChar = vbCr Or currentChar = Environment.NewLine)
                             advance()

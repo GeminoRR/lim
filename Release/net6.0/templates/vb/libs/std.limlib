@@ -106,6 +106,10 @@ class float
 	func __int__:int
 		$"Return New int(Math.Round(Me.value))"
 
+	//Round
+	func round(var count:int = 0):float
+		$"Return New float(Math.Round(Me.value, count.value))"
+
 //////////////////////////
 /////// BOOL CLASS ///////
 //////////////////////////

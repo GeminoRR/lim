@@ -20,13 +20,57 @@ class image
 		$"Me.img = New Bitmap(width.value, height.value)"
 		$"Me.gr = Graphics.FromImage(Me.img)"
 
+	//Clone
+	func clone:image
+		$"Dim temp As New image(New int(0), New int(0))"
+		$"temp.img = New Bitmap(Me.img, New Size(Me.img.Width, Me.img.height))"
+		$"Return temp"
+
+	//Width
+	func width:int
+		$"Return New int(img.Width)"
+	
+	//Height
+	func height:int
+		$"Return New int(img.Height)"
+
+	//Rezize
+	func resize(var width:int, var height:int)
+		$"Me.img = New Bitmap(Me.img, New Size(width.value, height.value))"
+
+	//Set pixel
+	func setPixel(var x:int, var y:int, var color:str)
+		$"img.SetPixel(x.value, y.value, ColorTranslator.FromHtml(color.value))"
+
+	//Get pixel
+	func getPixel(var x:int, var y:int):str
+		$"If x.value < 0 Then"
+		$"	x.value = 0"
+		$"ElseIf x.value > img.Width"
+		$"	x.value = img.Width - 1"
+		$"End If"
+		$"If y.value < 0 Then"
+		$"	y.value = 0"
+		$"ElseIf y.value > img.Height"
+		$"	y.value = img.Height - 1"
+		$"End If"
+		$"Return New str(ColorTranslator.ToHtml(img.GetPixel(x.value, y.value)))"
+
 	//Fill rectangle
 	func fillRectangle(var x:int, var y:int, var w:int, var h:int, var c:str)
 		$"gr.FillRectangle(New SolidBrush(ColorTranslator.FromHtml(c.value)), x.value, y.value, w.value, h.value)"
 
+	//Draw rectangle
+	func drawRectangle(var x:int, var y:int, var w:int, var h:int, var c:str, var thickness:int = 1)
+		$"gr.DrawRectangle(New Pen(New SolidBrush(ColorTranslator.FromHtml(c.value)), thickness.value), x.value, y.value, w.value, h.value)"
+
 	//Fill ellipse
 	func fillEllipse(var x:int, var y:int, var w:int, var h:int, var c:str)
 		$"gr.FillEllipse(New SolidBrush(ColorTranslator.FromHtml(c.value)), x.value, y.value, w.value, h.value)"
+
+	//Draw ellipse
+	func drawEllipse(var x:int, var y:int, var w:int, var h:int, var c:str, var thickness:int = 1)
+		$"gr.DrawEllipse(New Pen(New SolidBrush(ColorTranslator.FromHtml(c.value)), thickness.value), x.value, y.value, w.value, h.value)"
 
 	//Draw string
 	func drawString(var x:int, var y:int, var content:str, var color:str = "#000000", var fontSize:int = 10, var fontName:str = "Segoe ui")
@@ -37,3 +81,29 @@ class image
 ///////////////////////////
 func keyPressed(key:str):bool
 	$"Return New bool(checkKeyPressed(key.value))"
+
+//////////////////////////////
+/////// MOUSE POSITION ///////
+//////////////////////////////
+func mouseX:int
+	$"Return New int(getMouseX())"
+func mouseY:int
+	$"Return New int(getMouseY())"
+
+/////////////////////////////
+/////// MOUSE PRESSED ///////
+/////////////////////////////
+func mouseLeftPressed:bool
+	$"Return New bool(MouseButtons.HasFlag(MouseButtons.Left))"
+func mouseRightPressed:bool
+	$"Return New bool(MouseButtons.HasFlag(MouseButtons.Right))"
+func mouseMiddlePressed:bool
+	$"Return New bool(MouseButtons.HasFlag(MouseButtons.Middle))"
+
+///////////////////////////
+/////// WINDOW SIZE ///////
+///////////////////////////
+func width:int
+	$"Return New int(getWindowWidth())"
+func height:int
+	$"Return New int(getWindowHeight())"

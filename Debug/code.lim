@@ -1,20 +1,6 @@
-import graphics
-
 func main
-	initWindow("My window", 500, 500) //initWindow(windowsName, width, height)
-
-let rectangleX = 225
-let rectangleY = 0
-
-func drawFrame(screen:image)
-	//Draw background
-	screen.fillRectangle(0, 0, 500, 500, "#FFFFFF")
-
-	//Draw the rectangle
-	screen.fillRectangle(rectangleX, rectangleY, 50, 50, "#27AE60")
-
-	//Move rectange
-	if keyPressed("up")
-		rectangleY = rectangleY - 5
-	elseif keyPressed("down")
-		rectangleY = rectangleY + 5
+	var test = 4
+	puts(test.str())
+	let bob = test
+	bob = 1
+	puts(test.str())
