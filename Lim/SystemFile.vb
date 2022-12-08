@@ -201,8 +201,8 @@ Public Class LimFile
             For Each functions As FunctionNode In Me.functions
                 functions.export = True
             Next
-            For Each anyClass As ClassNode In Me.classs
-                anyClass.export = True
+            For Each currentClass As ClassNode In Me.classs
+                currentClass.export = True
             Next
         End If
 

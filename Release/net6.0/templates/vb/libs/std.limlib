@@ -1,7 +1,7 @@
 /////////////////////////
 /////// INT CLASS ///////
 /////////////////////////
-class int
+primary class int
 	//Propreties
 	$"Public value As Integer = 0"
 
@@ -18,10 +18,116 @@ class int
 	func __float__:float
 		$"Return New float(Me.value)"
 
+	//Add relation
+	relation +(n1:int, n2:int):int
+		$"Return New int(n1.value + n2.value)"
+	relation +(n1:int, n2:float):float
+		$"Return New float(n1.value + n2.value)"
+
+	//Minus relation
+	relation -(n1:int, n2:int):int
+		$"Return New int(n1.value - n2.value)"
+	relation -(n1:int, n2:float):float
+		$"Return New float(n1.value + n2.value)"
+
+	//Multiplication
+	relation *(n1:int, n2:int):int
+		$"Return New int(n1.value * n2.value)"
+	relation *(n1:int, n2:float):float
+		$"Return New float(n1.value * n2.value)"
+	relation *(n1:int, n2:str):str
+		$'Dim temp As String = ""'
+		$"For i As Integer = 0 To n1.value - 1"
+		$"	temp &= n2.value"
+		$"Next"
+		$"Return New str(temp)"
+
+	//Division
+	relation /(n1:int, n2:int):float
+		$"Return New float(n1.value / n2.value)"
+	relation /(n1:int, n2:float):float
+		$"Return New float(n1.value / n2.value)"
+
+	//Modulo
+	relation %(n1:int, n2:int):int
+		$"Return New int(n1.value Mod n2.value)"
+	relation %(n1:int, n2:float):float
+		$"Return New float(n1.value Mod n2.value)"
+
+///////////////////////////
+/////// FLOAT CLASS ///////
+///////////////////////////
+primary class float
+	//Propreties
+	$"Public value As Double = 0.0"
+
+	//New
+	$"Public Sub New(ByVal value As Double)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func __str__:str
+		$"Return New str(Me.value.ToString())"
+
+	//Int
+	func __int__:int
+		$"Return New int(Math.Round(Me.value))"
+
+	//Round
+	func round(var count:int = 0):float
+		$"Return New float(Math.Round(Me.value, count.value))"
+
+	//Add relation
+	relation +(n1:float, n2:float):float
+		$"Return New float(n1.value + n2.value)"
+	relation +(n1:float, n2:int):float
+		$"Return New float(n1.value + n2.value)"
+
+	//Minus relation
+	relation -(n1:float, n2:int):float
+		$"Return New float(n1.value - n2.value)"
+	relation -(n1:float, n2:float):float
+		$"Return New float(n1.value + n2.value)"
+
+	//Multiplication
+	relation *(n1:float, n2:int):float
+		$"Return New float(n1.value * n2.value)"
+	relation *(n1:float, n2:float):float
+		$"Return New float(n1.value * n2.value)"
+
+	//Division
+	relation /(n1:float, n2:int):float
+		$"Return New float(n1.value / n2.value)"
+	relation /(n1:float, n2:float):float
+		$"Return New float(n1.value / n2.value)"
+
+	//Modulo
+	relation %(n1:float, n2:int):float
+		$"Return New float(n1.value Mod n2.value)"
+	relation %(n1:float, n2:float):float
+		$"Return New float(n1.value Mod n2.value)"
+
+//////////////////////////
+/////// BOOL CLASS ///////
+//////////////////////////
+primary class bool
+	//Propreties
+	$"Public value As Boolean = True"
+
+	//New
+	$"Public Sub New(ByVal value As Boolean)"
+	$"	Me.value = value"
+	$"End Sub"
+
+	//Str
+	func __str__:str
+		$"Return New str(Me.value.ToString())"
+
 /////////////////////////
 /////// STR CLASS ///////
 /////////////////////////
-class str
+primary class str
 	//Propreties
 	$'Public value As String = ""'
 
@@ -86,50 +192,22 @@ class str
 	func upper():str
 		$"Return New str(Me.value.ToUpper())"
 
-///////////////////////////
-/////// FLOAT CLASS ///////
-///////////////////////////
-class float
-	//Propreties
-	$"Public value As Double = 0.0"
-
-	//New
-	$"Public Sub New(ByVal value As Double)"
-	$"	Me.value = value"
-	$"End Sub"
-
-	//Str
-	func __str__:str
-		$"Return New str(Me.value.ToString())"
-
-	//Int
-	func __int__:int
-		$"Return New int(Math.Round(Me.value))"
-
-	//Round
-	func round(var count:int = 0):float
-		$"Return New float(Math.Round(Me.value, count.value))"
-
-//////////////////////////
-/////// BOOL CLASS ///////
-//////////////////////////
-class bool
-	//Propreties
-	$"Public value As Boolean = True"
-
-	//New
-	$"Public Sub New(ByVal value As Boolean)"
-	$"	Me.value = value"
-	$"End Sub"
-
-	//Str
-	func __str__:str
-		$"Return New str(Me.value.ToString())"
+	//Add relation
+	relation +(n1:str, n2:str):str
+		$"Return New str(n1.value + n2.value)"
+	
+	//Multiplication
+	relation *(n1:str, n2:int):str
+		$'Dim temp As String = ""'
+		$"For i As Integer = 0 To n2.value - 1"
+		$"	temp &= n1.value"
+		$"Next"
+		$"Return New str(temp)"
 
 /////////////////////////
 /////// FUN CLASS ///////
 /////////////////////////
-class fun
+primary class fun
 	//Propreties
 	$"Public value As Integer = -1"
 
@@ -158,9 +236,13 @@ func gets(message:str):str
 /////////////////////
 /////// RANGE ///////
 /////////////////////
-func range(max:int):int[]
+func range(min:int, max:int = -1):int[]
+	$"If max.value = -1 Then"
+	$"	max.value = min.value"
+	$"	min.value = 0"
+	$"End If"
 	$"Dim temp As New LimList(Of int)"
-	$"For i As Integer = 0 To max.value - 1"
+	$"For i As Integer = min.value To max.value - 1"
 	$"	temp.add(new int(i))"
 	$"Next"
 	$"Return temp"

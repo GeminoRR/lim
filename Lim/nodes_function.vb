@@ -105,3 +105,58 @@ Public Class FunctionArgument
     End Function
 
 End Class
+
+'==============================
+'========== RELATION ==========
+'==============================
+Public Class RelationNode
+    Inherits containerNode
+
+    'Variable
+    Public operator_name As token
+    Public Arguments As List(Of FunctionArgument)
+
+    Public unsafeReturnType As typeNode = Nothing
+    Public ReturnType As safeType = Nothing
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal operator_name As token, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
+        MyBase.New(positionStart, positionEnd)
+        Me.operator_name = operator_name
+        Me.Arguments = Arguments
+        For Each arg As FunctionArgument In Me.Arguments
+            arg.type.parentNode = Me
+        Next
+        Me.unsafeReturnType = unsafeReturnType
+        If Not Me.unsafeReturnType Is Nothing Then
+            Me.unsafeReturnType.parentNode = Me
+        End If
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+
+        'Unsafe type
+        Dim UST As String = ""
+        If Not unsafeReturnType Is Nothing Then
+            UST = ":" & unsafeReturnType.ToString()
+        End If
+
+        'Argument
+        Dim ATS As String = ""
+        If Arguments.Count > 0 Then
+            For Each arg As FunctionArgument In Arguments
+                ATS &= ", " & arg.ToString()
+            Next
+            ATS = ATS.Substring(2)
+        End If
+
+        'Actions
+        Dim LTS As String = " = *" & Me.codes.Count.ToString() & " elements*"
+
+        'Return
+        Return "(relation " & operator_name.ToString() & "(" & ATS & ")" & UST & LTS & ")"
+
+    End Function
+
+End Class

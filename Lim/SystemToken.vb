@@ -49,6 +49,7 @@ Public Enum tokenType
     'Keywords (KW)
     KW_VAR
     KW_LET
+    KW_NEW
 
     KW_WHILE
     KW_FOR
@@ -56,13 +57,14 @@ Public Enum tokenType
     KW_ELSE
     KW_ELSEIF
 
-    KW_EXPORT
-    KW_NEW
 
     KW_RETURN
     KW_CLASS
     KW_FUNC
+    KW_RELATION
 
+    KW_EXPORT
+    KW_PRIMARY
     KW_IMPORT
 
     'Operators (OP)

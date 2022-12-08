@@ -237,6 +237,7 @@ Public Class VB_Compiler
         If Not compiledFunctions = "" Then
             finalCode &= Environment.NewLine & Environment.NewLine & vbTab & "'///////////////////////////" & Environment.NewLine & vbTab & "'//////// FUNCTIONS ////////" & Environment.NewLine & vbTab & "'///////////////////////////" & compiledFunctions.Replace(Environment.NewLine, Environment.NewLine & vbTab)
         End If
+        finalCode = finalCode.Replace(".clone().clone()", ".clone()")
         If logs Then
             addLog("Compile the program: OK")
         End If
@@ -785,7 +786,7 @@ Public Class VB_Compiler
         'Add source directly
         If currentClass.addSourceDirectly.Count > 0 Then
             content.Add("")
-            content.Add("'Add sources directly")
+            content.Add("'////// ADD SOURCE DIRECTLY //////")
             For Each source As AddSourceNode In currentClass.addSourceDirectly
                 content.Add(source.value)
             Next
@@ -795,7 +796,7 @@ Public Class VB_Compiler
         If currentClass.declareVariables.Count > 0 Then
 
             content.Add("")
-            content.Add("'Variables")
+            content.Add("'////// VARIABLES //////")
             For Each def As DeclareVariableNode In currentClass.declareVariables
 
                 'Create variable
@@ -840,7 +841,7 @@ Public Class VB_Compiler
         'Get functions
         If currentClass.methods.Count > 0 Then
             content.Add("")
-            content.Add("'Methods")
+            content.Add("'////// METHODS //////")
             For Each def As FunctionNode In currentClass.methods
 
                 'Compile
@@ -896,12 +897,30 @@ Public Class VB_Compiler
 
         'Load properties
         content.Add("")
-        content.Add("'Load properties")
+        content.Add("'////// LOAD PROPERTIES //////")
         content.Add("Private Sub load_properties()")
         For Each line As String In propreties_init
             content.Add(vbTab & line)
         Next
         content.Add("End Sub")
+
+        'Relations
+        If currentClass.relations.Count > 0 Then
+            content.Add("")
+            content.Add("'////// RELATIONS //////")
+            For Each def As RelationNode In currentClass.relations
+
+                'Handle type
+                If Not def.Arguments(0).type.className = currentClass.Name Then
+                    addNodeSyntaxError("VBCS02", "A relation must have as first argument, itself.", def.Arguments(0).type, "Change argument type to "":" & currentClass.Name & """")
+                End If
+
+                'Compile
+                content.Add("")
+                content.Add(compileRelation(def).Replace(Environment.NewLine, Environment.NewLine & vbTab))
+
+            Next
+        End If
 
         'Final
         Dim finalString As String = "Public Class " & currentClass.compiledName
@@ -1058,6 +1077,96 @@ Public Class VB_Compiler
 
     End Function
 
+    '======================================
+    '========== COMPILE RELATION ==========
+    '======================================
+    Public Function compileRelation(ByVal relation As RelationNode) As String
+
+        'Get unsafe type
+        If Not relation.unsafeReturnType Is Nothing Then
+            relation.ReturnType = typenodeToSafeType(relation.unsafeReturnType)
+        End If
+
+        'Some variables
+        Dim content As New List(Of String)
+        Dim parentFile As LimFile = getNodeParentFile(relation)
+
+        'Get operator
+        Dim operatorString As String = ""
+        Select Case relation.operator_name.type
+
+            Case tokenType.OP_PLUS
+                operatorString = "+"
+
+            Case tokenType.OP_MINUS
+                operatorString = "-"
+
+            Case tokenType.OP_MULTIPLICATION
+                operatorString = "*"
+
+            Case tokenType.OP_DIVISION
+                operatorString = "/"
+
+            Case tokenType.OP_MODULO
+                operatorString = "Mod"
+
+            Case Else
+                addSyntaxError("VBCR02", "The compiler does not recognize this operator despite the fact that it is defined from a relation.", parentFile, relation.operator_name.positionStart, relation.operator_name.positionEnd)
+
+        End Select
+
+        'Argument list
+        Dim compiled_arguments As String = ""
+        For Each arg As FunctionArgument In relation.Arguments
+
+            Dim compiledName As String
+            If parentFile.LimLib Then
+                compiledName = arg.name
+            Else
+                compiledName = getVariableName()
+            End If
+
+            Dim var As New Variable(arg.name, typenodeToSafeType(arg.type), compiledName, arg.declareType)
+            relation.variables.Add(var)
+
+            compiled_arguments &= ", " & var.compiledName & " As " & compileSafeType(var.type)
+
+        Next
+        If compiled_arguments.StartsWith(", ") Then
+            compiled_arguments = compiled_arguments.Substring(2)
+        End If
+
+        'Compile content
+        For Each action As Node In relation.codes
+
+            Dim compiledAction As String = compileNode(action, content)
+            If Not compiledAction = "" Then
+                content.Add(compiledAction)
+            End If
+
+        Next
+
+        'Return is empty
+        If relation.ReturnType Is Nothing Then
+            addNodeSyntaxError("VBCR01", "A relation must absolutely return a value", relation)
+        End If
+
+        'Final
+        Dim finalString As String = ""
+        finalString = "Public Shared Operator " & operatorString & "(" & compiled_arguments & ") As " & compileSafeType(relation.ReturnType)
+        For i As Integer = 0 To content.Count - 1
+            finalString &= Environment.NewLine & vbTab & content(i)
+        Next
+        finalString &= Environment.NewLine & vbTab & ""
+        finalString &= "Throw New Exception(""Relation doesn't return anything (" & parentFile.name & ", line " & getLinePosition(parentFile.content, relation.positionStart).ToString() & ")"")"
+        finalString &= Environment.NewLine & vbTab & "Return Nothing"
+        finalString &= Environment.NewLine & "End Operator"
+
+        'Return
+        Return finalString
+
+    End Function
+
     '===================================
     '========== GET NODE TYPE ==========
     '===================================
@@ -1125,53 +1234,72 @@ Public Class VB_Compiler
             Dim left As safeType = getNodeType(castedNode.leftNode)
             Dim right As safeType = getNodeType(castedNode.rightNode)
 
-            'Handle
-            If left.Dimensions.Count > 0 Then
-                addNodeTypeError("VBGNT02", "The subtraction operation cannot be performed on a list", castedNode.leftNode)
-            End If
-            If right.Dimensions.Count > 0 Then
-                addNodeTypeError("VBGNT03", "The subtraction operation cannot be performed on a list", castedNode.rightNode)
-            End If
+            'Get relation
+            For Each relation As RelationNode In left.TargetClass.relations
 
-            'Type
-            Select Case castedNode.op.type
-                Case tokenType.OP_MINUS
-                    If left.TargetClass.compiledName = right.TargetClass.compiledName Then
-                        Return New safeType(stdInt)
-                    End If
-                    Return New safeType(stdFloat)
+                'Get argument type
+                Dim relationRightArgumentType As safeType = typenodeToSafeType(relation.Arguments(1).type)
 
-                Case tokenType.OP_PLUS
-                    If left.TargetClass.compiledName = "str" And right.TargetClass.compiledName = "str" Then
-                        Return New safeType(stdStr)
-                    ElseIf left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "int" Then
-                        Return New safeType(stdInt)
-                    End If
-                    Return New safeType(stdFloat)
+                'If it's not the same
+                If Not relationRightArgumentType.IsTheSameAs(right) Then
+                    Continue For
+                End If
 
-                Case tokenType.OP_MULTIPLICATION
-                    If left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "int" Then
-                        Return New safeType(stdInt)
-                    ElseIf left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "str" Then
-                        Return New safeType(stdStr)
-                    ElseIf left.TargetClass.compiledName = "str" And right.TargetClass.compiledName = "int" Then
-                        Return New safeType(stdStr)
-                    End If
-                    Return New safeType(stdFloat)
+                'Compile
+                Return relation.ReturnType
 
-                Case tokenType.OP_MODULO
-                    Return New safeType(stdInt)
-                    'TODO: Better modulo type
+            Next
 
-                Case tokenType.OP_DIVISION
-                    Return New safeType(stdFloat)
-                    'TODO: Better modulo type
+            'Error
+            addNodeTypeError("VBGNT17", "The operation between an <" & left.ToString() & "> type and a <" & right.ToString() & "> type is undefined.", castedNode, "Create a ""relation"" of these two types in the class <" & left.TargetClass.Name & ">")
 
-                Case Else
-                    'Problem go brrr
-                    Throw New NotImplementedException()
+            ''Handle
+            'If left.Dimensions.Count > 0 Then
+            '    addNodeTypeError("VBGNT02", "The subtraction operation cannot be performed on a list", castedNode.leftNode)
+            'End If
+            'If right.Dimensions.Count > 0 Then
+            '    addNodeTypeError("VBGNT03", "The subtraction operation cannot be performed on a list", castedNode.rightNode)
+            'End If
 
-            End Select
+            ''Type
+            'Select Case castedNode.op.type
+            '    Case tokenType.OP_MINUS
+            '        If left.TargetClass.compiledName = right.TargetClass.compiledName Then
+            '            Return New safeType(stdInt)
+            '        End If
+            '        Return New safeType(stdFloat)
+
+            '    Case tokenType.OP_PLUS
+            '        If left.TargetClass.compiledName = "str" And right.TargetClass.compiledName = "str" Then
+            '            Return New safeType(stdStr)
+            '        ElseIf left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "int" Then
+            '            Return New safeType(stdInt)
+            '        End If
+            '        Return New safeType(stdFloat)
+
+            '    Case tokenType.OP_MULTIPLICATION
+            '        If left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "int" Then
+            '            Return New safeType(stdInt)
+            '        ElseIf left.TargetClass.compiledName = "int" And right.TargetClass.compiledName = "str" Then
+            '            Return New safeType(stdStr)
+            '        ElseIf left.TargetClass.compiledName = "str" And right.TargetClass.compiledName = "int" Then
+            '            Return New safeType(stdStr)
+            '        End If
+            '        Return New safeType(stdFloat)
+
+            '    Case tokenType.OP_MODULO
+            '        Return New safeType(stdInt)
+            '        'TODO: Better modulo type
+
+            '    Case tokenType.OP_DIVISION
+            '        Return New safeType(stdFloat)
+            '        'TODO: Better modulo type
+
+            '    Case Else
+            '        'Problem go brrr
+            '        Throw New NotImplementedException()
+
+            'End Select
 
         End If
 
@@ -2040,8 +2168,12 @@ Public Class VB_Compiler
         'Get variable
         Dim var As Variable = getVariable(node.VariableName, node)
 
-        'Return
-        Return var.compiledName
+        'Clone
+        If var.type.TargetClass.primary Then
+            Return var.compiledName & ".clone()"
+        Else
+            Return var.compiledName
+        End If
 
     End Function
 
@@ -2178,102 +2310,153 @@ Public Class VB_Compiler
         Dim leftType As safeType = getNodeType(node.leftNode)
         Dim rightType As safeType = getNodeType(node.rightNode)
 
-        'Return
-        Select Case node.op.type
+        'Casted node
+        Dim castedNode As binOpNode = DirectCast(node, binOpNode)
 
-            Case tokenType.OP_PLUS
-                'ADDITIONS
+        'Get type
+        Dim left As safeType = getNodeType(castedNode.leftNode)
+        Dim right As safeType = getNodeType(castedNode.rightNode)
 
-                'Check error
-                If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO01", "Both elements cannot be a list To allow a ""+"" operation.", node)
-                End If
+        'Get relation
+        For Each relation As RelationNode In left.TargetClass.relations
 
-                'Number operation
-                If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "int" Then
-                    Return String.Format("New int({0}.value + {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
-                If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
-                    Return String.Format("New float({0}.value + {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
+            'Get argument type
+            Dim relationRightArgumentType As safeType = typenodeToSafeType(relation.Arguments(1).type)
 
-                'String operation
-                If leftType.TargetClass.compiledName = "str" And rightType.TargetClass.compiledName = "str" Then
-                    Return String.Format("New str({0}.value & {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
+            'If it's not the same
+            If Not relationRightArgumentType.IsTheSameAs(right) Then
+                Continue For
+            End If
+            If Not relation.operator_name.type = castedNode.op.type Then
+                Continue For
+            End If
 
-            Case tokenType.OP_MINUS
-                'SUBSTRACTION
+            'Compile
+            Dim string_operator As String = ""
+            Select Case castedNode.op.type
 
-                'Check error
-                If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO02", "Both elements cannot be a list To allow a ""-"" operation.", node)
-                End If
+                Case tokenType.OP_PLUS
+                    string_operator = "+"
 
-                'Number operation
-                If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "int" Then
-                    Return String.Format("New int({0}.value - {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
-                If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
-                    Return String.Format("New float({0}.value - {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
+                Case tokenType.OP_MINUS
+                    string_operator = "-"
 
-            Case tokenType.OP_MULTIPLICATION
-                'MULTIPLICATION
+                Case tokenType.OP_MULTIPLICATION
+                    string_operator = "*"
 
-                'Check error
-                If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO03", "Both elements cannot be a list To allow a ""*"" operation.", node)
-                End If
+                Case tokenType.OP_DIVISION
+                    string_operator = "/"
 
-                'Number operation
-                If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "int" Then
-                    Return String.Format("New int({0}.value * {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
-                If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
-                    Return String.Format("New float({0}.value * {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
+                Case tokenType.OP_MODULO
+                    string_operator = "Mod"
 
-                'String & number
-                If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "str" Then
-                    Dim helpVar As String = getHelpVariableName()
-                    Dim iVar As String = getHelpVariableName()
-                    content.Add(String.Format("Dim {0} As String = """"", helpVar))
-                    content.Add(String.Format("For {0} As Integer = 0 To {1}.value - 1", iVar, compileNode(node.leftNode, content)))
-                    content.Add(String.Format("{0}{1} &= {2}.value", vbTab, helpVar, compileNode(node.rightNode, content)))
-                    content.Add("Next")
-                    Return String.Format("New str({0})", helpVar)
-                End If
+                Case Else
+                    addSyntaxError("VBCBO02", "The compiler does not recognize this operator despite the fact that it is defined from a relation.", getNodeParentFile(castedNode), castedNode.op.positionStart, castedNode.op.positionEnd)
 
-                'Number & String
-                If leftType.TargetClass.compiledName = "str" And rightType.TargetClass.compiledName = "int" Then
-                    Dim helpVar As String = getHelpVariableName()
-                    Dim iVar As String = getHelpVariableName()
-                    content.Add(String.Format("Dim {0} As String = """"", helpVar))
-                    content.Add(String.Format("For {0} As Integer = 0 To {1}.value - 1", iVar, compileNode(node.rightNode, content)))
-                    content.Add(String.Format("{0}{1} &= {2}.value", vbTab, helpVar, compileNode(node.leftNode, content)))
-                    content.Add("Next")
-                    Return String.Format("New str({0})", helpVar)
-                End If
-
-            Case tokenType.OP_DIVISION
-                'DIVISION
-
-                'Check error
-                If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
-                    addNodeTypeError("VBCBO04", "Both elements cannot be a list To allow a ""/"" operation.", node)
-                End If
-
-                'Number operation
-                If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
-                    Return String.Format("New float({0}.value / {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
-                End If
-
-        End Select
+            End Select
+            Return "(" & compileNode(castedNode.leftNode, content) & " " & string_operator & " " & compileNode(castedNode.rightNode, content) & ")"
+        Next
 
         'Error
-        addNodeTypeError("VBCBO01", "The """ & node.op.ToString() & """ operation between a member of type <" & leftType.ToString() & "> and <" & rightType.ToString() & "> is not possible.", node)
+        addNodeTypeError("VBCBO01", "The operation between an <" & left.ToString() & "> type and a <" & right.ToString() & "> type is undefined.", castedNode, "Create a ""relation"" of these two types in the class <" & left.TargetClass.Name & ">")
         Return Nothing
+
+        ''Return
+        'Select Case node.op.type
+
+        '    Case tokenType.OP_PLUS
+        '        'ADDITIONS
+
+        '        'Check error
+        '        If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
+        '            addNodeTypeError("VBCBO01", "Both elements cannot be a list To allow a ""+"" operation.", node)
+        '        End If
+
+        '        'Number operation
+        '        If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "int" Then
+        '            Return String.Format("New int({0}.value + {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+        '        If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
+        '            Return String.Format("New float({0}.value + {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+
+        '        'String operation
+        '        If leftType.TargetClass.compiledName = "str" And rightType.TargetClass.compiledName = "str" Then
+        '            Return String.Format("New str({0}.value & {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+
+        '    Case tokenType.OP_MINUS
+        '        'SUBSTRACTION
+
+        '        'Check error
+        '        If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
+        '            addNodeTypeError("VBCBO02", "Both elements cannot be a list To allow a ""-"" operation.", node)
+        '        End If
+
+        '        'Number operation
+        '        If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "int" Then
+        '            Return String.Format("New int({0}.value - {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+        '        If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
+        '            Return String.Format("New float({0}.value - {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+
+        '    Case tokenType.OP_MULTIPLICATION
+        '        'MULTIPLICATION
+
+        '        'Check error
+        '        If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
+        '            addNodeTypeError("VBCBO03", "Both elements cannot be a list To allow a ""*"" operation.", node)
+        '        End If
+
+        '        'Number operation
+        '        If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "int" Then
+        '            Return String.Format("New int({0}.value * {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+        '        If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
+        '            Return String.Format("New float({0}.value * {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+
+        '        'String & number
+        '        If leftType.TargetClass.compiledName = "int" And rightType.TargetClass.compiledName = "str" Then
+        '            Dim helpVar As String = getHelpVariableName()
+        '            Dim iVar As String = getHelpVariableName()
+        '            content.Add(String.Format("Dim {0} As String = """"", helpVar))
+        '            content.Add(String.Format("For {0} As Integer = 0 To {1}.value - 1", iVar, compileNode(node.leftNode, content)))
+        '            content.Add(String.Format("{0}{1} &= {2}.value", vbTab, helpVar, compileNode(node.rightNode, content)))
+        '            content.Add("Next")
+        '            Return String.Format("New str({0})", helpVar)
+        '        End If
+
+        '        'Number & String
+        '        If leftType.TargetClass.compiledName = "str" And rightType.TargetClass.compiledName = "int" Then
+        '            Dim helpVar As String = getHelpVariableName()
+        '            Dim iVar As String = getHelpVariableName()
+        '            content.Add(String.Format("Dim {0} As String = """"", helpVar))
+        '            content.Add(String.Format("For {0} As Integer = 0 To {1}.value - 1", iVar, compileNode(node.rightNode, content)))
+        '            content.Add(String.Format("{0}{1} &= {2}.value", vbTab, helpVar, compileNode(node.leftNode, content)))
+        '            content.Add("Next")
+        '            Return String.Format("New str({0})", helpVar)
+        '        End If
+
+        '    Case tokenType.OP_DIVISION
+        '        'DIVISION
+
+        '        'Check error
+        '        If leftType.Dimensions.Count > 0 Or rightType.Dimensions.Count > 0 Then
+        '            addNodeTypeError("VBCBO04", "Both elements cannot be a list To allow a ""/"" operation.", node)
+        '        End If
+
+        '        'Number operation
+        '        If (leftType.TargetClass.compiledName = "int" Or leftType.TargetClass.compiledName = "float") And (rightType.TargetClass.compiledName = "int" Or rightType.TargetClass.compiledName = "float") Then
+        '            Return String.Format("New float({0}.value / {1}.value)", compileNode(node.leftNode, content), compileNode(node.rightNode, content))
+        '        End If
+
+        'End Select
+
+        ''Error
+        'addNodeTypeError("VBCBO01", "The """ & node.op.ToString() & """ operation between a member of type <" & leftType.ToString() & "> and <" & rightType.ToString() & "> is not possible.", node)
+        'Return Nothing
 
     End Function
 
@@ -2621,36 +2804,29 @@ Public Class VB_Compiler
 
         'Handle error
         If Not variableType.IsTheSameAs(valueType) Then
-            addNodeTypeError("VBCSV01", "Cannot change a value of type <" & variableType.ToString() & "> to <" & valueType.ToString() & ">", castedNode)
+            addNodeTypeError("VBCSV01", "It is impossible for a variable of type <" & variableType.ToString() & "> to assign itself a value of type <" & valueType.ToString() & ">", castedNode.NewValue)
         End If
 
         'Get variable
         Dim var As Variable = Nothing
         If TypeOf castedNode.Target Is VariableNode Then
             var = getVariable(DirectCast(castedNode.Target, VariableNode).VariableName, castedNode.Target)
+            If var.declarationType = VariableDeclarationType._let_ Then
+                content.Add(String.Format("{0} = {1}", var.compiledName, compileNode(castedNode.NewValue, content)))
+            Else
+                content.Add(String.Format("{0} = {1}.Clone()", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+            End If
 
         ElseIf TypeOf castedNode.Target Is BracketsSelectorNode Then
-
+            'content.Add(String.Format("{0} = {1}", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
 
         ElseIf TypeOf castedNode.Target Is childNode Then
-
+            content.Add(String.Format("{0} = {1}", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
 
         Else
             addNodeSyntaxError("VBCSV02", "It is not possible to assign a value to this target", castedNode.Target)
 
         End If
-        If var Is Nothing Then
-            'Throw New NotImplementedException()
-        End If
-
-        'Compile
-        content.Add("")
-        If True Then
-            content.Add(String.Format("{0} = {1}", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
-        Else
-            content.Add(String.Format("{0} = {1}.Clone()", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
-        End If
-        content.Add("")
 
         'Return
         Return ""
@@ -2732,22 +2908,53 @@ Public Class VB_Compiler
     Private Function compileReturn(ByVal node As ReturnNode, ByVal content As List(Of String)) As String
 
         'Variables
-        Dim func As FunctionNode = getNodeParentFunction(node)
         Dim valueType As safeType = getNodeType(node.value)
 
-        'Handle type error
-        If Not func.ReturnType Is Nothing Then
+        'Function
+        Dim func As FunctionNode = getNodeParentFunction(node, False)
+        If func IsNot Nothing Then
 
-            'Existing return type
-            If Not func.ReturnType.IsTheSameAs(valueType) Then
-                addNodeTypeError("VBCR01", "The function returns a value of type <" & func.ReturnType.ToString() & ">, but here you return a value of type <" & valueType.ToString() & ">", node.value)
+            'Handle type error
+            If Not func.ReturnType Is Nothing Then
+
+                'Existing return type
+                If Not func.ReturnType.IsTheSameAs(valueType) Then
+                    addNodeTypeError("VBCR01", "The function returns a value of type <" & func.ReturnType.ToString() & ">, but here you return a value of type <" & valueType.ToString() & ">", node.value)
+                End If
+
+            Else
+
+                'Set return type
+                func.ReturnType = valueType
+
             End If
 
-        Else
+        End If
 
-            'Set return type
-            func.ReturnType = valueType
+        'Relation
+        Dim relation As RelationNode = getNodeParentRelation(node, False)
+        If relation IsNot Nothing Then
 
+            'Handle type error
+            If Not relation.ReturnType Is Nothing Then
+
+                'Existing return type
+                If Not relation.ReturnType.IsTheSameAs(valueType) Then
+                    addNodeTypeError("VBCR02", "The relation returns a value of type <" & relation.ReturnType.ToString() & ">, but here you return a value of type <" & valueType.ToString() & ">", node.value)
+                End If
+
+            Else
+
+                'Set return type
+                relation.ReturnType = valueType
+
+            End If
+
+        End If
+
+        'Error
+        If func Is Nothing And relation Is Nothing Then
+            addNodeSyntaxError("VBCR03", "A ""return"" has nothing to do outside of a function or a relation.", node.value)
         End If
 
         'Compile

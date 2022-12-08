@@ -1,6 +1,5 @@
 func main
-	var test = 4
+	let test = ["Paris", "London", "Kiev"]
 	puts(test.str())
-	let bob = test
-	bob = 1
+	test[1] = "Nein"
 	puts(test.str())

@@ -12,10 +12,12 @@ Public Class ClassNode
     Public variables As New List(Of Variable)
     Public declareVariables As New List(Of DeclareVariableNode)
     Public methods As New List(Of FunctionNode)
+    Public relations As New List(Of RelationNode)
 
     Public addSourceDirectly As New List(Of AddSourceNode)
 
     Public export As Boolean = False
+    Public primary As Boolean = False
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String)
@@ -74,8 +76,20 @@ Public Class ClassNode
             funcSTR = "METHODS: " & funcSTR.Substring(2)
         End If
 
+        'Export
+        Dim export_str As String = ""
+        If export Then
+            export_str = "EXPORT "
+        End If
+
+        'Primary
+        Dim primary_str As String = ""
+        If primary Then
+            primary_str = "PRIMARY "
+        End If
+
         'Return
-        Return "(" & Name & "{" & varSTR & funcSTR & Environment.NewLine & "})"
+        Return "(" & export_str & primary_str & Name & "{" & varSTR & funcSTR & Environment.NewLine & "})"
 
     End Function
 

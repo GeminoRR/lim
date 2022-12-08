@@ -140,7 +140,7 @@
     '=======================================
     '========== GET LINE POSITION ==========
     '=======================================
-    Private Function getLinePosition(ByVal text As String, ByVal position As Integer) As Integer
+    Public Function getLinePosition(ByVal text As String, ByVal position As Integer) As Integer
 
         'Check
         If Not (position >= 0 And position < text.Length) Then

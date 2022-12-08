@@ -959,6 +959,166 @@
 
     End Function
 
+    '============================
+    '========= RELATION =========
+    '============================
+    Private Function relation() As Node
+
+        'Check indentation
+        Dim needToRecede As Boolean = False
+        Dim relationIndentation As Integer = 0
+        If current_tok.type = tokenType.CT_LINESTART Then
+            relationIndentation = Convert.ToInt32(current_tok.value)
+            advance()
+            needToRecede = True
+        End If
+
+        'Check if node is func
+        If Not current_tok.type = tokenType.KW_RELATION Then
+
+            'It's another thing that a function
+            If needToRecede = True Then
+                recede(tok_index - 1)
+            End If
+            Return func()
+
+        End If
+
+        'Save start pos
+        Dim startPosition As Integer = current_tok.positionStart
+        advance()
+
+        'Get error
+        If Not {tokenType.OP_PLUS, tokenType.OP_MINUS, tokenType.OP_MULTIPLICATION, tokenType.OP_DIVISION, tokenType.OP_MODULO, tokenType.OP_LESSTHAN, tokenType.OP_LESSTHANEQUAL, tokenType.OP_MORETHAN, tokenType.OP_MORETHANEQUAL, tokenType.OP_EQUAL, tokenType.OP_IN}.ToList().Contains(current_tok.type) Then
+            addSyntaxError("ASTR01", "A operator was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+        End If
+
+        'Get name
+        Dim name As token = current_tok
+        advance()
+
+        'No arguments ?
+        Dim arguments As New List(Of FunctionArgument)
+        If Not current_tok.type = tokenType.OP_LPAR Then 'relation "+" (n1:int, var n2:str)
+            addSyntaxError("ASTR08", "A relation must have two arguments", file, current_tok.positionStart, current_tok.positionEnd, "Add two arguments.")
+        End If
+
+        'First arg
+        advance()
+
+        'Direct ending ?
+        If current_tok.type = tokenType.OP_RPAR Then
+
+            'Direct ending
+            addSyntaxError("ASTR02", "A relation must have two arguments", file, current_tok.positionStart, current_tok.positionEnd, "Add two arguments.")
+
+        Else
+
+            'Arguments in there
+            While True
+
+                'Variables
+                Dim LastArgumentName As String = ""
+                Dim LastArgumentDeclarationType As VariableDeclarationType = VariableDeclarationType._let_
+                Dim LastArgumentUnsafeType As typeNode = Nothing
+
+                'Declare type
+                If current_tok.type = tokenType.KW_VAR Then
+                    'Search for a "var"
+                    LastArgumentDeclarationType = VariableDeclarationType._var_
+                    advance()
+                ElseIf current_tok.type = tokenType.KW_LET Then
+                    'Search for a "let"
+                    LastArgumentDeclarationType = VariableDeclarationType._let_
+                    advance()
+                End If
+
+                'Search for a name
+                If Not current_tok.type = tokenType.CT_TEXT Then
+                    addSyntaxError("ASTR03", "A argument name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                End If
+                LastArgumentName = current_tok.value
+                advance()
+
+                'Search for a type
+                If Not current_tok.type = tokenType.OP_TWOPOINT Then
+                    addSyntaxError("ASTR04", "A argument type was expected here (example : ""my_argument:str[]"")", file, current_tok.positionStart, current_tok.positionEnd)
+                End If
+                advance()
+                LastArgumentUnsafeType = type()
+
+                'Add argument
+                arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, LastArgumentDeclarationType))
+
+                'Search for end
+                If current_tok.type = tokenType.OP_COMMA Then
+
+                    advance()
+
+                ElseIf current_tok.type = tokenType.OP_RPAR Then
+
+                    advance()
+                    Exit While
+
+                Else
+
+                    addSyntaxError("ASTR05", "An end of parenthesis or a comma was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+
+                End If
+
+            End While
+
+        End If
+
+        'Arguments
+        If Not arguments.Count = 2 Then
+            addSyntaxError("ASTR09", "A relation must have two arguments", file, startPosition, current_tok.positionEnd, "Add two arguments.")
+        End If
+        If arguments(0).type.Dimensions.Count > 0 Then
+            addTypeError("ASTR10", "Relations does not yet support multidimensional values", file, arguments(0).type.positionStart, arguments(0).type.positionEnd)
+        End If
+        If arguments(1).type.Dimensions.Count > 0 Then
+            addTypeError("ASTR11", "Relations does not yet support multidimensional values", file, arguments(1).type.positionStart, arguments(1).type.positionEnd)
+        End If
+
+        'Unsafe type
+        Dim FunctionUnsafeType As typeNode = Nothing
+        If current_tok.type = tokenType.OP_TWOPOINT Then
+
+            advance()
+            FunctionUnsafeType = type()
+
+        End If
+
+        'Create node
+        Dim currentRelation As New RelationNode(startPosition, startPosition + 1, name, arguments, FunctionUnsafeType)
+
+        'Get error
+        If Not current_tok.type = tokenType.CT_LINESTART Then
+            addSyntaxError("ASTR06", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+        End If
+
+        'Get codes
+        While True
+
+            If Not current_tok.type = tokenType.CT_LINESTART Then
+                addSyntaxError("ASTR07", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            End If
+            Dim currentLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+            If currentLineIndentation <= relationIndentation Then
+                Exit While
+            End If
+
+            currentRelation.addNodeToCode(line(currentLineIndentation))
+
+        End While
+
+        'Add node
+        Return currentRelation
+
+    End Function
+
     '=========================
     '========= CLASS =========
     '=========================
@@ -971,6 +1131,20 @@
             structIndentation = Convert.ToInt32(current_tok.value)
             advance()
             needToRecede = True
+        End If
+
+        'Export
+        Dim export_kw As Boolean = False
+        If current_tok.type = tokenType.KW_EXPORT Then
+            export_kw = True
+            advance()
+        End If
+
+        'Primary
+        Dim primary_kw As Boolean = False
+        If current_tok.type = tokenType.KW_PRIMARY Then
+            primary_kw = True
+            advance()
         End If
 
         'Check if node is struct
@@ -1002,6 +1176,10 @@
             addSyntaxError("NPS02", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
+        'Set parameters
+        currentStruct.export = export_kw
+        currentStruct.primary = primary_kw
+
         'Get content
         While True
 
@@ -1014,11 +1192,14 @@
                 Exit While
             End If
 
-            Dim toAdd As Node = func()
+            Dim toAdd As Node = relation()
             toAdd.parentNode = currentStruct
 
             If TypeOf toAdd Is FunctionNode Then
                 currentStruct.methods.Add(DirectCast(toAdd, FunctionNode))
+
+            ElseIf TypeOf toAdd Is RelationNode Then
+                currentStruct.relations.Add(DirectCast(toAdd, RelationNode))
 
             ElseIf TypeOf toAdd Is DeclareVariableNode Then
                 currentStruct.declareVariables.Add(DirectCast(toAdd, DeclareVariableNode))

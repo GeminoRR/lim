@@ -100,7 +100,7 @@ Module Program
     '========== CLOSE ==========
     '===========================
     Public Sub endApp()
-        'Console.ReadKey()
+        Console.ReadKey()
         End
     End Sub
 
