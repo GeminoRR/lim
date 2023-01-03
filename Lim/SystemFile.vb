@@ -9,7 +9,7 @@ Public Class LimFile
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public compiler As VB_Compiler
+    Public compiler As C_Compiler
     Public name As String
     Public path As String
     Public content As String = ""
@@ -26,7 +26,7 @@ Public Class LimFile
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal path As String, ByRef compiler As VB_Compiler)
+    Public Sub New(ByVal path As String, ByRef compiler As C_Compiler)
 
         'Mybase
         MyBase.New(0, 0)
@@ -72,8 +72,8 @@ Public Class LimFile
         End If
 
         'Import std
-        If Not Me.path.EndsWith("vb/libs/std.limlib") Then
-            importFile(templateFolder & "/vb/libs/std.limlib")
+        If Not Me.path.EndsWith("c/libs/std.limlib") Then
+            importFile(templateFolder & "/c/libs/std.limlib")
         End If
 
         'Handle import statement
@@ -111,7 +111,7 @@ Public Class LimFile
                 tokens(0).value = tokens(0).value.ToString().ToLower()
 
                 'Check file
-                If Not File.Exists(templateFolder & "/vb/libs/" & tokens(0).value & ".limlib") Then
+                If Not File.Exists(templateFolder & "/c/libs/" & tokens(0).value & ".limlib") Then
                     addBasicError("File not found", "the """ & tokens(0).value & """ library does not exist or has not been installed.")
                 End If
 
@@ -121,7 +121,7 @@ Public Class LimFile
                 End If
 
                 'Import file
-                importFile(templateFolder & "/vb/libs/" & tokens(0).value & ".limlib")
+                importFile(templateFolder & "/c/libs/" & tokens(0).value & ".limlib")
 
             Else
 
@@ -140,38 +140,38 @@ Public Class LimFile
         'Get function
         For Each fun As FunctionNode In Me.functions
 
-            If fun.Name = "drawFrame" Then
+            'If fun.Name = "drawFrame" Then
 
-                'Set function
-                Me.compiler.graphicsDrawFunction = fun
+            '    'Set function
+            '    Me.compiler.graphicsDrawFunction = fun
 
-                'Handle type
-                If Not fun.unsafeReturnType Is Nothing Then
-                    addBasicWarning("Graphics lib", "The ""drawFrame"" function returns no value.")
-                End If
+            '    'Handle type
+            '    If Not fun.unsafeReturnType Is Nothing Then
+            '        addBasicWarning("Graphics lib", "The ""drawFrame"" function returns no value.")
+            '    End If
 
-                'Arguments
-                If fun.Arguments.Count = 0 Then
-                    addNodeSyntaxError("SFN01", "The ""drawFrame"" function must take an argument of type <image>.", fun, "func drawFrame(screen:image)")
-                End If
+            '    'Arguments
+            '    If fun.Arguments.Count = 0 Then
+            '        addNodeSyntaxError("SFN01", "The ""drawFrame"" function must take an argument of type <image>.", fun, "func drawFrame(screen:image)")
+            '    End If
 
-                'Too many arguments
-                If fun.Arguments.Count > 1 Then
-                    addNodeSyntaxError("SFN02", "The ""drawFrame"" function must take an argument of type <image>.", fun, "func drawFrame(screen:image)")
-                End If
+            '    'Too many arguments
+            '    If fun.Arguments.Count > 1 Then
+            '        addNodeSyntaxError("SFN02", "The ""drawFrame"" function must take an argument of type <image>.", fun, "func drawFrame(screen:image)")
+            '    End If
 
-                'Argument type
-                If Not fun.Arguments(0).type.className = "image" Then
-                    addNodeSyntaxError("SFN03", "The ""drawFrame"" function must take an argument of type <image>, the type of the argument indicate is <" & fun.Arguments(0).type.ToString() & ">.", fun, "func drawFrame(screen:image)")
-                End If
-                If Not fun.Arguments(0).type.Dimensions.Count = 0 Then
-                    addNodeSyntaxError("SFN04", "The ""drawFrame"" function must take an argument of type <image>, the type of the argument indicate is <" & fun.Arguments(0).type.ToString() & ">.", fun, "func drawFrame(screen:image)")
-                End If
-                If Not fun.Arguments(0).declareType = VariableDeclarationType._let_ Then
-                    addNodeSyntaxError("SFN05", "The ""drawFrame"" function must take an argument in reference", fun, "func drawFrame(screen:image)")
-                End If
+            '    'Argument type
+            '    If Not fun.Arguments(0).type.className = "image" Then
+            '        addNodeSyntaxError("SFN03", "The ""drawFrame"" function must take an argument of type <image>, the type of the argument indicate is <" & fun.Arguments(0).type.ToString() & ">.", fun, "func drawFrame(screen:image)")
+            '    End If
+            '    If Not fun.Arguments(0).type.Dimensions.Count = 0 Then
+            '        addNodeSyntaxError("SFN04", "The ""drawFrame"" function must take an argument of type <image>, the type of the argument indicate is <" & fun.Arguments(0).type.ToString() & ">.", fun, "func drawFrame(screen:image)")
+            '    End If
+            '    If Not fun.Arguments(0).declareType = VariableDeclarationType._let_ Then
+            '        addNodeSyntaxError("SFN05", "The ""drawFrame"" function must take an argument in reference", fun, "func drawFrame(screen:image)")
+            '    End If
 
-            End If
+            'End If
 
         Next
 
@@ -231,7 +231,7 @@ Public Class LimFile
 
         'Fix
         If strVariables.StartsWith(", ") Then
-            strVariables = "PROPRETIES: " & strVariables.Substring(2)
+            strVariables = "VARIABLES: " & strVariables.Substring(2)
         End If
         If strFunctions.StartsWith(", ") Then
             strFunctions = "FUNCTIONS: " & strFunctions.Substring(2)

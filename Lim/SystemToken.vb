@@ -77,7 +77,6 @@ Public Enum tokenType
     OP_LBRACE
     OP_RBRACE
     OP_TWOPOINT
-    OP_ADDSOURCE
 
     OP_PLUS
     OP_MINUS
@@ -95,5 +94,8 @@ Public Enum tokenType
     OP_MORETHAN
     OP_MORETHANEQUAL
     OP_IN
+
+    OP_FSTRING
+    OP_ADDSOURCE
 
 End Enum

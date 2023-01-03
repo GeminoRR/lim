@@ -47,11 +47,27 @@ Module Program
         If outputFile = "" Then
 
             'Run
-            Dim compiler As New VB_Compiler()
-            compiler.runCode(inputFile, Directory.GetCurrentDirectory(), flags)
+            Dim compiler As New C_Compiler()
+            compiler.compileCode(inputFile, flags)
 
-            'End app
-            endApp()
+            'Open
+            Process.Start("C:\Program Files\Sublime Text\subl.exe", """" & AppData & "/compiled/main.c""")
+
+            'Run
+            'Throw New NotImplementedException()
+            'Dim run As New Process()
+            ''run.StartInfo.FileName = "dotnet"
+            ''run.StartInfo.Arguments = "run --project """ & AppData & "/compiled/VB.vbproj"""
+            'run.StartInfo.WorkingDirectory = Directory.GetCurrentDirectory()
+            'run.Start()
+
+            ''Wait until programs end
+            'While Not run.HasExited
+            '    Threading.Thread.Sleep(200)
+            'End While
+
+            ''End app
+            'endApp()
 
         Else
 
@@ -76,16 +92,14 @@ Module Program
                 'Linux
                 addBasicError("feature unavailable", "Compilation to Linux is not yet available")
 
-            ElseIf flags.Contains("-vb") Or flags.Contains("--visualbasic") Then
-
-                'Visual Basic
-                addBasicError("feature unavailable", "Compilation to MacOs is not yet available")
-
             Else
 
                 'Windows
-                Dim compiler As New VB_Compiler()
-                compiler.compile(inputFile, outputFile, flags)
+                Dim compiler As New C_Compiler()
+                compiler.compileCode(inputFile, flags)
+
+                'Executalbe zbi
+                Throw New NotImplementedException()
 
             End If
 
@@ -113,6 +127,7 @@ Module Program
         Console.ForegroundColor = ConsoleColor.DarkGreen
         Console.WriteLine("RUN : Lim <input_file>")
         Console.WriteLine("COMPILE: lim <input_file> <output_file> [-arguments]")
+        Console.ForegroundColor = ConsoleColor.DarkGray
         Console.WriteLine("*Lim is in beta. Many bugs are to be deplored*")
 
         'Explains
@@ -120,12 +135,11 @@ Module Program
         Console.WriteLine("<input_file>" & vbTab & "Path of the .lim file to compile")
         Console.WriteLine("<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
         Console.WriteLine("[-arguments]" & vbTab & "Optional. Argument list.")
-        'Console.WriteLine(vbTab & "-vb" & vbTab & "--visualbasic" & vbTab & "Compiles to a .vb file (VisualBasic)")
-        'Console.WriteLine(vbTab & "-c" & vbTab & "--c" & vbTab & vbTab & "Compiles to a .c file (C)")
-        'Console.WriteLine(vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles to a .exe file (Executable)")
-        'Console.WriteLine(vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles to a linux executable")
-        'Console.WriteLine(vbTab & "-m" & vbTab & "--macos" & vbTab & vbTab & "Compiles to a MacOS executable")
-        Console.WriteLine(vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show more logs")
+        Console.WriteLine(vbTab & "-c" & vbTab & "--c" & vbTab & vbTab & "Compiles to a .c file (C)")
+        Console.WriteLine(vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles to a .exe file (Executable)")
+        Console.WriteLine(vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles to a linux executable")
+        Console.WriteLine(vbTab & "-m" & vbTab & "--macos" & vbTab & vbTab & "Compiles to a MacOS executable")
+        Console.WriteLine(vbTab & "-l" & vbTab & "--logs" & vbTab & vbTab & "Show logs")
         Console.WriteLine("If no arguments are entered, lim will compile to your operating system's executable.")
 
     End Sub

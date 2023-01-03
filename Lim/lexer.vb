@@ -190,6 +190,31 @@ Public Class lexer
                 Dim create_var As String = currentChar
                 Dim startPos As Integer = charCounter
                 advance()
+
+                'Fstring
+                If create_var = "f" And currentChar = """" Then
+                    advance()
+                    Dim create_string As String = ""
+                    While Not currentChar = """" And Not currentChar = Nothing
+                        create_string &= currentChar
+                        advance()
+                    End While
+                    tokens.Add(New token(tokenType.OP_FSTRING, startPos, charCounter, create_string))
+                    advance()
+                    Continue While
+                ElseIf create_var = "f" And currentChar = "'" Then
+                    advance()
+                    Dim create_string As String = ""
+                    While Not currentChar = "'" And Not currentChar = Nothing
+                        create_string &= currentChar
+                        advance()
+                    End While
+                    tokens.Add(New token(tokenType.OP_FSTRING, startPos, charCounter, create_string))
+                    advance()
+                    Continue While
+                End If
+
+                'Normal values
                 While Not currentChar = Nothing And (authorizedNameCharacters & digits).Contains(currentChar)
 
                     create_var &= currentChar

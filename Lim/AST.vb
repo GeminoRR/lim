@@ -99,48 +99,48 @@
     '========================
     Private Function type() As typeNode
 
-        'Variables
-        Dim waitTokenType As tokenType = Nothing
-
         'Handle error
         If Not current_tok.type = tokenType.CT_TEXT Then
             addSyntaxError("NPT01", "A name of a type was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
         'Create unsafe type
-        Dim currentType As New typeNode(current_tok.positionStart, current_tok.positionEnd, current_tok.value, New List(Of ValueType))
+        Dim currentType As New typeNode(current_tok.positionStart, current_tok.positionEnd, current_tok.value, New List(Of typeNode))
+        advance()
+
+        'Arguments ?
+        If Not current_tok.type = tokenType.OP_LESSTHAN Then
+            Return currentType
+        End If
         advance()
 
         'Get dimensions
         While True
 
-            If Not waitTokenType = Nothing Then
-                If Not current_tok.type = waitTokenType Then
-                    addSyntaxError("NPT02", "The token <" & waitTokenType.ToString() & "> was expected here", file, current_tok.positionStart, current_tok.positionEnd)
-                End If
-                waitTokenType = Nothing
+            'Get type
+            currentType.arguments.Add(type())
+
+            'Next step
+            If current_tok.type = tokenType.OP_COMMA Then
+
+                'Comma
                 advance()
                 Continue While
+
+            ElseIf current_tok.type = tokenType.OP_MORETHAN Then
+
+                'Quit
+                advance()
+                Exit While
+
+            Else
+
+                'Problem here
+                addSyntaxError("NPT02", "A comma or a "">"" was expected here.", file, current_tok.positionStart, current_tok.positionEnd)
+                advance()
+                Exit While
+
             End If
-
-            Select Case current_tok.type
-
-                Case tokenType.OP_LBRACKET
-                    waitTokenType = tokenType.OP_RBRACKET
-                    currentType.Dimensions.Add(ValueType.list)
-                    currentType.positionEnd = current_tok.positionEnd
-
-                Case tokenType.OP_LBRACE
-                    waitTokenType = tokenType.OP_RBRACE
-                    currentType.Dimensions.Add(ValueType.map)
-                    currentType.positionEnd = current_tok.positionEnd
-
-                Case Else
-                    Exit While
-
-            End Select
-
-            advance()
 
         End While
 
@@ -168,6 +168,10 @@
         ElseIf tok.type = tokenType.CT_STRING Then
             advance()
             Return New StringNode(tok.positionStart, tok.positionEnd, tok.value)
+
+        ElseIf tok.type = tokenType.OP_FSTRING Then
+            advance()
+            Return New FStringNode(tok.positionStart, tok.positionEnd, tok.value)
 
         ElseIf tok.type = tokenType.CT_TRUE Then
             advance()
@@ -369,15 +373,44 @@
             Return functionCall()
         End If
 
-        'New node
+        'Get start position
         Dim startPosition As Integer = current_tok.positionStart
         advance()
 
-        'Get function call
-        Dim callFunction = functionCall()
+        'Get type
+        Dim classType As typeNode = type()
+
+        'Variables
+        Dim arguments As New List(Of Node)
+
+        'Check if there is ()
+        If Not current_tok.type = tokenType.OP_LPAR Then
+            Return New newNode(startPosition, current_tok.positionEnd, classType, arguments)
+        End If
+        advance()
+
+        'Get arguments
+        While True
+
+            'End of function call
+            If current_tok.type = tokenType.OP_RPAR Then
+                Exit While
+            End If
+
+            'Get argument
+            arguments.Add(boolOp())
+
+            'Comma
+            If current_tok.type = tokenType.OP_COMMA Then
+                advance()
+            ElseIf Not current_tok.type = tokenType.OP_RPAR Then
+                addSyntaxError("ASTNC01", "A comma or a closing parenthesis must have been omitted here.", file, current_tok.positionStart, current_tok.positionEnd)
+            End If
+
+        End While
 
         'Create node
-        Return New newNode(startPosition, callFunction.positionEnd, callFunction)
+        Return New newNode(startPosition, current_tok.positionEnd, classType, arguments)
 
     End Function
 
@@ -1074,12 +1107,6 @@
         If Not arguments.Count = 2 Then
             addSyntaxError("ASTR09", "A relation must have two arguments", file, startPosition, current_tok.positionEnd, "Add two arguments.")
         End If
-        If arguments(0).type.Dimensions.Count > 0 Then
-            addTypeError("ASTR10", "Relations does not yet support multidimensional values", file, arguments(0).type.positionStart, arguments(0).type.positionEnd)
-        End If
-        If arguments(1).type.Dimensions.Count > 0 Then
-            addTypeError("ASTR11", "Relations does not yet support multidimensional values", file, arguments(1).type.positionStart, arguments(1).type.positionEnd)
-        End If
 
         'Unsafe type
         Dim FunctionUnsafeType As typeNode = Nothing
@@ -1133,6 +1160,10 @@
             needToRecede = True
         End If
 
+        'Save start pos
+        Dim startPosition As Integer = current_tok.positionStart
+        advance()
+
         'Export
         Dim export_kw As Boolean = False
         If current_tok.type = tokenType.KW_EXPORT Then
@@ -1157,34 +1188,79 @@
             Return func()
 
         End If
-
-        'Save start pos
-        Dim startPosition As Integer = current_tok.positionStart
         advance()
 
         'Get error
         If Not current_tok.type = tokenType.CT_TEXT Then
-            addSyntaxError("NPS01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            addSyntaxError("ASTC01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
         'Get name
-        Dim currentStruct As New ClassNode(startPosition, startPosition + 1, current_tok.value)
+        Dim currentStruct As New ClassNode(startPosition, startPosition + 1, current_tok.value, New List(Of String))
         advance()
-
-        'Get error
-        If Not current_tok.type = tokenType.CT_LINESTART Then
-            addSyntaxError("NPS02", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
-        End If
 
         'Set parameters
         currentStruct.export = export_kw
         currentStruct.primary = primary_kw
 
+        'Get Arguments
+        If current_tok.type = tokenType.OP_LESSTHAN Then
+
+            'Advance
+            advance()
+
+            'Get dimensions
+            While True
+
+                'Get string
+                If Not current_tok.type = tokenType.CT_TEXT Then
+                    addSyntaxError("ASTC03", "The name of an argument was expected here", file, current_tok.positionStart, current_tok.positionEnd, String.Format("class {0}<a_name, another>", currentStruct.Name))
+                End If
+                currentStruct.arguments.Add(current_tok.value)
+                advance()
+
+                'Next step
+                If current_tok.type = tokenType.OP_COMMA Then
+
+                    'Comma
+                    advance()
+                    Continue While
+
+                ElseIf current_tok.type = tokenType.OP_MORETHAN Then
+
+                    'Quit
+                    advance()
+                    Exit While
+
+                Else
+
+                    'Problem here
+                    addSyntaxError("ASTC04", "A comma or a "">"" was expected here.", file, current_tok.positionStart, current_tok.positionEnd)
+                    advance()
+                    Exit While
+
+                End If
+
+            End While
+
+
+        End If
+
+        'Get error
+        If Not current_tok.type = tokenType.CT_LINESTART Then
+            addSyntaxError("ASTC02", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+        End If
+
+        'For after
+        Dim hasNewFunction As Boolean = False
+        Dim hasCloneFunction As Boolean = False
+        Dim hasStrFunction As Boolean = False
+
         'Get content
         While True
 
             If Not current_tok.type = tokenType.CT_LINESTART Then
-                addSyntaxError("NPS03", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                addSyntaxError("ASTC05", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
             End If
             Dim currentLineIndentation As Integer = Convert.ToInt32(current_tok.value)
 
@@ -1196,7 +1272,29 @@
             toAdd.parentNode = currentStruct
 
             If TypeOf toAdd Is FunctionNode Then
-                currentStruct.methods.Add(DirectCast(toAdd, FunctionNode))
+                Dim castedFunction As FunctionNode = DirectCast(toAdd, FunctionNode)
+                currentStruct.methods.Add(castedFunction)
+                If castedFunction.Name.ToLower() = "new" Then
+                    hasNewFunction = True
+                    castedFunction.Name = castedFunction.Name.ToLower()
+                    If Not castedFunction.ReturnType Is Nothing Then
+                        addSyntaxError("ASTC06", "The ""new"" method cannot return any value.", file, castedFunction.ReturnType.positionStart, castedFunction.ReturnType.positionEnd, "Remove the " & castedFunction.ReturnType.ToString())
+                    End If
+                ElseIf castedFunction.Name.ToLower() = "str" Then
+                    hasStrFunction = True
+                    castedFunction.Name = castedFunction.Name.ToLower()
+                    If castedFunction.Arguments.Count > 0 Then
+                        addNodeSyntaxError("ASTC07", "The ""str"" method is special and cannot take an argument.", castedFunction, "Remove arguments.")
+                    End If
+                    'TODO: Check return type
+                ElseIf castedFunction.Name.ToLower() = "clone" Then
+                    hasCloneFunction = True
+                    castedFunction.Name = castedFunction.Name.ToLower()
+                    If castedFunction.Arguments.Count > 0 Then
+                        addNodeSyntaxError("ASTC08", "The ""clone"" method is special and cannot take an argument.", castedFunction, "Remove arguments.")
+                    End If
+                    'TODO: Check return type
+                End If
 
             ElseIf TypeOf toAdd Is RelationNode Then
                 currentStruct.relations.Add(DirectCast(toAdd, RelationNode))
@@ -1208,14 +1306,36 @@
                 currentStruct.addSourceDirectly.Add(DirectCast(toAdd, AddSourceNode))
 
             Else
-                addSyntaxError("NPSW01", "The following line of code cannot be located in this frame, it will not be taken into account.", file, toAdd.positionStart, toAdd.positionEnd)
+                addSyntaxError("ASTC05", "The following line of code cannot be located in this frame, it will not be taken into account.", file, toAdd.positionStart, toAdd.positionEnd)
 
             End If
 
         End While
 
-        'Fix clone
-        currentStruct.fixClone()
+        'Add New function
+        If Not hasNewFunction Then
+
+            Dim fn As New FunctionNode(-1, -1, "new", New List(Of FunctionArgument), Nothing)
+            currentStruct.methods.Add(fn)
+
+        End If
+
+        'Add Str function
+        If Not hasStrFunction Then
+
+            Dim fn As New FunctionNode(-1, -1, "str", New List(Of FunctionArgument), Nothing)
+            currentStruct.methods.Add(fn)
+
+        End If
+
+        'Add Clone function
+        If Not hasCloneFunction Then
+
+            Dim fn As New FunctionNode(-1, -1, "clone", New List(Of FunctionArgument), Nothing)
+            currentStruct.methods.Add(fn)
+
+        End If
+
 
         'Add node
         Return currentStruct

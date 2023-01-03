@@ -262,6 +262,30 @@ Public Class StringNode
 
 End Class
 
+'================================
+'========= F-StringNode =========
+'================================
+Public Class FStringNode
+    Inherits Node
+
+    'Variables
+    Public value As String
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal value As String)
+
+        MyBase.New(positionStart, positionEnd)
+        Me.value = value
+
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Return "f""" & value & """"
+    End Function
+
+End Class
+
 '=================================
 '========= AddSourceNode =========
 '=================================
@@ -446,16 +470,16 @@ Public Class newNode
     Inherits Node
 
     'Variables
-    Public className As String
+    Public type As typeNode
     Public arguments As List(Of Node)
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal functionCall As FunctionCallNode)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal type As typeNode, ByVal arguments As List(Of Node))
 
         MyBase.New(positionStart, positionEnd)
-        className = functionCall.FunctionName
-        arguments = functionCall.Arguments
-        For Each arg As Node In arguments
+        Me.type = type
+        Me.arguments = arguments
+        For Each arg As Node In Me.arguments
             arg.parentNode = Me
         Next
 
@@ -470,7 +494,7 @@ Public Class newNode
         If argSTR.StartsWith(", ") Then
             argSTR = argSTR.Substring(2)
         End If
-        Return String.Format("(New {0}({1}))", className, argSTR)
+        Return String.Format("(New {0}({1}))", type.ToString(), argSTR)
     End Function
 
 End Class

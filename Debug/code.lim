@@ -1,5 +1,11 @@
 func main
-	let test = ["Paris", "London", "Kiev"]
-	puts(test.str())
-	test[1] = "Nein"
-	puts(test.str())
+
+	//Avant
+	let test:str[] = ["Staline", "Lenine"]
+
+	//Après
+	let test:list<str> = ["Staline", "Lenine"]
+
+export class stack<elements_type>
+
+	let values:list<elements_type>

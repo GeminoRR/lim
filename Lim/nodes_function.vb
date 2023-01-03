@@ -10,18 +10,16 @@ Public Class FunctionNode
     Public maxArguments As Integer
     Public minArguments As Integer
 
-    Public unsafeReturnType As typeNode = Nothing
-    Public ReturnType As safeType = Nothing
+    Public ReturnType As typeNode = Nothing
 
     Public compiledName As String = ""
-    Public compiledID As Integer = 0
     Public compiled As Boolean
     Public compiling As Boolean
 
     Public export As Boolean = False
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal returnType As typeNode)
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.Arguments = Arguments
@@ -39,38 +37,40 @@ Public Class FunctionNode
                 Me.minArguments += 1
             End If
         Next
-        Me.unsafeReturnType = unsafeReturnType
-        If Not Me.unsafeReturnType Is Nothing Then
-            Me.unsafeReturnType.parentNode = Me
+        Me.ReturnType = returnType
+        If Me.ReturnType IsNot Nothing Then
+            Me.ReturnType.parentNode = Me
         End If
         Me.compiled = False
         Me.compiling = False
-        Me.compiledID = get_new_id()
     End Sub
 
     'ToString
     Public Overrides Function ToString() As String
 
-        'Unsafe type
-        Dim UST As String = ""
-        If Not unsafeReturnType Is Nothing Then
-            UST = ":" & unsafeReturnType.ToString()
+        'Export
+        Dim export As String = ""
+        If Me.export Then
+            export = "export "
         End If
 
         'Argument
-        Dim ATS As String = ""
+        Dim argumentsSTR As String = ""
         If Arguments.Count > 0 Then
             For Each arg As FunctionArgument In Arguments
-                ATS &= ", " & arg.ToString()
+                argumentsSTR &= ", " & arg.ToString()
             Next
-            ATS = ATS.Substring(2)
+            argumentsSTR = argumentsSTR.Substring(2)
         End If
 
-        'Actions
-        Dim LTS As String = " = *" & Me.codes.Count.ToString() & " elements*"
+        'Return type
+        Dim returnTypeSTR As String = ""
+        If ReturnType IsNot Nothing Then
+            returnTypeSTR = ":" & Me.ReturnType.ToString()
+        End If
 
         'Return
-        Return "(" & Name & "(" & ATS & ")" & UST & LTS & ")"
+        Return String.Format("({0}function {1}({2}){3})", export, Me.Name, argumentsSTR, returnTypeSTR)
 
     End Function
 
@@ -116,46 +116,43 @@ Public Class RelationNode
     Public operator_name As token
     Public Arguments As List(Of FunctionArgument)
 
-    Public unsafeReturnType As typeNode = Nothing
-    Public ReturnType As safeType = Nothing
+    Public ReturnType As typeNode = Nothing
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal operator_name As token, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal operator_name As token, ByVal Arguments As List(Of FunctionArgument), ByVal ReturnType As typeNode)
         MyBase.New(positionStart, positionEnd)
         Me.operator_name = operator_name
         Me.Arguments = Arguments
         For Each arg As FunctionArgument In Me.Arguments
             arg.type.parentNode = Me
         Next
-        Me.unsafeReturnType = unsafeReturnType
-        If Not Me.unsafeReturnType Is Nothing Then
-            Me.unsafeReturnType.parentNode = Me
+        Me.ReturnType = ReturnType
+        If Not Me.ReturnType Is Nothing Then
+            Me.ReturnType.parentNode = Me
         End If
     End Sub
 
     'ToString
     Public Overrides Function ToString() As String
 
-        'Unsafe type
-        Dim UST As String = ""
-        If Not unsafeReturnType Is Nothing Then
-            UST = ":" & unsafeReturnType.ToString()
-        End If
-
         'Argument
-        Dim ATS As String = ""
+        Dim argumentsSTR As String = ""
         If Arguments.Count > 0 Then
             For Each arg As FunctionArgument In Arguments
-                ATS &= ", " & arg.ToString()
+                argumentsSTR &= ", " & arg.ToString()
             Next
-            ATS = ATS.Substring(2)
+            argumentsSTR = argumentsSTR.Substring(2)
         End If
 
-        'Actions
-        Dim LTS As String = " = *" & Me.codes.Count.ToString() & " elements*"
+        'Return type
+        Dim returnTypeSTR As String = ""
+        If ReturnType IsNot Nothing Then
+            returnTypeSTR = ":" & Me.ReturnType.ToString()
+        End If
 
         'Return
-        Return "(relation " & operator_name.ToString() & "(" & ATS & ")" & UST & LTS & ")"
+        Return String.Format("(function {1}({2}){3})", Me.operator_name.ToString(), argumentsSTR, returnTypeSTR)
+
 
     End Function
 
