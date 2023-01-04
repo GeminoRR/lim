@@ -8,9 +8,7 @@ Public Class ClassNode
     Public Name As String
     Public compiledName As String = ""
     Public arguments As List(Of String)
-    Public compiled As Boolean
 
-    Public variables As New List(Of Variable)
     Public addSourceDirectly As New List(Of AddSourceNode)
     Public declareVariables As New List(Of DeclareVariableNode)
     Public methods As New List(Of FunctionNode)
@@ -20,12 +18,12 @@ Public Class ClassNode
     Public primary As Boolean = False
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal arguments As List(Of String))
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal arguments As List(Of String), Optional compiledName As String = "")
 
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
-        Me.compiled = False
         Me.arguments = arguments
+        Me.compiledName = compiledName
 
     End Sub
 

@@ -74,6 +74,11 @@ Public Class FunctionNode
 
     End Function
 
+    'Clone
+    Public Function clone() As FunctionNode
+        Return Me.MemberwiseClone()
+    End Function
+
 End Class
 Public Class FunctionArgument
 
@@ -154,6 +159,11 @@ Public Class RelationNode
         Return String.Format("(function {1}({2}){3})", Me.operator_name.ToString(), argumentsSTR, returnTypeSTR)
 
 
+    End Function
+
+    'Clone
+    Public Function clone() As RelationNode
+        Return Me.MemberwiseClone()
     End Function
 
 End Class

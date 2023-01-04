@@ -36,7 +36,7 @@ Module Helper
     '==========================================
     '========== GET NODE PARENT FILE ==========
     '==========================================
-    Public Function getNodeParentFile(ByVal node As Node) As LimFile
+    Public Function getNodeParentFile(ByVal node As Node, Optional throwError As Boolean = True) As LimFile
 
         'Get most upper parent
         Dim parentNode As Node = node
@@ -50,7 +50,9 @@ Module Helper
         End If
 
         'Error
-        addBasicError("unreachable element", "Unable to reach file link to the <" & node.GetType().FullName.ToString() & "> node. Please report the problem to the developers. For now, try modifying your code.")
+        If throwError Then
+            addBasicError("unreachable element", "Unable to reach file link to the <" & node.GetType().FullName.ToString() & "> node. Please report the problem to the developers. For now, try modifying your code.")
+        End If
         Return Nothing
 
     End Function

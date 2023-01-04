@@ -1,11 +1,2 @@
 func main
-
-	//Avant
-	let test:str[] = ["Staline", "Lenine"]
-
-	//Après
-	let test:list<str> = ["Staline", "Lenine"]
-
-export class stack<elements_type>
-
-	let values:list<elements_type>
+	let test:str

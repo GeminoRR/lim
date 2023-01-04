@@ -5,14 +5,12 @@ Public Class typeNode
     Inherits Node
 
     Public className As String
-    Public targetClass As ClassNode
     Public arguments As List(Of typeNode)
 
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal className As String, ByVal arguments As List(Of typeNode))
         MyBase.New(positionStart, positionEnd)
         Me.className = className
         Me.arguments = arguments
-        Me.targetClass = Nothing
     End Sub
 
     Public Overrides Function ToString() As String
@@ -26,29 +24,55 @@ Public Class typeNode
         Return className.ToString() & argumentsStr
     End Function
 
-    Public Shared Operator =(ByVal t1 As typeNode, ByVal t2 As typeNode)
+End Class
 
-        'Fix targetClass
-        If t1.targetClass Is Nothing Or t2.targetClass Is Nothing Then
-            Dim parentCompiler As C_Compiler = getNodeParentFile(t1).compiler
-            If t1.targetClass Is Nothing Then
-                t1.targetClass = parentCompiler.getClass(t1.className, t1)
-            End If
-            If t2.targetClass Is Nothing Then
-                t2.targetClass = parentCompiler.getClass(t2.className, t2)
-            End If
+'==========================
+'========== TYPE ==========
+'==========================
+Public Class Type
+    Inherits Node
+
+    'Variable
+    Public Name As String
+    Public arguments As List(Of String)
+
+    Public compiledName As String = ""
+    Public given_arguments As New List(Of Type)
+
+    Public compiled As Boolean
+
+    Public variables As New List(Of Variable)
+    Public methods As New List(Of FunctionNode)
+    Public relations As New List(Of RelationNode)
+
+    Public export As Boolean = False
+    Public primary As Boolean = False
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal arguments As List(Of String))
+
+        MyBase.New(positionStart, positionEnd)
+        Me.Name = Name
+        Me.compiled = False
+        Me.arguments = arguments
+
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+
+        'Arguments
+        Dim argumentsSTR As String = ""
+        For Each arg As String In Me.arguments
+            argumentsSTR &= ", " & arg
+        Next
+        If argumentsSTR.StartsWith(", ") Then
+            argumentsSTR = "<" & argumentsSTR.Substring(2) & ">"
         End If
 
-        'Compare
-        If Not t1.targetClass.compiledName = t2.targetClass.compiledName Then
+        'Return
+        Return Me.Name & argumentsSTR
 
-        End If
-
-
-    End Operator
-
-    Public Shared Operator <>(ByVal t1 As typeNode, ByVal t2 As typeNode)
-        Return True
-    End Operator
+    End Function
 
 End Class

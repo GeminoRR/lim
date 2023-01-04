@@ -1195,8 +1195,16 @@
             addSyntaxError("ASTC01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
+        'Fix name
+        Dim name As String = current_tok.value
+        Dim compiledname As String = ""
+        If file.LimLib And name.StartsWith("__") And name.EndsWith("__") Then
+            compiledname = name
+            name = name.Substring(2, name.Length - 4)
+        End If
+
         'Get name
-        Dim currentStruct As New ClassNode(startPosition, startPosition + 1, current_tok.value, New List(Of String))
+        Dim currentStruct As New ClassNode(startPosition, startPosition + 1, name, New List(Of String), compiledname)
         advance()
 
         'Set parameters

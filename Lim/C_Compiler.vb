@@ -20,12 +20,12 @@ Public Class C_Compiler
     Private functionCount As Integer = 0
     Private classCount As Integer = 0
 
-    Private compiledTypes As List(Of typeNode)
+    Private compiledTypes As New List(Of Type)
 
-    Private stdInt As typeNode
-    Private stdFloat As typeNode
-    Private stdStr As typeNode
-    Private stdBool As typeNode
+    Private stdInt As Type
+    Private stdFloat As Type
+    Private stdStr As Type
+    Private stdBool As Type
 
     Private logs As Boolean = False
 
@@ -84,20 +84,13 @@ Public Class C_Compiler
         End If
 
         'Get std's types
-        stdInt = New typeNode(-1, -1, "int", New List(Of typeNode))
-        stdInt.targetClass = getClass("__int__", entryFile)
-        stdFloat = New typeNode(-1, -1, "float", New List(Of typeNode))
-        stdFloat.targetClass = getClass("__float__", entryFile)
-        stdStr = New typeNode(-1, -1, "str", New List(Of typeNode))
-        stdStr.targetClass = getClass("__str__", entryFile)
-        stdBool = New typeNode(-1, -1, "bool", New List(Of typeNode))
-        stdBool.targetClass = getClass("__bool__", entryFile)
-
-        'Compiles types
-        compileTypeNode(stdInt)
-        compileTypeNode(stdFloat)
-        compileTypeNode(stdStr)
-        compileTypeNode(stdBool)
+        stdInt = compileTypeNode(New typeNode(-1, -1, "int", New List(Of typeNode)))
+        stdFloat = compileTypeNode(New typeNode(-1, -1, "float", New List(Of typeNode)))
+        stdStr = compileTypeNode(New typeNode(-1, -1, "str", New List(Of typeNode)))
+        stdBool = compileTypeNode(New typeNode(-1, -1, "bool", New List(Of typeNode)))
+        compileTypeNode(New typeNode(-1, -1, "list", {New typeNode(-1, -1, "str", New List(Of typeNode))}.ToList()))
+        compileTypeNode(New typeNode(-1, -1, "list", {New typeNode(-1, -1, "bool", New List(Of typeNode))}.ToList()))
+        compileTypeNode(New typeNode(-1, -1, "list", {New typeNode(-1, -1, "str", New List(Of typeNode))}.ToList()))
 
         'Logs
         If logs Then
@@ -105,7 +98,7 @@ Public Class C_Compiler
         End If
 
         'Compile start
-        compileFunction(entryPoint)
+        compileFunction(entryPoint, compiledFunctions)
 
         'Get final code
         Dim finalCode As String = ""
@@ -349,36 +342,6 @@ Public Class C_Compiler
 
     End Function
 
-    '===============================
-    '========== GET CLASS ==========
-    '===============================
-    Public Function getClass(ByVal name As String, ByVal nodeCaller As Node) As ClassNode
-
-        'Get file
-        Dim currentFile As LimFile = getNodeParentFile(nodeCaller)
-
-        'Search in Current file
-        For Each currentClass As ClassNode In currentFile.classs
-            If currentClass.Name = name Then
-                Return currentClass
-            End If
-        Next
-
-        'Search in others files
-        For Each file As LimFile In currentFile.FilesImports
-            For Each currentClass As ClassNode In file.classs
-                If currentClass.Name = name And currentClass.export Then
-                    Return currentClass
-                End If
-            Next
-        Next
-
-        'Anable to find the class
-        addNodeNamingError("VBCGC01", "The class """ & name & """ could not be found.", nodeCaller, "Check the class name or that the file is correctly imported.")
-        Return Nothing
-
-    End Function
-
     '==================================
     '========== GET VARIABLE ==========
     '==================================
@@ -398,13 +361,13 @@ Public Class C_Compiler
                     End If
                 Next
             End If
-            If TypeOf currentBlock Is ClassNode Then
-                For Each currentVariable As Variable In DirectCast(currentBlock, ClassNode).variables
-                    If currentVariable.name = name Then
-                        Return currentVariable
-                    End If
-                Next
-            End If
+            'If TypeOf currentBlock Is ClassNode Then
+            '    For Each currentVariable As Variable In DirectCast(currentBlock, ClassNode).variables
+            '        If currentVariable.name = name Then
+            '            Return currentVariable
+            '        End If
+            '    Next
+            'End If
 
             currentBlock = currentBlock.parentNode
 
@@ -468,7 +431,7 @@ Public Class C_Compiler
         'Search in Current file
         For Each currentFunction As FunctionNode In currentFile.functions
             If currentFunction.Name = name Then
-                compileFunction(currentFunction)
+                compileFunction(currentFunction, compiledFunctions)
                 Return currentFunction
             End If
         Next
@@ -477,7 +440,7 @@ Public Class C_Compiler
         For Each file As LimFile In currentFile.FilesImports
             For Each currentFunction As FunctionNode In file.functions
                 If currentFunction.Name = name And currentFunction.export Then
-                    compileFunction(currentFunction)
+                    compileFunction(currentFunction, compiledFunctions)
                     Return currentFunction
                 End If
             Next
@@ -489,119 +452,17 @@ Public Class C_Compiler
 
     End Function
 
-    '===================================
-    '========== COMPILE CLASS ==========
-    '===================================
-    Private Sub compileClass(ByRef currentClass As ClassNode, Optional ByVal arguments As List(Of typeNode) = Nothing)
-
-        'State handler
-        If currentClass.compiled Then
-            Exit Sub
-        End If
-        currentClass.compiled = True
-
-        'Arguments
-        If arguments Is Nothing Then
-            arguments = New List(Of typeNode)
-        End If
-
-        'Get name
-        If currentClass.compiledName = "" Then
-            If getNodeParentFile(currentClass).LimLib Then
-                currentClass.compiledName = currentClass.Name
-            Else
-                currentClass.compiledName = getClassName()
-            End If
-        End If
-
-        'Fix name
-        If getNodeParentFile(currentClass).LimLib And (currentClass.Name.StartsWith("__") And currentClass.Name.EndsWith("__")) Then
-            currentClass.Name = currentClass.Name.Substring(2)
-            currentClass.Name = currentClass.Name.Substring(0, currentClass.Name.Count - 2)
-        End If
-
-        'Some variables
-        Dim content As New List(Of String)
-        Dim new_content As New List(Of String)
-        Dim new_function As FunctionNode
-
-        'Searh new function
-        For Each fun As FunctionNode In currentClass.methods
-            If fun.Name = "new" Then
-                new_function = fun
-                Exit For
-            End If
-        Next
-
-        'Header
-        content.Add("")
-        Dim headerText As String = "//////// " & currentClass.Name & " ////////"
-        content.Add(StrDup(headerText.Length, "/"))
-        content.Add(headerText)
-        content.Add(StrDup(headerText.Length, "/"))
-
-        'TODO: Fix str() & clone()
-
-        'Define struct
-        compiledStructsPrototypes.Add("struct " & currentClass.compiledName & ";")
-        content.Add("struct " & currentClass.compiledName & "{")
-        new_content.Add("struct " & currentClass.compiledName)
-
-        'Declare variables
-        For Each def As DeclareVariableNode In currentClass.declareVariables
-
-            'Create variable
-            Dim var As New Variable(def.variableName, Nothing, getVariableName(), def.declarationType)
-
-            'Set variable type
-            If def.variableUnsafeType Is Nothing Then
-
-                'Check if brut value
-                If Not ValueIsIndependent(def.value) Then
-                    addNodeSyntaxError("VBCS01", "Only constants can be entered as the initialization value of a variable here.", def.value)
-                End If
-
-                'Set type
-                var.type = getNodeType(def.value)
-
-                'Compile
-                content.Add(String.Format("{0} * {1};", compileTypeNode(var.type), var.compiledName))
-                new_content.Add(String.Format("{0} = {1};", var.compiledName, compileNode(def.value, New List(Of String))))
-
-            Else
-
-                'Set type
-                'var.type = typenodeToSafeType(def.variableUnsafeType)
-
-                'Compile
-                ' content.Add(String.Format("Public {0} As {1}", var.compiledName, compileSafeType(var.type)))
-
-            End If
-
-            'Add variable
-            currentClass.variables.Add(var)
-
-        Next
-
-        'Finish struct
-        content.Add("}")
-
-        'Add content
-        compiledClasss.AddRange(content)
-
-    End Sub
-
     '======================================
     '========== COMPILE FUNCTION ==========
     '======================================
-    Private Function compileFunction(ByRef fun As FunctionNode) As String
+    Private Sub compileFunction(ByRef fun As FunctionNode, ByVal targetResult As List(Of String))
 
         'State handler
         If fun.compiled Then
             If fun.compiling Then
                 addNodeSyntaxError("VBCCF01", "The type of this function must be explicitly noted by its use. Example: ""func " & fun.Name & "():str""", fun)
             End If
-            Return ""
+            Exit Sub
         End If
         fun.compiled = True
         fun.compiling = True
@@ -684,9 +545,11 @@ Public Class C_Compiler
 
         Next
 
+        'Result
+        targetResult.AddRange(content)
 
 
-    End Function
+    End Sub
 
     '======================================
     '========== COMPILE RELATION ==========
@@ -698,27 +561,284 @@ Public Class C_Compiler
     End Function
 
     '==================================
-    '========== COMPILE TYPE ==========
+    '========== SEARCH CLASS ==========
     '==================================
-    Private Function compileTypeNode(ByVal type As typeNode) As String
+    Private Function getClass(ByVal name As String, ByVal nodeCaller As Node, Optional ByVal throwError As Boolean = True) As ClassNode
 
-        'Get class
-        If type.targetClass Is Nothing Then
-            type.targetClass = getClass(type.className, type)
+        'Search current file
+        Dim currentFile As LimFile = getNodeParentFile(nodeCaller, False)
+        If currentFile Is Nothing Then
+            currentFile = entryFile
         End If
 
-        'Compiled
-        For Each compiledType As typeNode In compiledTypes
+        'Search in Current file
+        For Each currentClass As ClassNode In currentFile.classs
+            If currentClass.Name = name Then
+                Return currentClass
+            End If
+        Next
+
+        'Search in others files
+        For Each otherFile As LimFile In currentFile.FilesImports
+            For Each currentClass As ClassNode In otherFile.classs
+                If currentClass.Name = name And currentClass.export Then
+                    Return currentClass
+                End If
+            Next
+        Next
+
+        'Anable to find the class
+        If throwError Then
+            addNodeNamingError("CCGC01", "The class """ & name & """ could not be found.", nodeCaller, "Check the class name or that the file is correctly imported.")
+        End If
+        Return Nothing
+
+    End Function
+
+    '==================================
+    '========== COMPILE TYPE ==========
+    '==================================
+    Private Function compileTypeNode(ByVal type As typeNode) As Type
+
+        'Type already exist ?
+        For Each compiled_type As Type In compiledTypes
+            If compiled_type.Name = type.className Then
+
+                'Pas asser d'argument
+                If Not compiled_type.given_arguments.Count = type.arguments.Count Then
+                    addNodeTypeError("CCCTN01", "The number of argument passed (" & type.arguments.Count.ToString() & ") does not correspond to the number requested by the class (" & compiled_type.given_arguments.Count.ToString() & ").", type)
+                End If
+
+                'Si les arguments match
+                Dim match As Boolean = True
+                For i As Integer = 0 To type.arguments.Count - 1
+
+                    'Compile l'argument du typenode
+                    Dim compiledArgument As Type = compileTypeNode(type.arguments(i))
+
+                    'Vérifie si il est le même que celui given
+                    If Not compiledArgument.compiledName = compiled_type.given_arguments(i).compiledName Then
+                        match = False
+                        Exit For
+                    End If
+
+                Next
+
+                'Match
+                If match Then
+                    Return compiled_type
+                End If
+
+            End If
+        Next
+
+        'Search parent class argument (0 arguments because <parameter_name> are just simples strings)
+        If type.arguments.Count = 0 Then
+            Dim parent As Node = type
+            While parent IsNot Nothing
+
+                'It's not a Type
+                If Not TypeOf parent Is Type Then
+                    parent = parent.parentNode
+                    Continue While
+                End If
+
+                'It's a Type
+                Dim castedType As Type = DirectCast(parent, Type)
+
+                'Loop for each argument
+                For i As Integer = 0 To castedType.arguments.Count - 1
+                    If castedType.arguments(i) = type.className Then
+                        Return castedType.given_arguments(i)
+                    End If
+                Next
+
+            End While
+        End If
+
+        'We need to compile the type
+        'Get class
+        Dim target As ClassNode = getClass(type.className, type)
+
+        'If match arguments count
+        If Not target.arguments.Count = type.arguments.Count Then
+            addNodeTypeError("CCCTN02", "The number of argument passed (" & type.arguments.Count.ToString() & ") does not correspond to the number requested by the class (" & target.arguments.Count.ToString() & ").", type)
+        End If
+
+        'Create new type
+        Dim currentType As New Type(target.positionStart, target.positionEnd, target.Name, target.arguments)
+        currentType.parentNode = target.parentNode
+        currentType.compiled = False
+
+        'Compile class
+        Dim parentFile As LimFile = getNodeParentFile(currentType)
+
+        'Get name
+        If parentFile.LimLib Then
+
+            'LimLib
+            Dim dimensions_str As String = ""
+            If type.arguments.Count > 0 Then
+                For Each arg As typeNode In type.arguments
+                    dimensions_str &= "_and_" & compileTypeNode(arg).compiledName
+                Next
+                dimensions_str = "_of" & dimensions_str.Substring(5) & "_end"
+            End If
+
+            'Set name
+            If Not target.compiledName = "" Then
+
+                'Compiled name already exist
+                currentType.compiledName = target.compiledName & dimensions_str
+
+            Else
+
+                'Use the name
+                currentType.compiledName = target.Name & dimensions_str
+
+            End If
+
+        Else
+
+            'Generate a name
+            currentType.compiledName = getClassName()
+
+        End If
+
+        'Add to list of compiled types
+        compiledTypes.Add(currentType)
+
+        'Compile arguments
+        For Each arg As typeNode In type.arguments
+            currentType.given_arguments.Add(compileTypeNode(arg))
+        Next
+
+        'Copy methods
+        Dim new_method As FunctionNode = Nothing
+        Dim str_method As FunctionNode = Nothing
+        Dim clone_method As FunctionNode = Nothing
+        For Each method As FunctionNode In target.methods
+
+            'Clone
+            Dim clone As FunctionNode = method.clone()
+            clone.parentNode = currentType
+            currentType.methods.Add(clone)
+
+            'Search methods
+            If clone.Name = "new" Then
+                new_method = clone
+            ElseIf clone.Name = "str" Then
+                str_method = clone
+            ElseIf clone.Name = "clone" Then
+                clone_method = clone
+            End If
 
         Next
 
-        'Variable
-        Dim result As String
+        'Copy relations
+        For Each relation As RelationNode In target.relations
+            Dim clone As RelationNode = relation.clone()
+            clone.parentNode = currentType
+            currentType.relations.Add(clone)
+        Next
 
-        'Compile
+        'TODO: Fix str() & clone()
+
+        'Some variables
+        Dim content As New List(Of String)
+        Dim new_content As New List(Of String)
+
+        'Header
+        content.Add("")
+        Dim headerArguments As String = ""
+        For Each arg As Type In currentType.given_arguments
+            headerArguments &= ", " & arg.ToString()
+        Next
+        If headerArguments.StartsWith(", ") Then
+            headerArguments = "<" & headerArguments.Substring(2) & ">"
+        End If
+        Dim headerText As String = "//////// CLASS: " & currentType.Name & headerArguments & " ////////"
+        content.Add(StrDup(headerText.Length, "/"))
+        content.Add(headerText)
+        content.Add(StrDup(headerText.Length, "/"))
+
+        'Define struct
+        compiledStructsPrototypes.Add("struct " & currentType.compiledName & ";")
+        content.Add("struct " & currentType.compiledName & "{")
+
+        'AddSourceDirectly
+        For Each ASD As AddSourceNode In target.addSourceDirectly
+
+            content.Add(vbTab & ASD.value)
+
+        Next
+
+        'Declare variables
+        For Each def As DeclareVariableNode In target.declareVariables
+
+            'Create variable
+            Dim var As New Variable(def.variableName, Nothing, getVariableName(), def.declarationType)
+
+            'Set variable type
+            If def.variableUnsafeType Is Nothing Then
+
+                'Check if brut value
+                If Not ValueIsIndependent(def.value) Then
+                    addNodeSyntaxError("CCCT03", "Only constants can be entered as the initialization value of a variable in a class.", def.value)
+                End If
+
+                'Set type
+                var.type = getNodeType(def.value)
+
+                'Compile
+                content.Add(vbTab & String.Format("struct {0} * {1};", var.type.compiledName, var.compiledName))
+                new_content.Add(vbTab & String.Format("/* {0} */ {1} = {2};", var.name, var.compiledName, compileNode(def.value, New List(Of String))))
+
+            Else
+
+                'Set type
+                var.type = compileTypeNode(def.variableUnsafeType)
+
+                'Compile
+                content.Add(vbTab & String.Format("struct {0} * {1};", var.type.compiledName, var.compiledName))
+
+            End If
+
+            'Add variable
+            currentType.variables.Add(var)
+
+        Next
+
+        'Finish struct
+        content.Add("}")
+
+        'New content
+        content.Add("")
+        content.Add("// PreConstructor (before new execute)")
+        content.Add(String.Format("struct {0} * {0}_preconstructor()", currentType.compiledName) & "{")
+        content.Add(vbTab)
+        content.Add(vbTab & "//Allocate memory")
+        content.Add(vbTab & String.Format("struct {0} temp = tgc_alloc(&gc, sizeof(struct {0}));", currentType.compiledName))
+        content.Add(vbTab)
+        If new_content.Count > 0 Then
+            content.Add(vbTab & "//Initialize property values")
+            content.AddRange(new_content)
+            content.Add(vbTab)
+        End If
+        content.Add(vbTab & "//Return object")
+        content.Add(vbTab & "return temp;")
+        content.Add(vbTab)
+        content.Add("}")
+
+
+        'Add content
+        compiledClasss.AddRange(content)
+
+        'Compiled
+        currentType.compiled = True
 
         'Return
-        Return result
+        Return currentType
 
     End Function
 
@@ -726,7 +846,7 @@ Public Class C_Compiler
     '===================================
     '========== GET NODE TYPE ==========
     '===================================
-    Private Function getNodeType(ByVal node As Node) As Lim.typeNode
+    Private Function getNodeType(ByVal node As Node) As Type
 
         Return Nothing
 
