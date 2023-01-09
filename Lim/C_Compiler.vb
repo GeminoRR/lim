@@ -88,9 +88,6 @@ Public Class C_Compiler
         stdFloat = compileTypeNode(New typeNode(-1, -1, "float", New List(Of typeNode)))
         stdStr = compileTypeNode(New typeNode(-1, -1, "str", New List(Of typeNode)))
         stdBool = compileTypeNode(New typeNode(-1, -1, "bool", New List(Of typeNode)))
-        compileTypeNode(New typeNode(-1, -1, "list", {New typeNode(-1, -1, "str", New List(Of typeNode))}.ToList()))
-        compileTypeNode(New typeNode(-1, -1, "list", {New typeNode(-1, -1, "bool", New List(Of typeNode))}.ToList()))
-        compileTypeNode(New typeNode(-1, -1, "list", {New typeNode(-1, -1, "str", New List(Of typeNode))}.ToList()))
 
         'Logs
         If logs Then
@@ -99,6 +96,15 @@ Public Class C_Compiler
 
         'Compile start
         compileFunction(entryPoint, compiledFunctions)
+
+        'Compile ASD functions
+        For Each file As LimFile In files
+            For Each fun As FunctionNode In file.functions
+                If fun.AddSourceDirectly IsNot Nothing Then
+                    compileFunction(fun, compiledFunctions)
+                End If
+            Next
+        Next
 
         'Get final code
         Dim finalCode As String = ""
@@ -361,13 +367,6 @@ Public Class C_Compiler
                     End If
                 Next
             End If
-            'If TypeOf currentBlock Is ClassNode Then
-            '    For Each currentVariable As Variable In DirectCast(currentBlock, ClassNode).variables
-            '        If currentVariable.name = name Then
-            '            Return currentVariable
-            '        End If
-            '    Next
-            'End If
 
             currentBlock = currentBlock.parentNode
 
@@ -468,21 +467,20 @@ Public Class C_Compiler
         fun.compiling = True
 
         'Struct
-        Dim parentClass As ClassNode = Nothing
-        If TypeOf fun.parentNode Is ClassNode Then
-            parentClass = DirectCast(fun.parentNode, ClassNode)
+        Dim parentType As Type = Nothing
+        If TypeOf fun.parentNode Is Type Then
+            parentType = DirectCast(fun.parentNode, Type)
+            fun.unsafeReturnType = Nothing
+            fun.ReturnType = parentType
         End If
 
         'Get unsafe type
-        'If Not fun.unsafeReturnType Is Nothing Then
-        '    fun.ReturnType = typenodeToSafeType(fun.unsafeReturnType)
-        'End If
-
-        'Some variables
-        Dim content As New List(Of String)
+        If Not fun.unsafeReturnType Is Nothing Then
+            fun.ReturnType = compileTypeNode(fun.unsafeReturnType)
+        End If
 
         'Get name
-        If fun.compiledName = "" Then
+        If fun.compiledName = "" And fun.AddSourceDirectly Is Nothing Then
 
             'Normal handling
             If getNodeParentFile(fun).LimLib Then
@@ -493,61 +491,130 @@ Public Class C_Compiler
 
         End If
 
-        'Fix name
-        If getNodeParentFile(fun).LimLib And (fun.Name.StartsWith("__") And fun.Name.EndsWith("__")) Then
-            fun.Name = fun.Name.Substring(2)
-            fun.Name = fun.Name.Substring(0, fun.Name.Count - 2)
-        End If
+        'Some variables
+        Dim content As New List(Of String)
+        Dim headerArguments As String = ""
+        Dim compiledArguments As String = ""
+        Dim optionnalArguments As New List(Of String)
 
-        'Argument list
-        Dim compiled_arguments As String = ""
+        'Arguments
         For Each arg As FunctionArgument In fun.Arguments
 
-            Dim compiledName As String
-            If getNodeParentFile(fun).LimLib Then
-                compiledName = arg.name
-            Else
-                compiledName = getVariableName()
-            End If
+            'Create var
+            Dim var As New Variable(arg.name, Nothing, getVariableName(), arg.declareType)
 
-            'Dim var As New Variable(arg.name, typenodeToSafeType(arg.type), compiledName, arg.declareType)
-            'fun.variables.Add(var)
-
+            'Compile argument
             If arg.value IsNot Nothing Then
 
-                'If Not ValueIsIndependent(arg.value) Then
-                '    addNodeTypeError("VBCF01", "The value indicated as an optional parameter must be independent.", arg.value, "Put a default value, then, check in the function if the value of the argument is the default one. If yes, set the complex value.")
-                'End If
+                'Is optionnal
+                var.type = getNodeType(arg.value)
 
-                'compiled_arguments &= ", Optional " & var.compiledName & " As " & compileSafeType(var.type) & " = Nothing"
-                'content.Add(String.Format("If {0} Is Nothing Then", var.compiledName))
-                'content.Add(String.Format(" {0} = {1}", var.compiledName, compileNode(arg.value, content)))
-                'content.Add("End If")
+                'Compare to type
+                If arg.type IsNot Nothing Then
+                    Dim argType As Type = compileTypeNode(arg.type)
+                    If Not argType.compiledName = var.type.compiledName Then
+                        addNodeTypeError("CCCF01", "The type indicate (" & argType.ToString() & ") is not the same as that of the value (" & var.type.ToString() & ")", arg.type)
+                    End If
+                End If
+
+                'Compile
+                compiledArguments &= ", " & var.type.compiledName & " * " & var.compiledName
+                optionnalArguments.Add("")
+                optionnalArguments.Add("//Optionnal argument (" & arg.ToString() & ")")
+                optionnalArguments.Add("if (" & var.compiledName & " == NULL){")
+                Dim tempOptionnalArgument As New List(Of String)
+                tempOptionnalArgument.Add(var.compiledName & " = " & compileNode(arg.value, tempOptionnalArgument) & ";")
+                For Each line As String In tempOptionnalArgument
+                    optionnalArguments.Add(vbTab & line)
+                Next
+                optionnalArguments.Add("}")
 
             Else
 
-                'compiled_arguments &= ", " & var.compiledName & " As " & compileSafeType(var.type)
+                'Has type
+                var.type = compileTypeNode(arg.type)
+                compiledArguments &= ", " & var.type.compiledName & " * " & var.compiledName
 
             End If
 
+            'Add to header
+            headerArguments &= ", " & arg.ToString()
+
         Next
-        If compiled_arguments.StartsWith(", ") Then
-            compiled_arguments = compiled_arguments.Substring(2)
+        If compiledArguments.StartsWith(", ") Then
+            compiledArguments = compiledArguments.Substring(2)
         End If
 
         'Compile content
+        Dim noneTabContent As New List(Of String)
         For Each action As Node In fun.codes
 
-            Dim compiledAction As String = compileNode(action, content)
+            Dim compiledAction As String = compileNode(action, noneTabContent)
             If Not compiledAction = "" Then
-                content.Add(compiledAction)
+                noneTabContent.Add(compiledAction)
             End If
 
         Next
 
+        'Define prototype
+        Dim returnTypeSTR As String = "void"
+        If fun.ReturnType IsNot Nothing Then
+            returnTypeSTR = fun.ReturnType.compiledName
+        End If
+
+        compiledFunctionsPrototypes.Add(String.Format("{0} * {1}({2});", returnTypeSTR, fun.compiledName, compiledArguments))
+
+        'Add header
+        If headerArguments.StartsWith(", ") Then
+            headerArguments = headerArguments.Substring(2)
+        End If
+        Dim headerReturnTypeSTR As String = ""
+        If Not fun.ReturnType Is Nothing Then
+            headerReturnTypeSTR = ":" & fun.ReturnType.ToString()
+        End If
+        content.Add("")
+        Dim headerText As String = ""
+        If parentType Is Nothing Then
+            If fun.AddSourceDirectly Is Nothing Then
+                headerText = "//////// FUNCTION: " & fun.Name & "(" & headerArguments & ")" & headerReturnTypeSTR & " ////////"
+            Else
+                headerText = "//////// ANONYMOUS FUNCTION" & headerReturnTypeSTR & " ////////"
+            End If
+        Else
+            If fun.AddSourceDirectly Is Nothing Then
+                headerText = "//////// " & parentType.Name & " MEHTOD: " & fun.Name & "(" & headerArguments & ")" & headerReturnTypeSTR & " ////////"
+            Else
+                headerText = "//////// ANONYMOUS METHOD" & headerReturnTypeSTR & " ////////"
+            End If
+        End If
+        content.Add(StrDup(headerText.Length, "/"))
+        content.Add(headerText)
+        content.Add(StrDup(headerText.Length, "/"))
+
+        'Define function
+        If fun.AddSourceDirectly Is Nothing Then
+            content.Add(String.Format("{0} * {1}({2})", returnTypeSTR, fun.compiledName, compiledArguments) & "{")
+        Else
+            content.Add(String.Format("{0} * {1}", returnTypeSTR, compileNode(fun.AddSourceDirectly, Nothing) & "{"))
+        End If
+
+        'Add arguments
+        For Each line As String In optionnalArguments
+            content.Add(vbTab & line)
+        Next
+
+        'Add compiled content
+        content.Add(vbTab)
+        For Each line As String In noneTabContent
+            content.Add(vbTab & line)
+        Next
+        content.Add(vbTab)
+
+        'End
+        content.Add("}")
+
         'Result
         targetResult.AddRange(content)
-
 
     End Sub
 
@@ -682,7 +749,7 @@ Public Class C_Compiler
                 For Each arg As typeNode In type.arguments
                     dimensions_str &= "_and_" & compileTypeNode(arg).compiledName
                 Next
-                dimensions_str = "_of" & dimensions_str.Substring(5) & "_end"
+                dimensions_str = "_of_" & dimensions_str.Substring(5) & "_end"
             End If
 
             'Set name
@@ -812,24 +879,27 @@ Public Class C_Compiler
         'Finish struct
         content.Add("}")
 
-        'New content
-        content.Add("")
-        content.Add("// PreConstructor (before new execute)")
-        content.Add(String.Format("struct {0} * {0}_preconstructor()", currentType.compiledName) & "{")
-        content.Add(vbTab)
-        content.Add(vbTab & "//Allocate memory")
-        content.Add(vbTab & String.Format("struct {0} temp = tgc_alloc(&gc, sizeof(struct {0}));", currentType.compiledName))
-        content.Add(vbTab)
+        'Pre-New content
+        Dim preprocess As New List(Of String)
+        preprocess.Add("")
+        preprocess.Add(vbTab & "//Allocate memory")
+        preprocess.Add(vbTab & String.Format("struct {0} * self = tgc_alloc(&gc, sizeof(struct {0}));", currentType.compiledName))
+        preprocess.Add(vbTab)
         If new_content.Count > 0 Then
-            content.Add(vbTab & "//Initialize property values")
-            content.AddRange(new_content)
-            content.Add(vbTab)
+            preprocess.Add(vbTab & "//Initialize property values")
+            preprocess.AddRange(new_content)
+            preprocess.Add(vbTab)
         End If
-        content.Add(vbTab & "//Return object")
-        content.Add(vbTab & "return temp;")
-        content.Add(vbTab)
-        content.Add("}")
 
+        'New
+        Dim new_method_content As New List(Of String)
+        new_method.compiledName = currentType.compiledName & "_new"
+        compileFunction(new_method, new_method_content)
+        new_method_content.InsertRange(5, preprocess)
+        new_method_content.Insert(new_method_content.Count - 1, vbTab & "//Return object")
+        new_method_content.Insert(new_method_content.Count - 1, vbTab & "return self;")
+        new_method_content.Insert(new_method_content.Count - 1, vbTab)
+        content.AddRange(new_method_content)
 
         'Add content
         compiledClasss.AddRange(content)
@@ -842,13 +912,172 @@ Public Class C_Compiler
 
     End Function
 
-
     '===================================
-    '========== GET NODE TYPE ==========
+    '========== COMPILE VALUE ==========
     '===================================
-    Private Function getNodeType(ByVal node As Node) As Type
+    Public Function compileValue(ByVal node As valueNode, ByVal content As List(Of String)) As String
 
-        Return Nothing
+        'Return
+        Select Case node.tok.type
+
+            Case tokenType.CT_FLOAT
+                Return "new_float(" & node.tok.value.ToString() & ")"
+
+            Case tokenType.CT_INTEGER
+                Return "new_int(" & node.tok.value.ToString() & ")"
+
+            Case Else
+                Throw New NotImplementedException
+
+        End Select
+
+    End Function
+
+    '========================================
+    '========== COMPILE ADD SOURCE ==========
+    '========================================
+    Private Function compileAddSource(ByVal node As AddSourceNode, ByVal content As List(Of String))
+
+        'Check if file is limlib
+        If getNodeParentFile(node).LimLib Then
+
+            'Compile
+            Return DirectCast(node, AddSourceNode).value
+
+        Else
+
+            'Error
+            addNodeSyntaxError("VBCCN02", "It Is Not possible To integrate source code outside Of a ""limlib"" file.", node)
+
+        End If
+
+        'Return
+        Return ""
+
+    End Function
+
+    '==============================================
+    '========== COMPILE DECLARE VARIABLE ==========
+    '==============================================
+    Private Function compileDeclareVariable(ByVal node As DeclareVariableNode, ByVal content As List(Of String)) As String
+
+        'Declare variable
+        content.Add("")
+        content.Add(String.Format("//{0}", node.variableName))
+
+        'Set variable
+        Dim compiledVariableName As String
+        If getNodeParentFile(node).LimLib Then
+            compiledVariableName = node.variableName
+        Else
+            compiledVariableName = getVariableName()
+        End If
+        Dim var As New Variable(node.variableName, Nothing, compiledVariableName, node.declarationType)
+
+        'Get type
+        If node.value Is Nothing Then
+
+            'Set type
+            var.type = compileTypeNode(node.variableUnsafeType)
+
+            'Compile
+            content.Add(String.Format("{0} * {1} = NULL;", var.type.compiledName, var.compiledName))
+
+        Else
+
+            'Set type
+            var.type = getNodeType(node.value)
+            If node.variableUnsafeType IsNot Nothing Then
+                Dim defType As Type = compileTypeNode(node.variableUnsafeType)
+                If Not var.type = defType Then
+                    addNodeTypeError("VBCCF02", "The defined type of the variable (" & defType.ToString() & ") is not the same as that of its value (" & var.type.ToString() & ").", node.value)
+                End If
+            End If
+
+            'Ref
+            Select Case var.declarationType
+
+                Case VariableDeclarationType._let_
+                    content.Add(String.Format("{0} * {1} = {2};", var.type.compiledName, var.compiledName, compileNode(node.value, content)))
+
+                Case VariableDeclarationType._var_
+                    content.Add(String.Format("{0} * {1} = {0}_clone({2});", var.type.compiledName, var.compiledName, compileNode(node.value, content)))
+
+                Case Else
+                    Throw New NotImplementedException
+
+            End Select
+
+        End If
+
+        'Add variable
+        getNodeParentContainer(node).variables.Add(var)
+
+        'Return
+        content.Add("")
+        Return ""
+
+    End Function
+
+    '==========================================
+    '========== COMPILE SET VARIABLE ==========
+    '==========================================
+    Private Function compileSetVariable(ByVal node As SetVariableNode, ByVal content As List(Of String)) As String
+
+        'Set variable
+        Dim castedNode As SetVariableNode = DirectCast(node, SetVariableNode)
+
+        'Get type
+        Dim variableType As Type = getNodeType(castedNode.Target)
+        Dim valueType As Type = getNodeType(castedNode.NewValue)
+
+        'Handle error
+        If variableType = valueType Then
+            addNodeTypeError("VBCSV01", "It is impossible for a variable of type <" & variableType.ToString() & "> to assign itself a value of type <" & valueType.ToString() & ">", castedNode.NewValue)
+        End If
+
+        'Get variable
+        If TypeOf castedNode.Target Is VariableNode Then
+
+            'Get variable
+            Dim var As Variable = Nothing
+            var = getVariable(DirectCast(castedNode.Target, VariableNode).VariableName, castedNode.Target)
+
+            'Compile
+            Select Case var.declarationType
+
+                Case VariableDeclarationType._let_
+                    content.Add(String.Format("{0} = {1};", var.compiledName, compileNode(castedNode.NewValue, content)))
+
+                Case VariableDeclarationType._var_
+                    content.Add(String.Format("{0} = {1}_clone({2});", var.compiledName, var.type.compiledName, compileNode(castedNode.NewValue, content)))
+
+                Case Else
+                    Throw New NotImplementedException
+
+            End Select
+
+        ElseIf TypeOf castedNode.Target Is BracketsSelectorNode Then
+
+            'Compile
+            'TODO: DO
+            content.Add(String.Format("{0} = {1};", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+
+
+        ElseIf TypeOf castedNode.Target Is childNode Then
+
+            'Compile
+            'TODO: DO
+            content.Add(String.Format("{0}->{1} = {1};", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+
+
+        Else
+            addNodeSyntaxError("VBCSV02", "It is not possible to assign a value to this target", castedNode.Target)
+
+        End If
+
+        'Return
+        Return ""
 
     End Function
 
@@ -857,8 +1086,74 @@ Public Class C_Compiler
     '==================================
     Private Function compileNode(ByVal node As Node, ByVal content As List(Of String)) As String
 
+        If TypeOf node Is DeclareVariableNode Then
+
+            'Compile
+            Return compileDeclareVariable(DirectCast(node, DeclareVariableNode), content)
+
+        ElseIf TypeOf node Is SetVariableNode Then
+
+            'Compîle
+            Return compileSetVariable(DirectCast(node, SetVariableNode), content)
+
+        ElseIf TypeOf node Is valueNode Then
+
+            'Compile
+            Return compileValue(DirectCast(node, valueNode), content)
+
+        ElseIf TypeOf node Is AddSourceNode Then
+
+            'Compile
+            Return compileAddSource(DirectCast(node, AddSourceNode), content)
+
+        End If
+
+        'Return
+        addNodeTypeError("VBCCN01", "Unable to resolve node type", node)
         Return Nothing
 
+    End Function
+
+    '===================================
+    '========== GET NODE TYPE ==========
+    '===================================
+    Private Function getNodeType(ByVal node As Node) As Type
+
+        'Unsafe type
+        If TypeOf node Is typeNode Then
+
+            'Return
+            Return compileTypeNode(DirectCast(node, typeNode))
+
+        End If
+
+        'valueNode
+        If TypeOf node Is valueNode Then
+
+            'Casted Node
+            Dim castedNode As valueNode = DirectCast(node, valueNode)
+
+            'Return
+            Select Case castedNode.tok.type
+                Case tokenType.CT_INTEGER
+                    Return stdInt
+
+                Case tokenType.CT_FLOAT
+                    Return stdFloat
+
+                Case Else
+                    addBasicError("Type error", "Cannot get type of the folowing token <" & castedNode.tok.ToString() & ">")
+                    Return Nothing
+
+            End Select
+
+        End If
+
+        'Return
+        addNodeTypeError("CCGNT01", "Unable to resolve node type", node)
+        Return Nothing
 
     End Function
+
+
 End Class

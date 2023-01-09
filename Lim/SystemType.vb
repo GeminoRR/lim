@@ -75,4 +75,18 @@ Public Class Type
 
     End Function
 
+    'Equal
+    Public Shared Operator =(ByVal type1 As Type, ByVal type2 As Type) As Boolean
+
+        Return type1.compiledName = type2.compiledName
+
+    End Operator
+
+    'Not Equal
+    Public Shared Operator <>(ByVal type1 As Type, ByVal type2 As Type) As Boolean
+
+        Return Not type1.compiledName = type2.compiledName
+
+    End Operator
+
 End Class

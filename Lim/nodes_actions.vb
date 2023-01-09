@@ -22,6 +22,20 @@ Public Class SetVariableNode
         Return Target.ToString() & " = " & NewValue.ToString()
     End Function
 
+    'Clone
+    Public Function clone() As SetVariableNode
+
+        'Create new me
+        Dim new_me As SetVariableNode = Me.MemberwiseClone()
+
+        new_me.NewValue = new_me.NewValue.clone()
+        new_me.NewValue.parentNode = Me
+
+        'Return
+        Return new_me
+
+    End Function
+
 End Class
 
 '====================================

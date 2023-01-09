@@ -10,16 +10,18 @@ Public Class FunctionNode
     Public maxArguments As Integer
     Public minArguments As Integer
 
-    Public ReturnType As typeNode = Nothing
+    Public ReturnType As Type = Nothing
+    Public unsafeReturnType As typeNode = Nothing
 
     Public compiledName As String = ""
     Public compiled As Boolean
     Public compiling As Boolean
 
     Public export As Boolean = False
+    Public AddSourceDirectly As AddSourceNode = Nothing
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal returnType As typeNode)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.Arguments = Arguments
@@ -27,7 +29,9 @@ Public Class FunctionNode
         Me.minArguments = 0
         Dim lastArgWasOptional As Boolean = False
         For Each arg As FunctionArgument In Me.Arguments
-            arg.type.parentNode = Me
+            If arg.type IsNot Nothing Then
+                arg.type.parentNode = Me
+            End If
             If arg.value IsNot Nothing Then
                 arg.value.parentNode = Me
                 lastArgWasOptional = True
@@ -37,9 +41,9 @@ Public Class FunctionNode
                 Me.minArguments += 1
             End If
         Next
-        Me.ReturnType = returnType
-        If Me.ReturnType IsNot Nothing Then
-            Me.ReturnType.parentNode = Me
+        Me.unsafeReturnType = unsafeReturnType
+        If Me.unsafeReturnType IsNot Nothing Then
+            Me.unsafeReturnType.parentNode = Me
         End If
         Me.compiled = False
         Me.compiling = False
@@ -98,12 +102,27 @@ Public Class FunctionArgument
         If declareType = VariableDeclarationType._let_ Then
 
             'Ref
-            Return name & ":" & type.ToString()
+            Dim result As String = name
+            If type IsNot Nothing Then
+                result &= ":" & type.ToString()
+            End If
+            If value IsNot Nothing Then
+                result &= " = " & value.ToString()
+            End If
+            Return result
 
         Else
 
             'Copy
-            Return "var " & name & ":" & type.ToString()
+            'Ref
+            Dim result As String = "var " & name
+            If type IsNot Nothing Then
+                result &= ":" & type.ToString()
+            End If
+            If value IsNot Nothing Then
+                result &= " = " & value.ToString()
+            End If
+            Return result
 
         End If
 

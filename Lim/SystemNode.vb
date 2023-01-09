@@ -16,6 +16,8 @@ Public MustInherit Class Node
         Return "()"
     End Function
 
+    Public MustOverride Function clone() As Node
+
 End Class
 
 '==================================

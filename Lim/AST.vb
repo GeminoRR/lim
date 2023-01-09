@@ -70,28 +70,6 @@
 
         End While
 
-
-        ''Get codes
-        'While True
-
-        '    If Not current_tok.type = tokenType.CT_LINESTART Then
-        '        addCustomSyntaxError("NPS03", "A newline was expected here", filename, Text, current_tok.positionStart, current_tok.positionEnd)
-        '    End If
-        '    Dim currentLineIndentation As Integer = Convert.ToInt32(current_tok.value)
-
-        '    If currentLineIndentation <= nameIndentation Then
-        '        Exit While
-        '    End If
-
-        '    Dim toAdd As Node = Space()
-        '    If TypeOf toAdd Is SpaceNode Or TypeOf toAdd Is FunctionNode Or TypeOf toAdd Is DeclareVariableNode Or TypeOf toAdd Is StructNode Then
-        '        currentSpace.addNodeToCode(toAdd)
-        '    Else
-        '        addCustomSyntaxWarning("NPSW01", "The following line of code cannot be located in this frame, it will not be taken into account.", filename, Text, toAdd.positionStart, toAdd.positionEnd)
-        '    End If
-
-        'End While
-
     End Sub
 
     '========================
@@ -119,6 +97,7 @@
 
             'Get type
             currentType.arguments.Add(type())
+            currentType.arguments(currentType.arguments.Count - 1).parentNode = currentType
 
             'Next step
             If current_tok.type = tokenType.OP_COMMA Then
@@ -865,18 +844,31 @@
         Dim startPosition As Integer = current_tok.positionStart
         advance()
 
-        'Get error
-        If Not current_tok.type = tokenType.CT_TEXT Then
+        'Fix new keyword bug
+        If current_tok.type = tokenType.KW_NEW Then
+            current_tok.type = tokenType.CT_TEXT
+            current_tok.value = "new"
+        End If
+
+        'Error if there is no name / ASD
+        Dim isAddSourceDirectly As AddSourceNode = Nothing
+        If current_tok.type = tokenType.OP_ADDSOURCE Then
+            current_tok.value = "/"
+            isAddSourceDirectly = addSource()
+        End If
+        If Not (current_tok.type = tokenType.CT_TEXT Or isAddSourceDirectly IsNot Nothing) Then
             addSyntaxError("NPFU01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
         'Get name
         Dim name As String = current_tok.value
-        advance()
+        If isAddSourceDirectly Is Nothing Then
+            advance()
+        End If
 
         'Get arguments
         Dim arguments As New List(Of FunctionArgument)
-        If current_tok.type = tokenType.OP_LPAR Then 'func Name(username:str, var id:int[])
+        If current_tok.type = tokenType.OP_LPAR And isAddSourceDirectly Is Nothing Then 'func Name(username:str, var id:int[])
 
             'First arg
             advance()
@@ -917,11 +909,13 @@
                     advance()
 
                     'Search for a type
-                    If Not current_tok.type = tokenType.OP_TWOPOINT Then
-                        addSyntaxError("NPF03", "A argument type was expected here (example : ""my_argument:str[]"")", file, current_tok.positionStart, current_tok.positionEnd)
+                    If Not (current_tok.type = tokenType.OP_TWOPOINT Or current_tok.type = tokenType.OP_EQUAL) Then
+                        addSyntaxError("NPF03", "A argument type was expected here (example : ""my_argument:list<str>"")", file, current_tok.positionStart, current_tok.positionEnd)
                     End If
-                    advance()
-                    LastArgumentUnsafeType = type()
+                    If current_tok.type = tokenType.OP_TWOPOINT Then
+                        advance()
+                        LastArgumentUnsafeType = type()
+                    End If
 
                     'Value
                     If current_tok.type = tokenType.OP_EQUAL Then
@@ -965,6 +959,12 @@
 
         'Create node
         Dim currentFunction As New FunctionNode(startPosition, startPosition + 1, name, arguments, FunctionUnsafeType)
+
+        'ASD
+        If isAddSourceDirectly IsNot Nothing Then
+            currentFunction.AddSourceDirectly = isAddSourceDirectly
+            currentFunction.AddSourceDirectly.parentNode = currentFunction
+        End If
 
         'Get error
         If Not current_tok.type = tokenType.CT_LINESTART Then
