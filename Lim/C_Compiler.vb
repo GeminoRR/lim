@@ -454,7 +454,7 @@ Public Class C_Compiler
     '======================================
     '========== COMPILE FUNCTION ==========
     '======================================
-    Private Sub compileFunction(ByRef fun As FunctionNode, ByVal targetResult As List(Of String))
+    Private Sub compileFunction(ByRef fun As FunctionNode, ByVal targetResult As List(Of String), Optional ByVal context As context = Nothing)
 
         'State handler
         If fun.compiled Then
@@ -468,10 +468,14 @@ Public Class C_Compiler
 
         'Struct
         Dim parentType As Type = Nothing
-        If TypeOf fun.parentNode Is Type Then
-            parentType = DirectCast(fun.parentNode, Type)
-            fun.unsafeReturnType = Nothing
-            fun.ReturnType = parentType
+        If context Is Nothing Then
+            context = New context(fun)
+        Else
+            If TypeOf context.from Is Type Then
+                parentType = DirectCast(context.from, Type)
+                fun.unsafeReturnType = Nothing
+                fun.ReturnType = parentType
+            End If
         End If
 
         'Get unsafe type
@@ -507,7 +511,7 @@ Public Class C_Compiler
             If arg.value IsNot Nothing Then
 
                 'Is optionnal
-                var.type = getNodeType(arg.value)
+                var.type = getNodeType(arg.value, context)
 
                 'Compare to type
                 If arg.type IsNot Nothing Then
@@ -523,7 +527,7 @@ Public Class C_Compiler
                 optionnalArguments.Add("//Optionnal argument (" & arg.ToString() & ")")
                 optionnalArguments.Add("if (" & var.compiledName & " == NULL){")
                 Dim tempOptionnalArgument As New List(Of String)
-                tempOptionnalArgument.Add(var.compiledName & " = " & compileNode(arg.value, tempOptionnalArgument) & ";")
+                tempOptionnalArgument.Add(var.compiledName & " = " & compileNode(arg.value, tempOptionnalArgument, context) & ";")
                 For Each line As String In tempOptionnalArgument
                     optionnalArguments.Add(vbTab & line)
                 Next
@@ -537,6 +541,9 @@ Public Class C_Compiler
 
             End If
 
+            'Add variable
+            context.variables.Add(var)
+
             'Add to header
             headerArguments &= ", " & arg.ToString()
 
@@ -549,7 +556,7 @@ Public Class C_Compiler
         Dim noneTabContent As New List(Of String)
         For Each action As Node In fun.codes
 
-            Dim compiledAction As String = compileNode(action, noneTabContent)
+            Dim compiledAction As String = compileNode(action, noneTabContent, context)
             If Not compiledAction = "" Then
                 noneTabContent.Add(compiledAction)
             End If
@@ -595,7 +602,7 @@ Public Class C_Compiler
         If fun.AddSourceDirectly Is Nothing Then
             content.Add(String.Format("{0} * {1}({2})", returnTypeSTR, fun.compiledName, compiledArguments) & "{")
         Else
-            content.Add(String.Format("{0} * {1}", returnTypeSTR, compileNode(fun.AddSourceDirectly, Nothing) & "{"))
+            content.Add(String.Format("{0} * {1}", returnTypeSTR, compileNode(fun.AddSourceDirectly, Nothing, context) & "{"))
         End If
 
         'Add arguments
@@ -665,7 +672,7 @@ Public Class C_Compiler
     '==================================
     '========== COMPILE TYPE ==========
     '==================================
-    Private Function compileTypeNode(ByVal type As typeNode) As Type
+    Private Function compileTypeNode(ByVal type As typeNode, Optional ByVal type_context As context = Nothing) As Type
 
         'Type already exist ?
         For Each compiled_type As Type In compiledTypes
@@ -701,17 +708,17 @@ Public Class C_Compiler
 
         'Search parent class argument (0 arguments because <parameter_name> are just simples strings)
         If type.arguments.Count = 0 Then
-            Dim parent As Node = type
-            While parent IsNot Nothing
+            Dim parentContext As context = type_context
+            While parentContext IsNot Nothing
 
                 'It's not a Type
-                If Not TypeOf parent Is Type Then
-                    parent = parent.parentNode
+                If Not TypeOf parentContext.from Is Type Then
+                    parentContext = parentContext.upperContext
                     Continue While
                 End If
 
                 'It's a Type
-                Dim castedType As Type = DirectCast(parent, Type)
+                Dim castedType As Type = DirectCast(parentContext.from, Type)
 
                 'Loop for each argument
                 For i As Integer = 0 To castedType.arguments.Count - 1
@@ -737,7 +744,10 @@ Public Class C_Compiler
         currentType.parentNode = target.parentNode
         currentType.compiled = False
 
-        'Compile class
+        'Create context
+        Dim context As New context(currentType)
+
+        'Get parent file
         Dim parentFile As LimFile = getNodeParentFile(currentType)
 
         'Get name
@@ -787,29 +797,21 @@ Public Class C_Compiler
         For Each method As FunctionNode In target.methods
 
             'Clone
-            Dim clone As FunctionNode = method.clone()
-            clone.parentNode = currentType
-            currentType.methods.Add(clone)
+            currentType.methods.Add(method)
 
             'Search methods
-            If clone.Name = "new" Then
-                new_method = clone
-            ElseIf clone.Name = "str" Then
-                str_method = clone
-            ElseIf clone.Name = "clone" Then
-                clone_method = clone
+            If method.Name = "new" Then
+                new_method = method
+            ElseIf method.Name = "str" Then
+                str_method = method
+            ElseIf method.Name = "clone" Then
+                clone_method = method
             End If
 
         Next
 
         'Copy relations
-        For Each relation As RelationNode In target.relations
-            Dim clone As RelationNode = relation.clone()
-            clone.parentNode = currentType
-            currentType.relations.Add(clone)
-        Next
-
-        'TODO: Fix str() & clone()
+        currentType.relations = target.relations
 
         'Some variables
         Dim content As New List(Of String)
@@ -855,11 +857,11 @@ Public Class C_Compiler
                 End If
 
                 'Set type
-                var.type = getNodeType(def.value)
+                var.type = getNodeType(def.value, context)
 
                 'Compile
                 content.Add(vbTab & String.Format("struct {0} * {1};", var.type.compiledName, var.compiledName))
-                new_content.Add(vbTab & String.Format("/* {0} */ {1} = {2};", var.name, var.compiledName, compileNode(def.value, New List(Of String))))
+                new_content.Add(vbTab & String.Format("/* {0} */ {1} = {2};", var.name, var.compiledName, compileNode(def.value, New List(Of String), context)))
 
             Else
 
@@ -872,7 +874,7 @@ Public Class C_Compiler
             End If
 
             'Add variable
-            currentType.variables.Add(var)
+            context.variables.Add(var)
 
         Next
 
@@ -894,7 +896,7 @@ Public Class C_Compiler
         'New
         Dim new_method_content As New List(Of String)
         new_method.compiledName = currentType.compiledName & "_new"
-        compileFunction(new_method, new_method_content)
+        compileFunction(new_method, new_method_content, context)
         new_method_content.InsertRange(5, preprocess)
         new_method_content.Insert(new_method_content.Count - 1, vbTab & "//Return object")
         new_method_content.Insert(new_method_content.Count - 1, vbTab & "return self;")
@@ -903,6 +905,13 @@ Public Class C_Compiler
 
         'Add content
         compiledClasss.AddRange(content)
+
+        'Compile methods
+        For Each method As FunctionNode In currentType.methods
+            compileFunction(method, content, context)
+        Next
+
+        'TODO: Compile relations
 
         'Compiled
         currentType.compiled = True
@@ -915,7 +924,7 @@ Public Class C_Compiler
     '===================================
     '========== COMPILE VALUE ==========
     '===================================
-    Public Function compileValue(ByVal node As valueNode, ByVal content As List(Of String)) As String
+    Public Function compileValue(ByVal node As valueNode, ByVal content As List(Of String), ByVal context As context) As String
 
         'Return
         Select Case node.tok.type
@@ -936,7 +945,7 @@ Public Class C_Compiler
     '========================================
     '========== COMPILE ADD SOURCE ==========
     '========================================
-    Private Function compileAddSource(ByVal node As AddSourceNode, ByVal content As List(Of String))
+    Private Function compileAddSource(ByVal node As AddSourceNode, ByVal content As List(Of String), ByVal context As context)
 
         'Check if file is limlib
         If getNodeParentFile(node).LimLib Then
@@ -959,7 +968,7 @@ Public Class C_Compiler
     '==============================================
     '========== COMPILE DECLARE VARIABLE ==========
     '==============================================
-    Private Function compileDeclareVariable(ByVal node As DeclareVariableNode, ByVal content As List(Of String)) As String
+    Private Function compileDeclareVariable(ByVal node As DeclareVariableNode, ByVal content As List(Of String), ByVal context As context) As String
 
         'Declare variable
         content.Add("")
@@ -986,7 +995,7 @@ Public Class C_Compiler
         Else
 
             'Set type
-            var.type = getNodeType(node.value)
+            var.type = getNodeType(node.value, context)
             If node.variableUnsafeType IsNot Nothing Then
                 Dim defType As Type = compileTypeNode(node.variableUnsafeType)
                 If Not var.type = defType Then
@@ -998,10 +1007,10 @@ Public Class C_Compiler
             Select Case var.declarationType
 
                 Case VariableDeclarationType._let_
-                    content.Add(String.Format("{0} * {1} = {2};", var.type.compiledName, var.compiledName, compileNode(node.value, content)))
+                    content.Add(String.Format("{0} * {1} = {2};", var.type.compiledName, var.compiledName, compileNode(node.value, content, context)))
 
                 Case VariableDeclarationType._var_
-                    content.Add(String.Format("{0} * {1} = {0}_clone({2});", var.type.compiledName, var.compiledName, compileNode(node.value, content)))
+                    content.Add(String.Format("{0} * {1} = {0}_clone({2});", var.type.compiledName, var.compiledName, compileNode(node.value, content, context)))
 
                 Case Else
                     Throw New NotImplementedException
@@ -1011,7 +1020,7 @@ Public Class C_Compiler
         End If
 
         'Add variable
-        getNodeParentContainer(node).variables.Add(var)
+        context.variables.Add(var)
 
         'Return
         content.Add("")
@@ -1022,14 +1031,14 @@ Public Class C_Compiler
     '==========================================
     '========== COMPILE SET VARIABLE ==========
     '==========================================
-    Private Function compileSetVariable(ByVal node As SetVariableNode, ByVal content As List(Of String)) As String
+    Private Function compileSetVariable(ByVal node As SetVariableNode, ByVal content As List(Of String), ByVal context As context) As String
 
         'Set variable
         Dim castedNode As SetVariableNode = DirectCast(node, SetVariableNode)
 
         'Get type
-        Dim variableType As Type = getNodeType(castedNode.Target)
-        Dim valueType As Type = getNodeType(castedNode.NewValue)
+        Dim variableType As Type = getNodeType(castedNode.Target, context)
+        Dim valueType As Type = getNodeType(castedNode.NewValue, context)
 
         'Handle error
         If variableType = valueType Then
@@ -1047,10 +1056,10 @@ Public Class C_Compiler
             Select Case var.declarationType
 
                 Case VariableDeclarationType._let_
-                    content.Add(String.Format("{0} = {1};", var.compiledName, compileNode(castedNode.NewValue, content)))
+                    content.Add(String.Format("{0} = {1};", var.compiledName, compileNode(castedNode.NewValue, content, context)))
 
                 Case VariableDeclarationType._var_
-                    content.Add(String.Format("{0} = {1}_clone({2});", var.compiledName, var.type.compiledName, compileNode(castedNode.NewValue, content)))
+                    content.Add(String.Format("{0} = {1}_clone({2});", var.compiledName, var.type.compiledName, compileNode(castedNode.NewValue, content, context)))
 
                 Case Else
                     Throw New NotImplementedException
@@ -1061,14 +1070,14 @@ Public Class C_Compiler
 
             'Compile
             'TODO: DO
-            content.Add(String.Format("{0} = {1};", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+            content.Add(String.Format("{0} = {1};", compileNode(castedNode.Target, content, context), compileNode(castedNode.NewValue, content, context)))
 
 
         ElseIf TypeOf castedNode.Target Is childNode Then
 
             'Compile
             'TODO: DO
-            content.Add(String.Format("{0}->{1} = {1};", compileNode(castedNode.Target, content), compileNode(castedNode.NewValue, content)))
+            content.Add(String.Format("{0}->{1} = {1};", compileNode(castedNode.Target, content, context), compileNode(castedNode.NewValue, content, context)))
 
 
         Else
@@ -1084,27 +1093,27 @@ Public Class C_Compiler
     '==================================
     '========== COMPILE NODE ==========
     '==================================
-    Private Function compileNode(ByVal node As Node, ByVal content As List(Of String)) As String
+    Private Function compileNode(ByVal node As Node, ByVal content As List(Of String), ByVal context As context) As String
 
         If TypeOf node Is DeclareVariableNode Then
 
             'Compile
-            Return compileDeclareVariable(DirectCast(node, DeclareVariableNode), content)
+            Return compileDeclareVariable(DirectCast(node, DeclareVariableNode), content, context)
 
         ElseIf TypeOf node Is SetVariableNode Then
 
             'Compîle
-            Return compileSetVariable(DirectCast(node, SetVariableNode), content)
+            Return compileSetVariable(DirectCast(node, SetVariableNode), content, context)
 
         ElseIf TypeOf node Is valueNode Then
 
             'Compile
-            Return compileValue(DirectCast(node, valueNode), content)
+            Return compileValue(DirectCast(node, valueNode), content, context)
 
         ElseIf TypeOf node Is AddSourceNode Then
 
             'Compile
-            Return compileAddSource(DirectCast(node, AddSourceNode), content)
+            Return compileAddSource(DirectCast(node, AddSourceNode), content, context)
 
         End If
 
@@ -1117,7 +1126,7 @@ Public Class C_Compiler
     '===================================
     '========== GET NODE TYPE ==========
     '===================================
-    Private Function getNodeType(ByVal node As Node) As Type
+    Private Function getNodeType(ByVal node As Node, ByVal context As context) As Type
 
         'Unsafe type
         If TypeOf node Is typeNode Then
