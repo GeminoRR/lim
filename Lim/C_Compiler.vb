@@ -20,8 +20,6 @@ Public Class C_Compiler
     Private functionCount As Integer = 0
     Private classCount As Integer = 0
 
-    Private compiledTypes As New List(Of Type)
-
     Private stdInt As Type
     Private stdFloat As Type
     Private stdStr As Type
