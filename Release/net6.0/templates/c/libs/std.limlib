@@ -17,11 +17,24 @@ func $"new_int(int value)":int
 export primary class __float__
 	$"double value;"
 
+//Creator
+func $"new_float(float value)":float
+	$"__float__ * temp = __float___new();"
+	$"temp->value = value;"
+	$"return temp;"
+
 /////////////////////
 //////// STR ////////
 /////////////////////
 export primary class __str__
 	$"char * value;"
+
+//Creator
+func $"new_str(const char * value)":str
+	$"__str__ * temp = __str___new();"
+	$"temp->value = tgc_alloc(&gc, sizeof(char) * strlen(value) + 1);"
+	$"strcpy(temp->value, value);"
+	$"return temp;"
 
 //////////////////////
 //////// BOOL ////////
@@ -29,8 +42,21 @@ export primary class __str__
 export primary class __bool__
 	$"bool value;"
 
+//Creator
+func $"new_bool(bool value)":bool
+	$"__bool__ * temp = __bool___new();"
+	$"temp->value = value;"
+	$"return temp;"
+
 //////////////////////
 //////// LIST ////////
 //////////////////////
 export class list<item_type>
 	let next:item_type
+
+/////////////////////
+//////// MAP ////////
+/////////////////////
+export class map<key_type, value_type>
+	let keys:list<key_type>
+	let values:list<value_type>

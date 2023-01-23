@@ -33,14 +33,27 @@ Public Class Type
     Inherits Node
 
     'Variable
-    Public target As ClassNode
+    Public Name As String
     Public arguments As List(Of String)
 
+    Public compiledName As String = ""
+    Public given_arguments As New List(Of Type)
+
+    Public compiled As Boolean
+
+    Public variables As New List(Of Variable)
+    Public methods As New List(Of FunctionNode)
+    Public relations As New List(Of RelationNode)
+
+    Public export As Boolean = False
+    Public primary As Boolean = False
+
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal target As ClassNode, ByVal arguments As List(Of String))
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal arguments As List(Of String))
 
         MyBase.New(positionStart, positionEnd)
-        Me.target = target
+        Me.Name = Name
+        Me.compiled = False
         Me.arguments = arguments
 
     End Sub
@@ -58,39 +71,21 @@ Public Class Type
         End If
 
         'Return
-        Return Me.target.Name & argumentsSTR
+        Return Me.Name & argumentsSTR
 
     End Function
 
     'Equal
     Public Shared Operator =(ByVal type1 As Type, ByVal type2 As Type) As Boolean
 
-        'Argument count
-        If Not type1.arguments.Count = type2.arguments.Count Then
-            Return False
-        End If
-
-        'Same class
-        If Not type1.target.compiledName = type2.target.compiledName Then
-            Return False
-        End If
-
-        'Same argument
-        For i As Integer = 0 To type1.arguments.Count - 1
-            If Not type1.arguments(i) = type2.arguments(i) Then
-                Return False
-            End If
-        Next
-
-        'Ok
-        Return True
+        Return type1.compiledName = type2.compiledName
 
     End Operator
 
     'Not Equal
     Public Shared Operator <>(ByVal type1 As Type, ByVal type2 As Type) As Boolean
 
-        Return Not type1 = type2
+        Return Not type1.compiledName = type2.compiledName
 
     End Operator
 

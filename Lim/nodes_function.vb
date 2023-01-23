@@ -2,7 +2,7 @@
 '========== FUNCTION ==========
 '==============================
 Public Class FunctionNode
-    Inherits containerNode
+    Inherits Node
 
     'Variable
     Public Name As String
@@ -19,6 +19,8 @@ Public Class FunctionNode
 
     Public export As Boolean = False
     Public AddSourceDirectly As AddSourceNode = Nothing
+
+    Public content As New List(Of Node)
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
@@ -134,13 +136,15 @@ End Class
 '========== RELATION ==========
 '==============================
 Public Class RelationNode
-    Inherits containerNode
+    Inherits Node
 
     'Variable
     Public operator_name As token
     Public Arguments As List(Of FunctionArgument)
 
     Public ReturnType As typeNode = Nothing
+
+    Public content As New List(Of Node)
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal operator_name As token, ByVal Arguments As List(Of FunctionArgument), ByVal ReturnType As typeNode)

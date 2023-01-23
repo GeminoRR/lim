@@ -9,6 +9,7 @@ Public Class C_Compiler
 
     Private compiledImports As New List(Of String)
     Private compiledStructsPrototypes As New List(Of String)
+    Private compiledTypeDefs As New List(Of String)
     Private compiledFunctionsPrototypes As New List(Of String)
     Private compiledVariables As New List(Of String)
     Private compiledClasss As New List(Of String)
@@ -19,6 +20,8 @@ Public Class C_Compiler
     Private helpVariableCount As Integer = 0
     Private functionCount As Integer = 0
     Private classCount As Integer = 0
+
+    Private compiledTypes As New List(Of Type)
 
     Private stdInt As Type
     Private stdFloat As Type
@@ -41,6 +44,7 @@ Public Class C_Compiler
         compiledImports.Add("#include <math.h>")
         compiledImports.Add("#include ""tgc.h""")
         compiledStructsPrototypes.Clear()
+        compiledTypeDefs.Clear()
         compiledFunctionsPrototypes.Clear()
         compiledVariables.Clear()
         compiledClasss.Clear()
@@ -125,6 +129,15 @@ Public Class C_Compiler
         Next
         finalCode &= Environment.NewLine & Environment.NewLine
 
+        'TypeDef
+        finalCode &= "//////////////////////////" & Environment.NewLine
+        finalCode &= "//////// TYPE DEF ////////" & Environment.NewLine
+        finalCode &= "//////////////////////////"
+        For Each line As String In compiledTypeDefs
+            finalCode &= Environment.NewLine & line
+        Next
+        finalCode &= Environment.NewLine & Environment.NewLine
+
         'Functions Prototypes
         finalCode &= "//////////////////////////////////////" & Environment.NewLine
         finalCode &= "//////// FUNCTIONS PROTOTYPES ////////" & Environment.NewLine
@@ -201,6 +214,10 @@ Public Class C_Compiler
         Catch ex As Exception
             addBasicError("Cannot reload directory", ex.Message)
         End Try
+
+        'Add TGC
+        File.Copy(cTemplates & "/gc/tgc.c", outputFolder & "/tgc.c", True)
+        File.Copy(cTemplates & "/gc/tgc.h", outputFolder & "/tgc.h", True)
 
         'Write file
         Try
@@ -347,71 +364,85 @@ Public Class C_Compiler
     End Function
 
     '==================================
-    '========== GET VARIABLE ==========
+    '========== GET CONTEXTS ==========
     '==================================
-    Public Function getVariable(ByVal name As String, ByVal nodeCaller As Node) As Variable
+    Private Iterator Function getContexts(ByVal context As context) As System.Collections.IEnumerable
 
-        'Get file
-        Dim currentFile As LimFile = getNodeParentFile(nodeCaller)
+        Dim upperContext As context = context
 
-        'Search in Current file
-        Dim currentBlock As Node = nodeCaller
-        While Not currentBlock Is Nothing
+        While upperContext IsNot Nothing
 
-            If TypeOf currentBlock Is containerNode Then
-                For Each currentVariable As Variable In DirectCast(currentBlock, containerNode).variables
-                    If currentVariable.name = name Then
-                        Return currentVariable
-                    End If
-                Next
-            End If
-
-            currentBlock = currentBlock.parentNode
+            Yield upperContext
+            upperContext = upperContext.upperContext
 
         End While
 
-        'Search in current file variables
-        For Each var As Variable In currentFile.variables
-            If var.name = name Then
-                Return var
-            End If
-        Next
-        For Each declareVariable As DeclareVariableNode In currentFile.declareVariables
+    End Function
 
-            'Is the one that we search ?
-            If Not declareVariable.variableName = name Then
-                Continue For
-            End If
+    '==================================
+    '========== GET VARIABLE ==========
+    '==================================
+    Public Function getVariable(ByVal name As String, ByVal context As context, Optional ByVal nodeCaller As Node = Nothing) As Variable
 
-            'TODO: COMPILE DECLARE VARIABLE
+        'Search in current context
+        For Each ctx As context In getContexts(context)
 
-        Next
-
-        'Search in others files
-        For Each file As LimFile In currentFile.FilesImports
-
-            'Get variables
-            For Each var As Variable In file.variables
+            For Each var As Variable In ctx.variables
                 If var.name = name Then
                     Return var
                 End If
             Next
 
-            'Declare variables
-            For Each declareVariable As DeclareVariableNode In file.declareVariables
-
-                'Is the one that we search ?
-                If Not (declareVariable.variableName = name And declareVariable.export) Then
-                    Continue For
-                End If
-
-                'TODO: COMPILE DECLARE VARIABLE
-
-            Next
-
         Next
 
+        'Get file
+        Dim currentFile As LimFile = getNodeParentFile(context.from)
+
+        ''Search in current file variables
+        'For Each var As Variable In currentFile.variables
+        '    If var.name = name Then
+        '        Return var
+        '    End If
+        'Next
+        'For Each declareVariable As DeclareVariableNode In currentFile.declareVariables
+
+        '    'Is the one that we search ?
+        '    If Not declareVariable.variableName = name Then
+        '        Continue For
+        '    End If
+
+        '    'TODO: COMPILE DECLARE VARIABLE
+
+        'Next
+
+        ''Search in others files
+        'For Each file As LimFile In currentFile.FilesImports
+
+        '    'Get variables
+        '    For Each var As Variable In file.variables
+        '        If var.name = name Then
+        '            Return var
+        '        End If
+        '    Next
+
+        '    'Declare variables
+        '    For Each declareVariable As DeclareVariableNode In file.declareVariables
+
+        '        'Is the one that we search ?
+        '        If Not (declareVariable.variableName = name And declareVariable.export) Then
+        '            Continue For
+        '        End If
+
+        '        'TODO: COMPILE DECLARE VARIABLE
+
+        '    Next
+
+        'Next
+
         'Anable to find the class
+        If nodeCaller Is Nothing Then
+            nodeCaller = context.from
+        End If
         addNodeNamingError("VBCGV01", "The variable """ & name & """ could not be found.", nodeCaller, "Check the variable name or that the file is correctly imported.")
         Return Nothing
 
@@ -493,6 +524,11 @@ Public Class C_Compiler
 
         End If
 
+        'Fix name with class
+        If parentType IsNot Nothing Then
+            fun.compiledName = parentType.compiledName & "_" & fun.compiledName
+        End If
+
         'Some variables
         Dim content As New List(Of String)
         Dim headerArguments As String = ""
@@ -552,7 +588,7 @@ Public Class C_Compiler
 
         'Compile content
         Dim noneTabContent As New List(Of String)
-        For Each action As Node In fun.codes
+        For Each action As Node In fun.content
 
             Dim compiledAction As String = compileNode(action, noneTabContent, context)
             If Not compiledAction = "" Then
@@ -567,7 +603,11 @@ Public Class C_Compiler
             returnTypeSTR = fun.ReturnType.compiledName
         End If
 
-        compiledFunctionsPrototypes.Add(String.Format("{0} * {1}({2});", returnTypeSTR, fun.compiledName, compiledArguments))
+        If fun.AddSourceDirectly Is Nothing Then
+            compiledFunctionsPrototypes.Add(String.Format("{0} * {1}({2});", returnTypeSTR, fun.compiledName, compiledArguments))
+        Else
+            compiledFunctionsPrototypes.Add(String.Format("{0} * {1};", returnTypeSTR, compileNode(fun.AddSourceDirectly, Nothing, context)))
+        End If
 
         'Add header
         If headerArguments.StartsWith(", ") Then
@@ -619,6 +659,7 @@ Public Class C_Compiler
         content.Add("}")
 
         'Result
+        fun.compiling = False
         targetResult.AddRange(content)
 
     End Sub
@@ -743,7 +784,7 @@ Public Class C_Compiler
         currentType.compiled = False
 
         'Create context
-        Dim context As New context(currentType)
+        Dim context As New context(currentType, type_context)
 
         'Get parent file
         Dim parentFile As LimFile = getNodeParentFile(currentType)
@@ -795,6 +836,7 @@ Public Class C_Compiler
         For Each method As FunctionNode In target.methods
 
             'Clone
+            method = method.clone()
             currentType.methods.Add(method)
 
             'Search methods
@@ -831,6 +873,7 @@ Public Class C_Compiler
 
         'Define struct
         compiledStructsPrototypes.Add("struct " & currentType.compiledName & ";")
+        compiledTypeDefs.Add("typedef struct " & currentType.compiledName & " " & currentType.compiledName & ";")
         content.Add("struct " & currentType.compiledName & "{")
 
         'AddSourceDirectly
@@ -864,7 +907,7 @@ Public Class C_Compiler
             Else
 
                 'Set type
-                var.type = compileTypeNode(def.variableUnsafeType)
+                var.type = compileTypeNode(def.variableUnsafeType, context)
 
                 'Compile
                 content.Add(vbTab & String.Format("struct {0} * {1};", var.type.compiledName, var.compiledName))
@@ -877,13 +920,13 @@ Public Class C_Compiler
         Next
 
         'Finish struct
-        content.Add("}")
+        content.Add("};")
 
         'Pre-New content
         Dim preprocess As New List(Of String)
         preprocess.Add("")
         preprocess.Add(vbTab & "//Allocate memory")
-        preprocess.Add(vbTab & String.Format("struct {0} * self = tgc_alloc(&gc, sizeof(struct {0}));", currentType.compiledName))
+        preprocess.Add(vbTab & String.Format("{0} * self = tgc_alloc(&gc, sizeof({0}));", currentType.compiledName))
         preprocess.Add(vbTab)
         If new_content.Count > 0 Then
             preprocess.Add(vbTab & "//Initialize property values")
@@ -893,7 +936,7 @@ Public Class C_Compiler
 
         'New
         Dim new_method_content As New List(Of String)
-        new_method.compiledName = currentType.compiledName & "_new"
+        new_method.compiledName = "new"
         compileFunction(new_method, new_method_content, context)
         new_method_content.InsertRange(5, preprocess)
         new_method_content.Insert(new_method_content.Count - 1, vbTab & "//Return object")
@@ -1039,8 +1082,8 @@ Public Class C_Compiler
         Dim valueType As Type = getNodeType(castedNode.NewValue, context)
 
         'Handle error
-        If variableType = valueType Then
-            addNodeTypeError("VBCSV01", "It is impossible for a variable of type <" & variableType.ToString() & "> to assign itself a value of type <" & valueType.ToString() & ">", castedNode.NewValue)
+        If Not variableType = valueType Then
+            addNodeTypeError("CCCSV01", "It is impossible for a variable of type <" & variableType.ToString() & "> to assign itself a value of type <" & valueType.ToString() & ">", castedNode.NewValue)
         End If
 
         'Get variable
@@ -1048,7 +1091,7 @@ Public Class C_Compiler
 
             'Get variable
             Dim var As Variable = Nothing
-            var = getVariable(DirectCast(castedNode.Target, VariableNode).VariableName, castedNode.Target)
+            var = getVariable(DirectCast(castedNode.Target, VariableNode).VariableName, context)
 
             'Compile
             Select Case var.declarationType
@@ -1079,12 +1122,36 @@ Public Class C_Compiler
 
 
         Else
-            addNodeSyntaxError("VBCSV02", "It is not possible to assign a value to this target", castedNode.Target)
+            addNodeSyntaxError("CCCSV02", "It is not possible to assign a value to this target", castedNode.Target)
 
         End If
 
         'Return
         Return ""
+
+    End Function
+
+    '=====================================
+    '========== COMPILE BOOLEAN ==========
+    '=====================================
+    Public Function compileBoolean(ByVal node As BooleanNode) As String
+
+        'Return
+        If node.value Then
+            Return "new_bool(true)"
+        Else
+            Return "new_bool(false)"
+        End If
+
+    End Function
+
+    '====================================
+    '========== COMPILE STRING ==========
+    '====================================
+    Public Function compileString(ByVal node As StringNode) As String
+
+        'Return
+        Return "new_str(""" & node.value.ToString().Replace("""", "\""") & """)"
 
     End Function
 
@@ -1113,10 +1180,22 @@ Public Class C_Compiler
             'Compile
             Return compileAddSource(DirectCast(node, AddSourceNode), content, context)
 
+
+        ElseIf TypeOf node Is BooleanNode Then
+
+            'Compile
+            Return compileBoolean(DirectCast(node, BooleanNode))
+
+
+        ElseIf TypeOf node Is StringNode Then
+
+            'Compile
+            Return compileString(DirectCast(node, stringnode))
+
         End If
 
         'Return
-        addNodeTypeError("VBCCN01", "Unable to resolve node type", node)
+        addNodeTypeError("CCCN01", "Unable to resolve node type", node)
         Return Nothing
 
     End Function
@@ -1131,6 +1210,14 @@ Public Class C_Compiler
 
             'Return
             Return compileTypeNode(DirectCast(node, typeNode))
+
+        End If
+
+        'StringNode
+        If TypeOf node Is StringNode Then
+
+            'Return
+            Return stdStr
 
         End If
 
@@ -1156,11 +1243,26 @@ Public Class C_Compiler
 
         End If
 
+        'Variable node
+        If TypeOf node Is VariableNode Then
+
+            'Return
+            Return getVariable(DirectCast(node, VariableNode).VariableName, context).type
+
+        End If
+
+        'Boolean stuff
+        If TypeOf node Is BooleanNode Or TypeOf node Is ComparisonNode Then
+
+            'Return
+            Return stdBool
+
+        End If
+
         'Return
         addNodeTypeError("CCGNT01", "Unable to resolve node type", node)
         Return Nothing
 
     End Function
-
 
 End Class

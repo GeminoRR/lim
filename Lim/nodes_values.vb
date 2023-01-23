@@ -305,7 +305,7 @@ Public Class AddSourceNode
 
     'ToString
     Public Overrides Function ToString() As String
-        Return "<""" & value & """>"
+        Return "$""" & value & """"
     End Function
 
 End Class

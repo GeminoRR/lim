@@ -3,7 +3,7 @@
 '===========================
 Public Class context
 
-    Public variables As List(Of Variable)
+    Public variables As New List(Of Variable)
     Public from As Node
     Public upperContext As context
 

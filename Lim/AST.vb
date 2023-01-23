@@ -549,7 +549,9 @@
                     Exit While
                 End If
 
-                while_statement.addNodeToCode(line(addLineIndentation))
+                Dim result = line(currentLineIndentation)
+                result.parentNode = while_statement
+                while_statement.content.add(result)
 
             End While
 
@@ -609,7 +611,9 @@
                     Exit While
                 End If
 
-                for_statement.addNodeToCode(line(addLineIndentation))
+                Dim result As Node = line(currentLineIndentation)
+                result.parentNode = for_statement
+                for_statement.content.Add(result)
 
             End While
 
@@ -983,7 +987,9 @@
                 Exit While
             End If
 
-            currentFunction.addNodeToCode(line(currentLineIndentation))
+            Dim result As Node = line(currentLineIndentation)
+            result.parentNode = currentFunction
+            currentFunction.content.Add(result)
 
         End While
 
@@ -1137,7 +1143,9 @@
                 Exit While
             End If
 
-            currentRelation.addNodeToCode(line(currentLineIndentation))
+            Dim result As Node = line(currentLineIndentation)
+            result.parentNode = currentRelation
+            currentRelation.content.Add(result)
 
         End While
 
@@ -1324,6 +1332,7 @@
         If Not hasNewFunction Then
 
             Dim fn As New FunctionNode(-1, -1, "new", New List(Of FunctionArgument), Nothing)
+            fn.parentNode = currentStruct
             currentStruct.methods.Add(fn)
 
         End If
@@ -1332,6 +1341,7 @@
         If Not hasStrFunction Then
 
             Dim fn As New FunctionNode(-1, -1, "str", New List(Of FunctionArgument), Nothing)
+            fn.parentNode = currentStruct
             currentStruct.methods.Add(fn)
 
         End If
@@ -1340,6 +1350,7 @@
         If Not hasCloneFunction Then
 
             Dim fn As New FunctionNode(-1, -1, "clone", New List(Of FunctionArgument), Nothing)
+            fn.parentNode = currentStruct
             currentStruct.methods.Add(fn)
 
         End If

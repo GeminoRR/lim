@@ -51,6 +51,7 @@ Module Helper
 
         'Error
         If throwError Then
+            Console.WriteLine(parentNode.ToString())
             addBasicError("unreachable element", "Unable to reach file link to the <" & node.GetType().FullName.ToString() & "> node. Please report the problem to the developers. For now, try modifying your code.")
         End If
         Return Nothing
@@ -80,58 +81,6 @@ Module Helper
         If pushError Then
             addNodeNamingError("unreachable element", "No function is linked to the following element.", node)
         End If
-        Return Nothing
-
-    End Function
-
-    '==============================================
-    '========== GET NODE PARENT RELATION ==========
-    '==============================================
-    Public Function getNodeParentRelation(ByVal node As Node, Optional ByVal pushError As Boolean = True) As RelationNode
-
-        'Get most upper parent
-        Dim parentNode As Node = node
-        While Not parentNode.parentNode Is Nothing
-            If TypeOf parentNode Is RelationNode Then
-                Exit While
-            End If
-            parentNode = parentNode.parentNode
-        End While
-
-        'Check if is file
-        If TypeOf parentNode Is RelationNode Then
-            Return DirectCast(parentNode, RelationNode)
-        End If
-
-        'Error
-        If pushError Then
-            addNodeNamingError("unreachable element", "No relation is linked to the following element.", node)
-        End If
-        Return Nothing
-
-    End Function
-
-    '===============================================
-    '========== GET NODE PARENT CONTAINER ==========
-    '===============================================
-    Public Function getNodeParentContainer(ByVal node As Node) As containerNode
-
-        'Get most upper parent
-        Dim parentNode As Node = node
-        While Not parentNode.parentNode Is Nothing
-            If TypeOf parentNode Is containerNode Then
-                Exit While
-            End If
-            parentNode = parentNode.parentNode
-        End While
-
-        'Check if is file
-        If TypeOf parentNode Is containerNode Then
-            Return DirectCast(parentNode, containerNode)
-        End If
-
-        'Error
-        addNodeNamingError("unreachable element", "No function is linked to the following element", node)
         Return Nothing
 
     End Function

@@ -66,8 +66,8 @@ Module Program
             '    Threading.Thread.Sleep(200)
             'End While
 
-            ''End app
-            'endApp()
+            'End app
+            endApp()
 
         Else
 

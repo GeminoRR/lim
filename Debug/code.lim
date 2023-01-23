@@ -1,3 +1,2 @@
 func main
-	let test = 6
-	test = 75
+	let test:map<str, bool>

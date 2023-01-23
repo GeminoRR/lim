@@ -83,10 +83,11 @@ End Enum
 '========= WHILE STATEMENT =========
 '===================================
 Public Class whileStatementNode
-    Inherits containerNode
+    Inherits Node
 
     'Variable
     Public condition As Node
+    Public content As New List(Of Node)
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal condition As Node)
@@ -97,7 +98,7 @@ Public Class whileStatementNode
 
     'ToString
     Public Overrides Function ToString() As String
-        Return "(While " & condition.ToString() & " Do " & Me.codes.Count.ToString() & " things)"
+        Return "(While " & condition.ToString() & ")"
     End Function
 
 End Class
@@ -106,12 +107,13 @@ End Class
 '========= FOR STATEMENT =========
 '=================================
 Public Class forStatementNode
-    Inherits containerNode
+    Inherits Node
 
     'Variable
     Public looperTarget As Node
     Public variableName As String
     Public variableDeclareType As VariableDeclarationType
+    Public content As New List(Of Node)
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal looperTarget As Node, ByVal variableName As String, ByVal variableDeclareType As VariableDeclarationType)
@@ -132,7 +134,7 @@ Public Class forStatementNode
                 declarationType = "var"
         End Select
 
-        Return "(For " & declarationType & " " & variableName & " in (" & looperTarget.ToString() & ") do " & Me.codes.Count.ToString() & " things)"
+        Return "(For " & declarationType & " " & variableName & " in " & looperTarget.ToString() & ")"
     End Function
 
 End Class
@@ -141,7 +143,7 @@ End Class
 '========= IF STATEMENT =========
 '================================
 Public Class ifStatementNode
-    Inherits containerNode
+    Inherits Node
 
     'Variable
     Public condition As Node
@@ -178,7 +180,7 @@ Public Class ifStatementNode
 
     'ToString
     Public Overrides Function ToString() As String
-        Return "(If " & Me.condition.ToString() & " Do ...)"
+        Return "(If " & Me.condition.ToString() & ")"
     End Function
 
 End Class
