@@ -1,2 +1,3 @@
 func main
-	let test:map<str, bool>
+	while True
+		puts("Hello world")

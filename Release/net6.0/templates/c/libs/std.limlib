@@ -60,3 +60,11 @@ export class list<item_type>
 export class map<key_type, value_type>
 	let keys:list<key_type>
 	let values:list<value_type>
+
+////////////////////
+//////// IO ////////
+////////////////////
+
+//Puts (print to the standard output)
+export func __puts__(value:str)
+	$'printf("%s\n", value->value);'

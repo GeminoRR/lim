@@ -833,6 +833,16 @@
             needToRecede = True
         End If
 
+        'Save start pos
+        Dim startPosition As Integer = current_tok.positionStart
+
+        'Export
+        Dim export_kw As Boolean = False
+        If current_tok.type = tokenType.KW_EXPORT Then
+            export_kw = True
+            advance()
+        End If
+
         'Check if node is func
         If Not current_tok.type = tokenType.KW_FUNC Then
 
@@ -843,9 +853,6 @@
             Return line(funcIndentation)
 
         End If
-
-        'Save start pos
-        Dim startPosition As Integer = current_tok.positionStart
         advance()
 
         'Fix new keyword bug
@@ -855,9 +862,10 @@
         End If
 
         'Error if there is no name / ASD
+        Dim name As String = current_tok.value
         Dim isAddSourceDirectly As AddSourceNode = Nothing
         If current_tok.type = tokenType.OP_ADDSOURCE Then
-            current_tok.value = "/"
+            name = ""
             isAddSourceDirectly = addSource()
         End If
         If Not (current_tok.type = tokenType.CT_TEXT Or isAddSourceDirectly IsNot Nothing) Then
@@ -865,9 +873,15 @@
         End If
 
         'Get name
-        Dim name As String = current_tok.value
         If isAddSourceDirectly Is Nothing Then
             advance()
+        End If
+
+        'Fix name
+        Dim compiledname As String = ""
+        If file.LimLib And name.StartsWith("__") And name.EndsWith("__") Then
+            compiledname = name
+            name = name.Substring(2, name.Length - 4)
         End If
 
         'Get arguments
@@ -963,6 +977,8 @@
 
         'Create node
         Dim currentFunction As New FunctionNode(startPosition, startPosition + 1, name, arguments, FunctionUnsafeType)
+        currentFunction.export = export_kw
+        currentFunction.compiledName = compiledname
 
         'ASD
         If isAddSourceDirectly IsNot Nothing Then
@@ -1170,7 +1186,6 @@
 
         'Save start pos
         Dim startPosition As Integer = current_tok.positionStart
-        advance()
 
         'Export
         Dim export_kw As Boolean = False

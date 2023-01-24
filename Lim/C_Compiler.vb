@@ -475,7 +475,7 @@ Public Class C_Compiler
         Next
 
         'Anable to find the class
-        addNodeNamingError("VBCGF01", "The function """ & name & """ could not be found.", nodeCaller, "Check the function name or that the file is correctly imported.")
+        addNodeNamingError("CCCGF01", "The function """ & name & """ could not be found.", nodeCaller, "Check the function name or that the file is correctly imported.")
         Return Nothing
 
     End Function
@@ -539,7 +539,13 @@ Public Class C_Compiler
         For Each arg As FunctionArgument In fun.Arguments
 
             'Create var
-            Dim var As New Variable(arg.name, Nothing, getVariableName(), arg.declareType)
+            Dim variablename As String = ""
+            If getNodeParentFile(fun).LimLib Then
+                variablename = arg.name
+            Else
+                variablename = getVariableName()
+            End If
+            Dim var As New Variable(arg.name, Nothing, variablename, arg.declareType)
 
             'Compile argument
             If arg.value IsNot Nothing Then
@@ -592,6 +598,9 @@ Public Class C_Compiler
 
             Dim compiledAction As String = compileNode(action, noneTabContent, context)
             If Not compiledAction = "" Then
+                If Not compiledAction.EndsWith(";") Then
+                    compiledAction &= ";"
+                End If
                 noneTabContent.Add(compiledAction)
             End If
 
@@ -727,7 +736,7 @@ Public Class C_Compiler
                 For i As Integer = 0 To type.arguments.Count - 1
 
                     'Compile l'argument du typenode
-                    Dim compiledArgument As Type = compileTypeNode(type.arguments(i))
+                    Dim compiledArgument As Type = compileTypeNode(type.arguments(i), type_context)
 
                     'Vérifie si il est le même que celui given
                     If Not compiledArgument.compiledName = compiled_type.given_arguments(i).compiledName Then
@@ -766,6 +775,9 @@ Public Class C_Compiler
                     End If
                 Next
 
+                'Go upper
+                parentContext = parentContext.upperContext
+
             End While
         End If
 
@@ -796,7 +808,7 @@ Public Class C_Compiler
             Dim dimensions_str As String = ""
             If type.arguments.Count > 0 Then
                 For Each arg As typeNode In type.arguments
-                    dimensions_str &= "_and_" & compileTypeNode(arg).compiledName
+                    dimensions_str &= "_and_" & compileTypeNode(arg, context).compiledName
                 Next
                 dimensions_str = "_of_" & dimensions_str.Substring(5) & "_end"
             End If
@@ -826,7 +838,7 @@ Public Class C_Compiler
 
         'Compile arguments
         For Each arg As typeNode In type.arguments
-            currentType.given_arguments.Add(compileTypeNode(arg))
+            currentType.given_arguments.Add(compileTypeNode(arg, context))
         Next
 
         'Copy methods
@@ -1155,6 +1167,100 @@ Public Class C_Compiler
 
     End Function
 
+    '=============================================
+    '========== COMPILE WHILE STATEMENT ==========
+    '=============================================
+    Private Function compileWhileStatement(ByVal node As whileStatementNode, ByVal content As List(Of String), ByVal context As context)
+
+        'Check type
+        Dim conditionType As Type = getNodeType(node.condition, context)
+        If Not conditionType = stdBool Then
+            addNodeTypeError("CCCWS01", "The condition of a while loop must be of type <bool>. However, you indicate a value of type <" & conditionType.ToString() & ">", node.condition)
+        End If
+
+        'Compile while header
+        content.Add("")
+        content.Add("while (" & compileNode(node.condition, content, context) & "->value){")
+
+        'Compile core
+        Dim core As New List(Of String)
+        For Each line As Node In node.content
+            core.Add(compileNode(line, core, context))
+        Next
+        For Each line As String In core
+            If Not line = "" And Not line.EndsWith(";") Then
+                line &= ";"
+            End If
+            content.Add(vbTab & line)
+        Next
+
+        'End
+        content.Add("}")
+        content.Add("")
+
+        'Return
+        Return ""
+
+    End Function
+
+    '===========================================
+    '========== COMPILE FUNCTION CALL ==========
+    '===========================================
+    Private Function compileFunctionCall(ByVal node As FunctionCallNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Get function
+        Dim fun As FunctionNode = getFunction(node.FunctionName, node)
+
+        'Handle argument error
+        If node.Arguments.Count < fun.minArguments Then
+            addNodeTypeError("CCCFC01", (fun.Arguments.Count - node.Arguments.Count).ToString() & " arguments are missing", node)
+        End If
+        If node.Arguments.Count > fun.maxArguments Then
+            addNodeTypeError("CCCFC02", (node.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
+        End If
+
+        'Argument
+        Dim arguments As String = ""
+        For i As Integer = 0 To fun.Arguments.Count - 1
+
+            'Fill optionnal argument
+            If i >= node.Arguments.Count Then
+                arguments &= ", NULL"
+                Continue For
+            End If
+
+            'Variables
+            Dim argModel As FunctionArgument = fun.Arguments(i)
+            Dim argNode As Node = node.Arguments(i)
+
+            'Handle type error
+            If Not (compileTypeNode(argModel.type) = getNodeType(argNode, context)) Then
+                addNodeTypeError("CCCFC03", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+            End If
+
+            'Add node
+            Select Case argModel.declareType
+                Case VariableDeclarationType._let_
+                    arguments &= ", " & compileNode(argNode, content, context)
+
+                Case VariableDeclarationType._var_
+                    arguments &= ", " & compileTypeNode(argModel.type).compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
+
+                Case Else
+                    Throw New NotImplementedException
+
+            End Select
+
+        Next
+        If arguments.StartsWith(", ") Then
+            arguments = arguments.Substring(2)
+        End If
+
+        'Return
+        Return fun.compiledName & "(" & arguments & ")"
+
+    End Function
+
     '==================================
     '========== COMPILE NODE ==========
     '==================================
@@ -1169,6 +1275,16 @@ Public Class C_Compiler
 
             'Compîle
             Return compileSetVariable(DirectCast(node, SetVariableNode), content, context)
+
+        ElseIf TypeOf node Is FunctionCallNode Then
+
+            'Compîle
+            Return compileFunctionCall(DirectCast(node, FunctionCallNode), content, context)
+
+        ElseIf TypeOf node Is whileStatementNode Then
+
+            'Compile
+            Return compileWhileStatement(DirectCast(node, whileStatementNode), content, context)
 
         ElseIf TypeOf node Is valueNode Then
 
