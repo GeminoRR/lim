@@ -68,3 +68,10 @@ export class map<key_type, value_type>
 //Puts (print to the standard output)
 export func __puts__(value:str)
 	$'printf("%s\n", value->value);'
+
+///////////////////////////////
+//////// RUNTIME ERROR ////////
+///////////////////////////////
+func $"fatalError(const char * message)"
+	$'printf("FATAL RUNTIME ERROR: %s\n", message)'
+	$"exit(-1)"

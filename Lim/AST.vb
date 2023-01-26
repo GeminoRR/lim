@@ -799,17 +799,31 @@
         End If
 
         'Function call
-        If TypeOf left Is FunctionCallNode Or TypeOf left Is childNode Then
+        If TypeOf left Is FunctionCallNode Then
 
             'Add node
-            Return left
+            Dim fun As FunctionCallNode = DirectCast(left, FunctionCallNode)
+            fun.allLineFunction = True
+            Return fun
+
+        End If
+
+        'Function call
+        If TypeOf left Is childNode Then
+
+            'Add node
+            Dim child As childNode = DirectCast(left, childNode)
+            child.allLine = True
+            Return child
 
         End If
 
         'AddSource
         If TypeOf left Is AddSourceNode And file.LimLib Then
 
-            Return left
+            Dim ASN As AddSourceNode = DirectCast(left, AddSourceNode)
+            ASN.allLine = True
+            Return ASN
 
         End If
 

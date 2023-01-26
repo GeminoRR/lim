@@ -134,10 +134,13 @@ Public Class FunctionCallNode
     Public FunctionName As String
     Public Arguments As New List(Of Node)
 
+    Public allLineFunction As Boolean
+
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal FunctionName As String, ByVal Arguments As List(Of Node))
 
         MyBase.New(positionStart, positionEnd)
+        Me.allLineFunction = False
         Me.FunctionName = FunctionName
         For Each Arg As Node In Arguments
             Arg.parentNode = Me
@@ -294,12 +297,14 @@ Public Class AddSourceNode
 
     'Variables
     Public value As String
+    Public allLine As Boolean
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal value As String)
 
         MyBase.New(positionStart, positionEnd)
         Me.value = value
+        Me.allLine = False
 
     End Sub
 
@@ -440,8 +445,9 @@ Public Class childNode
     Inherits node
 
     'Variables
-    Public parentStruct As node
-    Public childNode As node
+    Public parentStruct As Node
+    Public childNode As Node
+    Public allLine As Boolean
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal left As node, ByVal right As node)
@@ -453,6 +459,8 @@ Public Class childNode
 
         Me.childNode = right
         Me.childNode.parentNode = Me
+
+        Me.allLine = False
 
     End Sub
 

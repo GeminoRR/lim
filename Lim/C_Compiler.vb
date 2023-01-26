@@ -382,14 +382,18 @@ Public Class C_Compiler
     '==================================
     '========== GET VARIABLE ==========
     '==================================
-    Public Function getVariable(ByVal name As String, ByVal context As context, Optional ByVal nodeCaller As Node = Nothing) As Variable
+    Public Function getVariable(ByVal name As String, ByVal context As context, Optional ByVal nodeCaller As Node = Nothing) As Tuple(Of Variable, Type)
 
         'Search in current context
         For Each ctx As context In getContexts(context)
 
             For Each var As Variable In ctx.variables
                 If var.name = name Then
-                    Return var
+                    Dim type_associeted_with_variable As Type = Nothing
+                    If TypeOf ctx.from Is Type Then
+                        type_associeted_with_variable = ctx.from
+                    End If
+                    Return New Tuple(Of Variable, Type)(var, type_associeted_with_variable)
                 End If
             Next
 
@@ -398,46 +402,46 @@ Public Class C_Compiler
         'Get file
         Dim currentFile As LimFile = getNodeParentFile(context.from)
 
-        ''Search in current file variables
-        'For Each var As Variable In currentFile.variables
-        '    If var.name = name Then
-        '        Return var
-        '    End If
-        'Next
-        'For Each declareVariable As DeclareVariableNode In currentFile.declareVariables
+        'Search in current file variables
+        For Each var As Variable In currentFile.variables
+            If var.name = name Then
+                Return New Tuple(Of Variable, Type)(var, Nothing)
+            End If
+        Next
+        For Each declareVariable As DeclareVariableNode In currentFile.declareVariables
 
-        '    'Is the one that we search ?
-        '    If Not declareVariable.variableName = name Then
-        '        Continue For
-        '    End If
+            'Is the one that we search ?
+            If Not declareVariable.variableName = name Then
+                Continue For
+            End If
 
-        '    'TODO: COMPILE DECLARE VARIABLE
+            'TODO: COMPILE DECLARE VARIABLE
 
-        'Next
+        Next
 
-        ''Search in others files
-        'For Each file As LimFile In currentFile.FilesImports
+        'Search in others files
+        For Each file As LimFile In currentFile.FilesImports
 
-        '    'Get variables
-        '    For Each var As Variable In file.variables
-        '        If var.name = name Then
-        '            Return var
-        '        End If
-        '    Next
+            'Get variables
+            For Each var As Variable In file.variables
+                If var.name = name Then
+                    Return New Tuple(Of Variable, Type)(var, Nothing)
+                End If
+            Next
 
-        '    'Declare variables
-        '    For Each declareVariable As DeclareVariableNode In file.declareVariables
+            'Declare variables
+            For Each declareVariable As DeclareVariableNode In file.declareVariables
 
-        '        'Is the one that we search ?
-        '        If Not (declareVariable.variableName = name And declareVariable.export) Then
-        '            Continue For
-        '        End If
+                'Is the one that we search ?
+                If Not (declareVariable.variableName = name And declareVariable.export) Then
+                    Continue For
+                End If
 
-        '        'TODO: COMPILE DECLARE VARIABLE
+                'TODO: COMPILE DECLARE VARIABLE
 
-        '    Next
+            Next
 
-        'Next
+        Next
 
         'Anable to find the class
         If nodeCaller Is Nothing Then
@@ -483,7 +487,7 @@ Public Class C_Compiler
     '======================================
     '========== COMPILE FUNCTION ==========
     '======================================
-    Private Sub compileFunction(ByRef fun As FunctionNode, ByVal targetResult As List(Of String), Optional ByVal context As context = Nothing)
+    Private Sub compileFunction(ByRef fun As FunctionNode, ByVal targetResult As List(Of String), Optional ByVal up_context As context = Nothing)
 
         'State handler
         If fun.compiled Then
@@ -497,11 +501,10 @@ Public Class C_Compiler
 
         'Struct
         Dim parentType As Type = Nothing
-        If context Is Nothing Then
-            context = New context(fun)
-        Else
-            If TypeOf context.from Is Type Then
-                parentType = DirectCast(context.from, Type)
+        Dim context As context = New context(fun, up_context)
+        If up_context IsNot Nothing Then
+            If TypeOf up_context.from Is Type Then
+                parentType = DirectCast(up_context.from, Type)
                 fun.unsafeReturnType = Nothing
                 fun.ReturnType = parentType
             End If
@@ -524,16 +527,24 @@ Public Class C_Compiler
 
         End If
 
-        'Fix name with class
-        If parentType IsNot Nothing Then
-            fun.compiledName = parentType.compiledName & "_" & fun.compiledName
-        End If
-
         'Some variables
         Dim content As New List(Of String)
         Dim headerArguments As String = ""
         Dim compiledArguments As String = ""
         Dim optionnalArguments As New List(Of String)
+
+        'Fix name with class & add self
+        If parentType IsNot Nothing Then
+            If Not fun.compiledName = "new" Then
+                compiledArguments = parentType.compiledName & " * self"
+                optionnalArguments.Add("")
+                optionnalArguments.Add("//Object NULL")
+                optionnalArguments.Add("if (self == NULL){")
+                optionnalArguments.Add(vbTab & "fatalError(""The \""" & fun.Name & "\"" method of the <" & parentType.Name & "> class was used on a \""null\"" variable. No object has been instantiated."");")
+                optionnalArguments.Add("}")
+            End If
+            fun.compiledName = parentType.compiledName & "_" & fun.compiledName
+        End If
 
         'Arguments
         For Each arg As FunctionArgument In fun.Arguments
@@ -551,13 +562,18 @@ Public Class C_Compiler
             If arg.value IsNot Nothing Then
 
                 'Is optionnal
+
+                'Check type (independent)
+                If Not ValueIsIndependent(arg.value) Then
+                    addNodeTypeError("CCCF01", "Only a constant value can be put in parameter.", arg.value, "Indicate a basic ""null"" value, then in the function, following a condition, indicate the value you want.")
+                End If
                 var.type = getNodeType(arg.value, context)
 
                 'Compare to type
                 If arg.type IsNot Nothing Then
                     Dim argType As Type = compileTypeNode(arg.type)
                     If Not argType.compiledName = var.type.compiledName Then
-                        addNodeTypeError("CCCF01", "The type indicate (" & argType.ToString() & ") is not the same as that of the value (" & var.type.ToString() & ")", arg.type)
+                        addNodeTypeError("CCCF02", "The type indicate (" & argType.ToString() & ") is not the same as that of the value (" & var.type.ToString() & ")", arg.type)
                     End If
                 End If
 
@@ -598,9 +614,6 @@ Public Class C_Compiler
 
             Dim compiledAction As String = compileNode(action, noneTabContent, context)
             If Not compiledAction = "" Then
-                If Not compiledAction.EndsWith(";") Then
-                    compiledAction &= ";"
-                End If
                 noneTabContent.Add(compiledAction)
             End If
 
@@ -634,16 +647,17 @@ Public Class C_Compiler
             Else
                 headerText = "//////// ANONYMOUS FUNCTION" & headerReturnTypeSTR & " ////////"
             End If
+            content.Add(StrDup(headerText.Length, "/"))
+            content.Add(headerText)
+            content.Add(StrDup(headerText.Length, "/"))
         Else
             If fun.AddSourceDirectly Is Nothing Then
                 headerText = "//////// " & parentType.Name & " MEHTOD: " & fun.Name & "(" & headerArguments & ")" & headerReturnTypeSTR & " ////////"
             Else
                 headerText = "//////// ANONYMOUS METHOD" & headerReturnTypeSTR & " ////////"
             End If
+            content.Add(headerText)
         End If
-        content.Add(StrDup(headerText.Length, "/"))
-        content.Add(headerText)
-        content.Add(StrDup(headerText.Length, "/"))
 
         'Define function
         If fun.AddSourceDirectly Is Nothing Then
@@ -658,7 +672,6 @@ Public Class C_Compiler
         Next
 
         'Add compiled content
-        content.Add(vbTab)
         For Each line As String In noneTabContent
             content.Add(vbTab & line)
         Next
@@ -854,10 +867,13 @@ Public Class C_Compiler
             'Search methods
             If method.Name = "new" Then
                 new_method = method
+                new_method.compiledName = "new"
             ElseIf method.Name = "str" Then
                 str_method = method
+                str_method.compiledName = "str"
             ElseIf method.Name = "clone" Then
                 clone_method = method
+                clone_method.compiledName = "clone"
             End If
 
         Next
@@ -914,7 +930,7 @@ Public Class C_Compiler
 
                 'Compile
                 content.Add(vbTab & String.Format("struct {0} * {1};", var.type.compiledName, var.compiledName))
-                new_content.Add(vbTab & String.Format("/* {0} */ {1} = {2};", var.name, var.compiledName, compileNode(def.value, New List(Of String), context)))
+                new_content.Add(vbTab & String.Format("/* {0} */ self->{1} = {2};", var.name, var.compiledName, compileNode(def.value, New List(Of String), context)))
 
             Else
 
@@ -927,6 +943,7 @@ Public Class C_Compiler
             End If
 
             'Add variable
+            currentType.variables.Add(var)
             context.variables.Add(var)
 
         Next
@@ -939,25 +956,20 @@ Public Class C_Compiler
         preprocess.Add("")
         preprocess.Add(vbTab & "//Allocate memory")
         preprocess.Add(vbTab & String.Format("{0} * self = tgc_alloc(&gc, sizeof({0}));", currentType.compiledName))
-        preprocess.Add(vbTab)
         If new_content.Count > 0 Then
+            preprocess.Add(vbTab)
             preprocess.Add(vbTab & "//Initialize property values")
             preprocess.AddRange(new_content)
-            preprocess.Add(vbTab)
         End If
 
         'New
         Dim new_method_content As New List(Of String)
-        new_method.compiledName = "new"
         compileFunction(new_method, new_method_content, context)
-        new_method_content.InsertRange(5, preprocess)
+        new_method_content.InsertRange(3, preprocess)
         new_method_content.Insert(new_method_content.Count - 1, vbTab & "//Return object")
         new_method_content.Insert(new_method_content.Count - 1, vbTab & "return self;")
         new_method_content.Insert(new_method_content.Count - 1, vbTab)
         content.AddRange(new_method_content)
-
-        'Add content
-        compiledClasss.AddRange(content)
 
         'Compile methods
         For Each method As FunctionNode In currentType.methods
@@ -965,6 +977,9 @@ Public Class C_Compiler
         Next
 
         'TODO: Compile relations
+
+        'Add content
+        compiledClasss.AddRange(content)
 
         'Compiled
         currentType.compiled = True
@@ -1004,7 +1019,14 @@ Public Class C_Compiler
         If getNodeParentFile(node).LimLib Then
 
             'Compile
-            Return DirectCast(node, AddSourceNode).value
+            If node.allLine Then
+                If Not node.value.EndsWith(";") Then
+                    node.value &= ";"
+                End If
+                content.Add(node.value)
+            Else
+                Return node.value
+            End If
 
         Else
 
@@ -1025,7 +1047,7 @@ Public Class C_Compiler
 
         'Declare variable
         content.Add("")
-        content.Add(String.Format("//{0}", node.variableName))
+        content.Add(String.Format("//Create ""{0}"" variable", node.variableName))
 
         'Set variable
         Dim compiledVariableName As String
@@ -1076,7 +1098,6 @@ Public Class C_Compiler
         context.variables.Add(var)
 
         'Return
-        content.Add("")
         Return ""
 
     End Function
@@ -1098,21 +1119,26 @@ Public Class C_Compiler
             addNodeTypeError("CCCSV01", "It is impossible for a variable of type <" & variableType.ToString() & "> to assign itself a value of type <" & valueType.ToString() & ">", castedNode.NewValue)
         End If
 
+        'Content
+        content.Add("")
+        content.Add("//Set variable")
+
         'Get variable
         If TypeOf castedNode.Target Is VariableNode Then
 
             'Get variable
-            Dim var As Variable = Nothing
-            var = getVariable(DirectCast(castedNode.Target, VariableNode).VariableName, context)
+            Dim castedTarget As VariableNode = DirectCast(castedNode.Target, VariableNode)
+            Dim varResult As Tuple(Of Variable, Type) = getVariable(castedTarget.VariableName, context, castedTarget)
+            Dim var As Variable = varResult.Item1
 
             'Compile
             Select Case var.declarationType
 
                 Case VariableDeclarationType._let_
-                    content.Add(String.Format("{0} = {1};", var.compiledName, compileNode(castedNode.NewValue, content, context)))
+                    content.Add(String.Format("{0} = {1};", compileNode(castedTarget, content, context), compileNode(castedNode.NewValue, content, context)))
 
                 Case VariableDeclarationType._var_
-                    content.Add(String.Format("{0} = {1}_clone({2});", var.compiledName, var.type.compiledName, compileNode(castedNode.NewValue, content, context)))
+                    content.Add(String.Format("{0} = {1}_clone({2});", compileNode(castedTarget, content, context), var.type.compiledName, compileNode(castedNode.NewValue, content, context)))
 
                 Case Else
                     Throw New NotImplementedException
@@ -1129,8 +1155,7 @@ Public Class C_Compiler
         ElseIf TypeOf castedNode.Target Is childNode Then
 
             'Compile
-            'TODO: DO
-            content.Add(String.Format("{0}->{1} = {1};", compileNode(castedNode.Target, content, context), compileNode(castedNode.NewValue, content, context)))
+            content.Add(String.Format("{0} = {1};", compileNode(castedNode.Target, content, context), compileNode(castedNode.NewValue, content, context)))
 
 
         Else
@@ -1188,9 +1213,6 @@ Public Class C_Compiler
             core.Add(compileNode(line, core, context))
         Next
         For Each line As String In core
-            If Not line = "" And Not line.EndsWith(";") Then
-                line &= ";"
-            End If
             content.Add(vbTab & line)
         Next
 
@@ -1234,7 +1256,13 @@ Public Class C_Compiler
             Dim argNode As Node = node.Arguments(i)
 
             'Handle type error
-            If Not (compileTypeNode(argModel.type) = getNodeType(argNode, context)) Then
+            Dim modelType As Type
+            If argModel.type IsNot Nothing Then
+                modelType = compileTypeNode(argModel.type)
+            Else
+                modelType = getNodeType(argModel.value, context)
+            End If
+            If Not (modelType = getNodeType(argNode, context)) Then
                 addNodeTypeError("CCCFC03", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
             End If
 
@@ -1257,7 +1285,148 @@ Public Class C_Compiler
         End If
 
         'Return
-        Return fun.compiledName & "(" & arguments & ")"
+        If node.allLineFunction Then
+            content.Add("")
+            content.Add("//Function call to """ & fun.Name & """")
+            content.Add(fun.compiledName & "(" & arguments & ");")
+            Return ""
+        Else
+            Return fun.compiledName & "(" & arguments & ")"
+        End If
+
+    End Function
+
+    '======================================
+    '========== COMPILE VARIABLE ==========
+    '======================================
+    Public Function compileVariable(ByVal node As VariableNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Get variable
+        Dim varResult As Tuple(Of Variable, Type) = getVariable(node.VariableName, context, node)
+        Dim var As Variable = varResult.Item1
+
+        'Is a properties ?
+        Dim result As String = var.compiledName
+        If varResult.Item2 IsNot Nothing Then
+            result = "self->" & result
+        End If
+
+        'Clone
+        If var.type.primary Then
+            Return var.type.compiledName & "_clone(" & result & ")"
+        Else
+            Return result
+        End If
+
+    End Function
+
+    '===================================
+    '========== COMPILE CHILD ==========
+    '===================================
+    Private Function compileChild(ByVal node As childNode, ByVal content As List(Of String), ByVal context As context)
+
+        'Get class
+        Dim parentType As Type = getNodeType(node.parentStruct, context)
+
+        'Compile
+        If TypeOf node.childNode Is VariableNode Then
+
+            'Variables
+            Dim searchName As String = DirectCast(node.childNode, VariableNode).VariableName
+
+            'Search propertie
+            For Each var As Variable In parentType.variables
+                If var.name = searchName Then
+                    If node.allLine Then
+                        content.Add(String.Format("{0}->{1};", compileNode(node.parentStruct, content, context), var.compiledName))
+                        Return ""
+                    Else
+                        Return String.Format("{0}->{1}", compileNode(node.parentStruct, content, context), var.compiledName)
+                    End If
+                End If
+            Next
+
+            'Not found
+            addNodeNamingError("CCCC01", "The <" & parentType.Name & "> class does Not contain a """ & searchName & """ propertie", node.childNode)
+
+        ElseIf TypeOf node.childNode Is FunctionCallNode Then
+
+            'Variables
+            Dim funCall As FunctionCallNode = DirectCast(node.childNode, FunctionCallNode)
+            Dim searchName As String = funCall.FunctionName
+
+            'Search method
+            For Each fun As FunctionNode In parentType.methods
+
+                'Not the one
+                If Not fun.Name = searchName Then
+                    Continue For
+                End If
+
+                'Handle argument error
+                If funCall.Arguments.Count < fun.minArguments Then
+                    addNodeTypeError("CCCC03", (fun.Arguments.Count - funCall.Arguments.Count).ToString() & " arguments are missing", node)
+                End If
+                If funCall.Arguments.Count > fun.maxArguments Then
+                    addNodeTypeError("CCCC04", (funCall.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
+                End If
+
+                'Argument
+                Dim arguments As String = ""
+                For i As Integer = 0 To fun.Arguments.Count - 1
+
+                    'Fill optionnal argument
+                    If i >= funCall.Arguments.Count Then
+                        arguments &= ", NULL"
+                        Continue For
+                    End If
+
+                    'Variables
+                    Dim argModel As FunctionArgument = fun.Arguments(i)
+                    Dim argNode As Node = funCall.Arguments(i)
+
+                    'Handle type error
+                    Dim modelType As Type
+                    If argModel.type IsNot Nothing Then
+                        modelType = compileTypeNode(argModel.type)
+                    Else
+                        modelType = getNodeType(argModel.value, context)
+                    End If
+                    If Not (modelType = getNodeType(argNode, context)) Then
+                        addNodeTypeError("CCCC05", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+                    End If
+
+                    'Add node
+                    Select Case argModel.declareType
+                        Case VariableDeclarationType._let_
+                            arguments &= ", " & compileNode(argNode, content, context)
+
+                        Case VariableDeclarationType._var_
+                            arguments &= ", " & compileTypeNode(argModel.type).compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
+
+                        Case Else
+                            Throw New NotImplementedException
+
+                    End Select
+
+                Next
+
+                If node.allLine Then
+                    content.Add(String.Format("{0}({1}{2});", fun.compiledName, compileNode(node.parentStruct, content, context), arguments))
+                    Return ""
+                Else
+                    Return String.Format("{0}({1}{2})", fun.compiledName, compileNode(node.parentStruct, content, context), arguments)
+                End If
+
+            Next
+
+            'Not found
+            addNodeNamingError("CCCC02", "The <" & parentType.Name & "> Class does Not contain a """ & searchName & """ method", node.childNode)
+
+        End If
+
+        'Return
+        Return ""
 
     End Function
 
@@ -1275,6 +1444,11 @@ Public Class C_Compiler
 
             'Compîle
             Return compileSetVariable(DirectCast(node, SetVariableNode), content, context)
+
+        ElseIf TypeOf node Is childNode Then
+
+            'Compile
+            Return compileChild(DirectCast(node, childNode), content, context)
 
         ElseIf TypeOf node Is FunctionCallNode Then
 
@@ -1306,7 +1480,14 @@ Public Class C_Compiler
         ElseIf TypeOf node Is StringNode Then
 
             'Compile
-            Return compileString(DirectCast(node, stringnode))
+            Return compileString(DirectCast(node, StringNode))
+
+
+        ElseIf TypeOf node Is VariableNode Then
+
+            'Compile
+            Return compileVariable(DirectCast(node, VariableNode), content, context)
+
 
         End If
 
@@ -1363,7 +1544,70 @@ Public Class C_Compiler
         If TypeOf node Is VariableNode Then
 
             'Return
-            Return getVariable(DirectCast(node, VariableNode).VariableName, context).type
+            Return getVariable(DirectCast(node, VariableNode).VariableName, context).Item1.type
+
+        End If
+
+        'FunctionCallNode
+        If TypeOf node Is FunctionCallNode Then
+
+            'Castednode
+            Dim castedNode As FunctionCallNode = DirectCast(node, FunctionCallNode)
+
+            'Get variable
+            Dim func As FunctionNode = getFunction(castedNode.FunctionName, castedNode)
+
+            'Return
+            Return func.ReturnType
+
+        End If
+
+
+        'ChildNode
+        If TypeOf node Is childNode Then
+
+            'Castednode
+            Dim castedNode As childNode = DirectCast(node, childNode)
+
+            'Get class
+            Dim parentType As Type = getNodeType(castedNode.parentStruct, context)
+
+            'Get type
+            If TypeOf castedNode.childNode Is VariableNode Then
+
+                'Variables
+                Dim searchName As String = DirectCast(castedNode.childNode, VariableNode).VariableName
+
+                'Search propertie
+                For Each var As Variable In parentType.variables
+                    If var.name = searchName Then
+                        Return var.type
+                    End If
+                Next
+
+                'Not found
+                addNodeNamingError("CCGNT06", "The <" & parentType.Name & "> class does not contain a """ & searchName & """ propertie", castedNode.childNode)
+
+            ElseIf TypeOf castedNode.childNode Is FunctionCallNode Then
+
+                'Variables
+                Dim searchName As String = DirectCast(castedNode.childNode, FunctionCallNode).FunctionName
+
+                'Search method
+                For Each fun As FunctionNode In parentType.methods
+                    If fun.Name = searchName Then
+                        Return fun.ReturnType
+                    End If
+                Next
+
+                'Not found
+                addNodeNamingError("CCGNT07", "The <" & parentType.Name & "> class does not contain a """ & searchName & """ method", castedNode.childNode)
+
+            Else
+
+                Throw New NotImplementedException()
+
+            End If
 
         End If
 
