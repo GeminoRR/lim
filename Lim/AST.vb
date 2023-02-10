@@ -389,7 +389,9 @@
         End While
 
         'Create node
-        Return New newNode(startPosition, current_tok.positionEnd, classType, arguments)
+        Dim endPosition As Integer = current_tok.positionEnd
+        advance()
+        Return New newNode(startPosition, endPosition, classType, arguments)
 
     End Function
 

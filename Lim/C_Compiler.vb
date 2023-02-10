@@ -619,6 +619,32 @@ Public Class C_Compiler
 
         Next
 
+        'Clone method return type
+        If parentType IsNot Nothing And fun.Name = "clone" Then
+
+            'Return type error
+            If Not fun.ReturnType = parentType Then
+                addNodeTypeError("CCCF03", "The clone method can only return an object of its own type.", fun)
+            End If
+
+            'Empty Clone method
+            If fun.content.Count = 0 Then
+                noneTabContent.Add("")
+                noneTabContent.Add("//Create new object")
+                noneTabContent.Add(parentType.compiledName & " * clone = tgc_alloc(&gc, sizeof(" & parentType.compiledName & "));")
+                noneTabContent.Add("")
+                noneTabContent.Add("//Copy properties")
+                For Each propertie As Variable In parentType.variables
+                    noneTabContent.Add("/* " & propertie.name & " */ clone->" & propertie.compiledName & " = " & propertie.type.compiledName & "_clone(self->" & propertie.compiledName & ");")
+                Next
+                noneTabContent.Add("")
+                noneTabContent.Add("//Return")
+                noneTabContent.Add("return clone;")
+
+            End If
+
+        End If
+
         'Define prototype
         Dim returnTypeSTR As String = "void"
         If fun.ReturnType IsNot Nothing Then
@@ -806,6 +832,7 @@ Public Class C_Compiler
         'Create new type
         Dim currentType As New Type(target.positionStart, target.positionEnd, target.Name, target.arguments)
         currentType.parentNode = target.parentNode
+        currentType.primary = target.primary
         currentType.compiled = False
 
         'Create context
@@ -1020,9 +1047,6 @@ Public Class C_Compiler
 
             'Compile
             If node.allLine Then
-                If Not node.value.EndsWith(";") Then
-                    node.value &= ";"
-                End If
                 content.Add(node.value)
             Else
                 Return node.value
@@ -1135,10 +1159,10 @@ Public Class C_Compiler
             Select Case var.declarationType
 
                 Case VariableDeclarationType._let_
-                    content.Add(String.Format("{0} = {1};", compileNode(castedTarget, content, context), compileNode(castedNode.NewValue, content, context)))
+                    content.Add(String.Format("{0} = {1};", compileVariable(castedTarget, content, context, True), compileNode(castedNode.NewValue, content, context)))
 
                 Case VariableDeclarationType._var_
-                    content.Add(String.Format("{0} = {1}_clone({2});", compileNode(castedTarget, content, context), var.type.compiledName, compileNode(castedNode.NewValue, content, context)))
+                    content.Add(String.Format("{0} = {1}_clone({2});", compileVariable(castedTarget, content, context, True), var.type.compiledName, compileNode(castedNode.NewValue, content, context)))
 
                 Case Else
                     Throw New NotImplementedException
@@ -1155,7 +1179,7 @@ Public Class C_Compiler
         ElseIf TypeOf castedNode.Target Is childNode Then
 
             'Compile
-            content.Add(String.Format("{0} = {1};", compileNode(castedNode.Target, content, context), compileNode(castedNode.NewValue, content, context)))
+            content.Add(String.Format("{0} = {1};", compileChild(castedNode.Target, content, context, True), compileNode(castedNode.NewValue, content, context)))
 
 
         Else
@@ -1299,7 +1323,7 @@ Public Class C_Compiler
     '======================================
     '========== COMPILE VARIABLE ==========
     '======================================
-    Public Function compileVariable(ByVal node As VariableNode, ByVal content As List(Of String), ByVal context As context) As String
+    Public Function compileVariable(ByVal node As VariableNode, ByVal content As List(Of String), ByVal context As context, Optional force_reference As Boolean = False) As String
 
         'Get variable
         Dim varResult As Tuple(Of Variable, Type) = getVariable(node.VariableName, context, node)
@@ -1312,7 +1336,7 @@ Public Class C_Compiler
         End If
 
         'Clone
-        If var.type.primary Then
+        If var.type.primary And force_reference = False Then
             Return var.type.compiledName & "_clone(" & result & ")"
         Else
             Return result
@@ -1323,7 +1347,7 @@ Public Class C_Compiler
     '===================================
     '========== COMPILE CHILD ==========
     '===================================
-    Private Function compileChild(ByVal node As childNode, ByVal content As List(Of String), ByVal context As context)
+    Private Function compileChild(ByVal node As childNode, ByVal content As List(Of String), ByVal context As context, Optional ByVal force_reference As Boolean = False)
 
         'Get class
         Dim parentType As Type = getNodeType(node.parentStruct, context)
@@ -1337,12 +1361,23 @@ Public Class C_Compiler
             'Search propertie
             For Each var As Variable In parentType.variables
                 If var.name = searchName Then
+
+                    'Compile result
+                    Dim result As String
+                    If var.type.primary And force_reference = False Then
+                        result = String.Format("{2}_clone({0}->{1})", compileNode(node.parentStruct, content, context), var.compiledName, var.type.compiledName)
+                    Else
+                        result = String.Format("{0}->{1}", compileNode(node.parentStruct, content, context), var.compiledName)
+                    End If
+
+                    'Return
                     If node.allLine Then
-                        content.Add(String.Format("{0}->{1};", compileNode(node.parentStruct, content, context), var.compiledName))
+                        content.Add(result & ";")
                         Return ""
                     Else
-                        Return String.Format("{0}->{1}", compileNode(node.parentStruct, content, context), var.compiledName)
+                        Return result
                     End If
+
                 End If
             Next
 
@@ -1430,6 +1465,115 @@ Public Class C_Compiler
 
     End Function
 
+    '=================================
+    '========== COMPILE NEW ==========
+    '=================================
+    Private Function compileNew(ByVal node As newNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Get class
+        Dim targetType As Type = compileTypeNode(node.type)
+
+        'Get constructor
+        Dim fun As FunctionNode = Nothing
+        For Each method As FunctionNode In targetType.methods
+            If method.Name = "new" Then
+                fun = method
+            End If
+        Next
+        If fun Is Nothing Then
+            addNodeSyntaxError("CCCN01", "Class <" & targetType.Name & "> does not contain a constructor", node, "Add a ""new"" method to the class")
+        End If
+
+        'Handle argument error
+        If node.arguments.Count < fun.minArguments Then
+            addNodeSyntaxError("CCCN02", (fun.Arguments.Count - node.arguments.Count).ToString() & " arguments are missing", node)
+        End If
+        If node.arguments.Count > fun.maxArguments Then
+            addNodeSyntaxError("CCCN03", (node.arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
+        End If
+
+        'Argument
+        Dim arguments As String = ""
+        For i As Integer = 0 To fun.Arguments.Count - 1
+
+            'Fill optionnal argument
+            If i >= node.arguments.Count Then
+                arguments &= ", NULL"
+                Continue For
+            End If
+
+            'Variables
+            Dim argModel As FunctionArgument = fun.Arguments(i)
+            Dim argNode As Node = node.arguments(i)
+
+            'Handle type error
+            Dim modelType As Type
+            If argModel.type IsNot Nothing Then
+                modelType = compileTypeNode(argModel.type)
+            Else
+                modelType = getNodeType(argModel.value, context)
+            End If
+            If Not (modelType = getNodeType(argNode, context)) Then
+                addNodeTypeError("CCCN04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+            End If
+
+            'Add node
+            Select Case argModel.declareType
+                Case VariableDeclarationType._let_
+                    arguments &= ", " & compileNode(argNode, content, context)
+
+                Case VariableDeclarationType._var_
+                    arguments &= ", " & compileTypeNode(argModel.type).compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
+
+                Case Else
+                    Throw New NotImplementedException
+
+            End Select
+
+        Next
+        If arguments.StartsWith(", ") Then
+            arguments = arguments.Substring(2)
+        End If
+
+        'Return
+        Return String.Format("{0}({1})", fun.compiledName, arguments)
+
+    End Function
+
+    '==================================
+    '========== COMPILE LIST ==========
+    '==================================
+    Public Function compileList(ByVal node As ListNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Handle no value
+        If node.elements.Count = 0 Then
+            addNodeTypeError("CCCL01", "A list cannot be empty, as this does not identify its type.", node)
+        End If
+
+        'Get type
+        Dim listType As Type = getNodeType(node.elements(0), context)
+
+        'Compile each arguments
+        Dim helpVar As String = getHelpVariableName()
+        content.Add(String.Format("{0} * {1};", "", helpVar))
+        For Each elm As Node In node.elements
+
+            'Handle type error
+            Dim elmType As Type = getNodeType(elm, context)
+            If Not listType = elmType Then
+                addNodeTypeError("CCCL02", "The list is a list of <" & listType.ToString() & "> elements, but this element is of type <" & elmType.ToString() & ">", elm)
+            End If
+
+            'Compile
+            content.Add(String.Format("{0}.Add({1})", helpVar, compileNode(elm, content, context)))
+
+        Next
+
+        'Finish compile
+        Return helpVar
+
+    End Function
+
     '==================================
     '========== COMPILE NODE ==========
     '==================================
@@ -1439,6 +1583,16 @@ Public Class C_Compiler
 
             'Compile
             Return compileDeclareVariable(DirectCast(node, DeclareVariableNode), content, context)
+
+        ElseIf TypeOf node Is ListNode Then
+
+            'Compile
+            Return compileList(DirectCast(node, ListNode), content, context)
+
+        ElseIf TypeOf node Is newNode Then
+
+            'Compile
+            Return compileNew(DirectCast(node, newNode), content, context)
 
         ElseIf TypeOf node Is SetVariableNode Then
 
@@ -1515,6 +1669,33 @@ Public Class C_Compiler
 
             'Return
             Return stdStr
+
+        End If
+
+        'ListNode
+        If TypeOf node Is ListNode Then
+
+            'Castednode
+            Dim castedNode As ListNode = DirectCast(node, ListNode)
+
+            'Handle no value
+            If castedNode.elements.Count = 0 Then
+                addNodeTypeError("CCGNT04", "A list cannot be empty, as this does not identify its type.", node)
+            End If
+
+            'Get type
+            Return getNodeType(castedNode.elements(0), context)
+
+        End If
+
+        'New node
+        If TypeOf node Is newNode Then
+
+            'Castednode
+            Dim castedNode As newNode = DirectCast(node, newNode)
+
+            'Get type
+            Return compileTypeNode(castedNode.type)
 
         End If
 

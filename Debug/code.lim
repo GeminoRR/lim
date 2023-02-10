@@ -1,12 +1,3 @@
 func main
-	let test:user
-	test.gggg()
-
-class user
-	let test = "bob"
-
-	func new(val:str)
-		test = val
-
-	func gggg
-		test = "oh"
+	let test = new list<str>
+	test()

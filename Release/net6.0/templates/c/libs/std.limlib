@@ -3,7 +3,19 @@
 /////////////////////
 //Class
 export primary class __int__
+	//Properties
 	$"int value;"
+
+	//Clone
+	func clone:int
+		$"//Create new object"
+		$"__int__ * clone = tgc_alloc(&gc, sizeof(__int__));"
+		$""
+		$"//Copy value"
+		$"clone->value = self->value;"
+		$""
+		$"//Return"
+		$"return clone;"
 
 //Creator
 func $"new_int(int value)":int
@@ -15,7 +27,19 @@ func $"new_int(int value)":int
 //////// FLOAT ////////
 ///////////////////////
 export primary class __float__
+	//Properties
 	$"double value;"
+
+	//Clone
+	func clone:float
+		$"//Create new object"
+		$"__float__ * clone = tgc_alloc(&gc, sizeof(__float__));"
+		$""
+		$"//Copy value"
+		$"clone->value = self->value;"
+		$""
+		$"//Return"
+		$"return clone;"
 
 //Creator
 func $"new_float(float value)":float
@@ -27,7 +51,20 @@ func $"new_float(float value)":float
 //////// STR ////////
 /////////////////////
 export primary class __str__
+	//Properties
 	$"char * value;"
+
+	//Clone
+	func clone:str
+		$"//Create new object"
+		$"__str__ * clone = tgc_alloc(&gc, sizeof(__str__));"
+		$""
+		$"//Copy value"
+		$"clone->value = tgc_alloc(&gc, sizeof(char) * strlen(self->value) + 1);"
+		$"strcpy(clone->value, self->value);"
+		$""
+		$"//Return"
+		$"return clone;"
 
 //Creator
 func $"new_str(const char * value)":str
@@ -40,7 +77,19 @@ func $"new_str(const char * value)":str
 //////// BOOL ////////
 //////////////////////
 export primary class __bool__
+	//Properties
 	$"bool value;"
+
+	//Clone
+	func clone:str
+		$"//Create new object"
+		$"__bool__ * clone = tgc_alloc(&gc, sizeof(__bool__));"
+		$""
+		$"//Copy value"
+		$"clone->value = self->value;"
+		$""
+		$"//Return"
+		$"return clone;"
 
 //Creator
 func $"new_bool(bool value)":bool
@@ -53,6 +102,9 @@ func $"new_bool(bool value)":bool
 //////////////////////
 export class list<item_type>
 	let next:item_type
+
+	//Constructor
+	func new
 
 /////////////////////
 //////// MAP ////////
@@ -73,5 +125,9 @@ export func __puts__(value:str)
 //////// RUNTIME ERROR ////////
 ///////////////////////////////
 func $"fatalError(const char * message)"
-	$'printf("FATAL RUNTIME ERROR: %s\n", message)'
-	$"exit(-1)"
+	$'printf("FATAL RUNTIME ERROR: %s\n", message);'
+	$"exit(-1);"
+
+export func test
+	let test = "sussy baka"
+	$'printf("%s", ;'
