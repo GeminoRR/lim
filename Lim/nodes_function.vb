@@ -90,6 +90,7 @@ Public Class FunctionArgument
 
     Public name As String
     Public type As typeNode
+    Public compiledType As Type = Nothing
     Public declareType As VariableDeclarationType
     Public value As Node
     Public Sub New(ByVal name As String, ByVal type As typeNode, ByVal declareType As VariableDeclarationType, Optional value As Node = Nothing)
@@ -139,25 +140,50 @@ Public Class RelationNode
     Inherits Node
 
     'Variable
-    Public operator_name As token
+    Public Name As String
     Public Arguments As List(Of FunctionArgument)
+    Public maxArguments As Integer
+    Public minArguments As Integer
 
-    Public ReturnType As typeNode = Nothing
+    Public ReturnType As Type = Nothing
+    Public unsafeReturnType As typeNode = Nothing
+
+    Public compiledName As String = ""
+    Public compiled As Boolean
+    Public compiling As Boolean
+
+    Public export As Boolean = False
+    Public AddSourceDirectly As AddSourceNode = Nothing
 
     Public content As New List(Of Node)
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal operator_name As token, ByVal Arguments As List(Of FunctionArgument), ByVal ReturnType As typeNode)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
         MyBase.New(positionStart, positionEnd)
-        Me.operator_name = operator_name
+        Me.Name = Name
         Me.Arguments = Arguments
+        Me.maxArguments = Me.Arguments.Count
+        Me.minArguments = 0
+        Dim lastArgWasOptional As Boolean = False
         For Each arg As FunctionArgument In Me.Arguments
-            arg.type.parentNode = Me
+            If arg.type IsNot Nothing Then
+                arg.type.parentNode = Me
+            End If
+            If arg.value IsNot Nothing Then
+                arg.value.parentNode = Me
+                lastArgWasOptional = True
+            ElseIf lastArgWasOptional Then
+                addNodeSyntaxError("NFN01", "A non-optional argument cannot follow an optional argument", Me, "Put optional arguments at the end of the argument list.")
+            Else
+                Me.minArguments += 1
+            End If
         Next
-        Me.ReturnType = ReturnType
-        If Not Me.ReturnType Is Nothing Then
-            Me.ReturnType.parentNode = Me
+        Me.unsafeReturnType = unsafeReturnType
+        If Me.unsafeReturnType IsNot Nothing Then
+            Me.unsafeReturnType.parentNode = Me
         End If
+        Me.compiled = False
+        Me.compiling = False
     End Sub
 
     'ToString
@@ -179,8 +205,7 @@ Public Class RelationNode
         End If
 
         'Return
-        Return String.Format("(function {1}({2}){3})", Me.operator_name.ToString(), argumentsSTR, returnTypeSTR)
-
+        Return String.Format("relation {1}({2}){3})", Me.Name, argumentsSTR, returnTypeSTR)
 
     End Function
 

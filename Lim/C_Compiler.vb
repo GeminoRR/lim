@@ -27,6 +27,7 @@ Public Class C_Compiler
     Private stdFloat As Type
     Private stdStr As Type
     Private stdBool As Type
+    Private stdList As Type
 
     Private logs As Boolean = False
 
@@ -505,21 +506,15 @@ Public Class C_Compiler
         If up_context IsNot Nothing Then
             If TypeOf up_context.from Is Type Then
                 parentType = DirectCast(up_context.from, Type)
-                fun.unsafeReturnType = Nothing
-                fun.ReturnType = parentType
             End If
         End If
 
-        'Get unsafe type
-        If Not fun.unsafeReturnType Is Nothing Then
-            fun.ReturnType = compileTypeNode(fun.unsafeReturnType)
-        End If
-
         'Get name
+        Dim isLimLib As Boolean = getNodeParentFile(fun).LimLib
         If fun.compiledName = "" And fun.AddSourceDirectly Is Nothing Then
 
             'Normal handling
-            If getNodeParentFile(fun).LimLib Then
+            If isLimLib Then
                 fun.compiledName = fun.Name
             Else
                 fun.compiledName = getFunctionName()
@@ -537,13 +532,21 @@ Public Class C_Compiler
         If parentType IsNot Nothing Then
             If Not fun.compiledName = "new" Then
                 compiledArguments = parentType.compiledName & " * self"
-                optionnalArguments.Add("")
-                optionnalArguments.Add("//Object NULL")
-                optionnalArguments.Add("if (self == NULL){")
-                optionnalArguments.Add(vbTab & "fatalError(""The \""" & fun.Name & "\"" method of the <" & parentType.Name & "> class was used on a \""null\"" variable. No object has been instantiated."");")
-                optionnalArguments.Add("}")
+                If Not isLimLib Then
+                    optionnalArguments.Add("")
+                    optionnalArguments.Add("//Object NULL")
+                    optionnalArguments.Add("if (self == NULL){")
+                    optionnalArguments.Add(vbTab & "fatalError(""The \""" & fun.Name & "\"" method of the <" & parentType.Name & "> class was used on a \""null\"" variable. No object has been instantiated."");")
+                    optionnalArguments.Add("}")
+                    optionnalArguments.Add("")
+                End If
             End If
             fun.compiledName = parentType.compiledName & "_" & fun.compiledName
+        End If
+
+        'Get unsafe type
+        If fun.unsafeReturnType IsNot Nothing Then
+            fun.ReturnType = compileTypeNode(fun.unsafeReturnType, context)
         End If
 
         'Arguments
@@ -551,7 +554,7 @@ Public Class C_Compiler
 
             'Create var
             Dim variablename As String = ""
-            If getNodeParentFile(fun).LimLib Then
+            If isLimLib Then
                 variablename = arg.name
             Else
                 variablename = getVariableName()
@@ -571,7 +574,7 @@ Public Class C_Compiler
 
                 'Compare to type
                 If arg.type IsNot Nothing Then
-                    Dim argType As Type = compileTypeNode(arg.type)
+                    Dim argType As Type = compileTypeNode(arg.type, context)
                     If Not argType.compiledName = var.type.compiledName Then
                         addNodeTypeError("CCCF02", "The type indicate (" & argType.ToString() & ") is not the same as that of the value (" & var.type.ToString() & ")", arg.type)
                     End If
@@ -592,13 +595,16 @@ Public Class C_Compiler
             Else
 
                 'Has type
-                var.type = compileTypeNode(arg.type)
+                var.type = compileTypeNode(arg.type, context)
                 compiledArguments &= ", " & var.type.compiledName & " * " & var.compiledName
 
             End If
 
             'Add variable
             context.variables.Add(var)
+
+            'Add type
+            arg.compiledType = var.type
 
             'Add to header
             headerArguments &= ", " & arg.ToString()
@@ -761,6 +767,12 @@ Public Class C_Compiler
     '==================================
     Private Function compileTypeNode(ByVal type As typeNode, Optional ByVal type_context As context = Nothing) As Type
 
+        If type.className = "item_type" And type_context IsNot Nothing Then
+            If type_context.upperContext Is Nothing Then
+                Debugger.Break()
+                Return Nothing
+            End If
+        End If
         'Type already exist ?
         For Each compiled_type As Type In compiledTypes
             If compiled_type.Name = type.className Then
@@ -820,7 +832,7 @@ Public Class C_Compiler
             End While
         End If
 
-        'We need to compile the type
+        'We need to compile the type"
         'Get class
         Dim target As ClassNode = getClass(type.className, type)
 
@@ -895,12 +907,21 @@ Public Class C_Compiler
             If method.Name = "new" Then
                 new_method = method
                 new_method.compiledName = "new"
+                If new_method.unsafeReturnType Is Nothing Then
+                    new_method.ReturnType = currentType
+                End If
             ElseIf method.Name = "str" Then
                 str_method = method
                 str_method.compiledName = "str"
+                If str_method.unsafeReturnType Is Nothing Then
+                    str_method.ReturnType = stdStr
+                End If
             ElseIf method.Name = "clone" Then
                 clone_method = method
                 clone_method.compiledName = "clone"
+                If clone_method.unsafeReturnType Is Nothing Then
+                    clone_method.ReturnType = currentType
+                End If
             End If
 
         Next
@@ -934,7 +955,8 @@ Public Class C_Compiler
         'AddSourceDirectly
         For Each ASD As AddSourceNode In target.addSourceDirectly
 
-            content.Add(vbTab & ASD.value)
+            ASD.allLine = False
+            content.Add(vbTab & compileAddSource(ASD, Nothing, context))
 
         Next
 
@@ -1045,11 +1067,49 @@ Public Class C_Compiler
         'Check if file is limlib
         If getNodeParentFile(node).LimLib Then
 
+            'Search for variables
+            Dim result As String = node.value
+            If result.Contains("{{") And result.Contains("}}") Then
+
+                'Types
+                Dim parentContext As context = context
+                While parentContext IsNot Nothing
+
+                    'Variables
+                    For Each var As Variable In parentContext.variables
+                        result = result.Replace("{{" & var.name & "}}", var.compiledName)
+                    Next
+
+                    'It's not a Type
+                    If Not TypeOf parentContext.from Is Type Then
+                        parentContext = parentContext.upperContext
+                        Continue While
+                    End If
+
+                    'It's a Type
+                    Dim castedType As Type = DirectCast(parentContext.from, Type)
+
+                    'Type
+                    result = result.Replace("{{self}}", castedType.compiledName)
+
+                    'Loop for each argument
+                    For i As Integer = 0 To castedType.arguments.Count - 1
+                        result = result.Replace("{{" & castedType.arguments(i) & "}}", castedType.given_arguments(i).compiledName)
+                    Next
+
+                    'Go upper
+                    parentContext = parentContext.upperContext
+
+                End While
+
+
+            End If
+
             'Compile
             If node.allLine Then
-                content.Add(node.value)
+                content.Add(result)
             Else
-                Return node.value
+                Return result
             End If
 
         Else
@@ -1086,7 +1146,7 @@ Public Class C_Compiler
         If node.value Is Nothing Then
 
             'Set type
-            var.type = compileTypeNode(node.variableUnsafeType)
+            var.type = compileTypeNode(node.variableUnsafeType, context)
 
             'Compile
             content.Add(String.Format("{0} * {1} = NULL;", var.type.compiledName, var.compiledName))
@@ -1096,7 +1156,7 @@ Public Class C_Compiler
             'Set type
             var.type = getNodeType(node.value, context)
             If node.variableUnsafeType IsNot Nothing Then
-                Dim defType As Type = compileTypeNode(node.variableUnsafeType)
+                Dim defType As Type = compileTypeNode(node.variableUnsafeType, context)
                 If Not var.type = defType Then
                     addNodeTypeError("VBCCF02", "The defined type of the variable (" & defType.ToString() & ") is not the same as that of its value (" & var.type.ToString() & ").", node.value)
                 End If
@@ -1280,12 +1340,7 @@ Public Class C_Compiler
             Dim argNode As Node = node.Arguments(i)
 
             'Handle type error
-            Dim modelType As Type
-            If argModel.type IsNot Nothing Then
-                modelType = compileTypeNode(argModel.type)
-            Else
-                modelType = getNodeType(argModel.value, context)
-            End If
+            Dim modelType As Type = argModel.compiledType
             If Not (modelType = getNodeType(argNode, context)) Then
                 addNodeTypeError("CCCFC03", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
             End If
@@ -1296,7 +1351,7 @@ Public Class C_Compiler
                     arguments &= ", " & compileNode(argNode, content, context)
 
                 Case VariableDeclarationType._var_
-                    arguments &= ", " & compileTypeNode(argModel.type).compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
+                    arguments &= ", " & modelType.compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
 
                 Case Else
                     Throw New NotImplementedException
@@ -1421,12 +1476,7 @@ Public Class C_Compiler
                     Dim argNode As Node = funCall.Arguments(i)
 
                     'Handle type error
-                    Dim modelType As Type
-                    If argModel.type IsNot Nothing Then
-                        modelType = compileTypeNode(argModel.type)
-                    Else
-                        modelType = getNodeType(argModel.value, context)
-                    End If
+                    Dim modelType As Type = argModel.compiledType
                     If Not (modelType = getNodeType(argNode, context)) Then
                         addNodeTypeError("CCCC05", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
                     End If
@@ -1437,7 +1487,7 @@ Public Class C_Compiler
                             arguments &= ", " & compileNode(argNode, content, context)
 
                         Case VariableDeclarationType._var_
-                            arguments &= ", " & compileTypeNode(argModel.type).compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
+                            arguments &= ", " & modelType.compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
 
                         Case Else
                             Throw New NotImplementedException
@@ -1471,7 +1521,7 @@ Public Class C_Compiler
     Private Function compileNew(ByVal node As newNode, ByVal content As List(Of String), ByVal context As context) As String
 
         'Get class
-        Dim targetType As Type = compileTypeNode(node.type)
+        Dim targetType As Type = compileTypeNode(node.type, context)
 
         'Get constructor
         Dim fun As FunctionNode = Nothing
@@ -1507,12 +1557,7 @@ Public Class C_Compiler
             Dim argNode As Node = node.arguments(i)
 
             'Handle type error
-            Dim modelType As Type
-            If argModel.type IsNot Nothing Then
-                modelType = compileTypeNode(argModel.type)
-            Else
-                modelType = getNodeType(argModel.value, context)
-            End If
+            Dim modelType As Type = argModel.compiledType
             If Not (modelType = getNodeType(argNode, context)) Then
                 addNodeTypeError("CCCN04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
             End If
@@ -1523,7 +1568,7 @@ Public Class C_Compiler
                     arguments &= ", " & compileNode(argNode, content, context)
 
                 Case VariableDeclarationType._var_
-                    arguments &= ", " & compileTypeNode(argModel.type).compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
+                    arguments &= ", " & modelType.compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
 
                 Case Else
                     Throw New NotImplementedException
@@ -1660,7 +1705,7 @@ Public Class C_Compiler
         If TypeOf node Is typeNode Then
 
             'Return
-            Return compileTypeNode(DirectCast(node, typeNode))
+            Return compileTypeNode(DirectCast(node, typeNode), context)
 
         End If
 
@@ -1695,7 +1740,7 @@ Public Class C_Compiler
             Dim castedNode As newNode = DirectCast(node, newNode)
 
             'Get type
-            Return compileTypeNode(castedNode.type)
+            Return compileTypeNode(castedNode.type, context)
 
         End If
 

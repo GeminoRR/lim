@@ -17,6 +17,13 @@ export primary class __int__
 		$"//Return"
 		$"return clone;"
 
+	//Str
+	func str:str
+		$"//Create result"
+		$"char * result = tgc_alloc(&gc, sizeof(char) * 20);"
+		$'sprintf(result, "%i", self->value);'
+		$"return new_str(result);"
+
 //Creator
 func $"new_int(int value)":int
 	$"__int__ * temp = __int___new();"
@@ -66,8 +73,13 @@ export primary class __str__
 		$"//Return"
 		$"return clone;"
 
+	//Str
+	func str:str
+		$"//Return"
+		$"return self;"
+
 //Creator
-func $"new_str(const char * value)":str
+func $"new_str(char * value)":str
 	$"__str__ * temp = __str___new();"
 	$"temp->value = tgc_alloc(&gc, sizeof(char) * strlen(value) + 1);"
 	$"strcpy(temp->value, value);"
@@ -81,7 +93,7 @@ export primary class __bool__
 	$"bool value;"
 
 	//Clone
-	func clone:str
+	func clone:bool
 		$"//Create new object"
 		$"__bool__ * clone = tgc_alloc(&gc, sizeof(__bool__));"
 		$""
@@ -90,6 +102,15 @@ export primary class __bool__
 		$""
 		$"//Return"
 		$"return clone;"
+
+	//Str
+	func str:str
+		$"//Condition"
+		$"if (self->value){"
+		$'	return new_str("True");'
+		$"} else {"
+		$'	return new_str("False");'
+		$"}"
 
 //Creator
 func $"new_bool(bool value)":bool
@@ -101,10 +122,58 @@ func $"new_bool(bool value)":bool
 //////// LIST ////////
 //////////////////////
 export class list<item_type>
-	let next:item_type
+	$"{{self}} * next;"
+	$"{{item_type}} * item;"
 
-	//Constructor
+	//New
 	func new
+		$"return NULL;"
+
+	//Add
+	func add(elm:item_type)
+		$"//Create new node"
+		$"{{self}} * newNode = tgc_alloc(&gc, sizeof({{self}}));"
+		$""
+		$"//Link data"
+		$"newNode->item = {{elm}};"
+		$""
+		$"//Set next"
+		$"newNode->next = NULL;"
+		$""
+		$"//List empty"
+		$"if (self == NULL){"
+		$"	self = newNode;"
+		$"	return NULL;"
+		$"}"
+		$""
+		$"//Add to end of list"
+		$"{{self}} * temp = self;"
+		$"while (temp->next != NULL){"
+		$"	temp = temp->next;"
+		$"}"
+		$""
+		$"temp->next = newNode;"
+
+	//Str
+	func str:str
+		$'char * result = tgc_alloc(&gc, sizeof(char) + 1);'
+		$'strcpy(result, "[");'
+		$"{{self}} * temp = self;"
+		$"while(temp != NULL) {"
+		$"	char * item_str = ({{item_type}}_str(temp->item))->value;"
+		$"	char * new_result = tgc_alloc(&gc, strlen(result) + strlen(item_str) + 3);"
+		$"	strcpy(new_result, result);"
+		$"	tgc_free(&gc, result);"
+		$'	strcat(new_result, ", ");'
+		$"	strcat(new_result, item_str);"
+		$"	result = new_result;"
+		$"  temp = temp->next;"
+		$"}"
+		$"char * final = tgc_alloc(&gc, strlen(result) + 2);"
+		$"strcpy(final, result);"
+		$"tgc_free(&gc, result);"
+		$'strcat(final, "]");'
+		$"return new_str(final);"
 
 /////////////////////
 //////// MAP ////////
@@ -127,7 +196,3 @@ export func __puts__(value:str)
 func $"fatalError(const char * message)"
 	$'printf("FATAL RUNTIME ERROR: %s\n", message);'
 	$"exit(-1);"
-
-export func test
-	let test = "sussy baka"
-	$'printf("%s", ;'
