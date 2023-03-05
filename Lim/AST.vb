@@ -919,19 +919,14 @@
                 While True
 
                     'Variables
-                    Dim LastArgumentName As String = ""
-                    Dim LastArgumentDeclarationType As VariableDeclarationType = VariableDeclarationType._let_
+                    Dim doubleRef As Boolean = False
+                    Dim LastArgumentName As String
                     Dim LastArgumentUnsafeType As typeNode = Nothing
                     Dim LastArgumentValue As Node = Nothing
 
-                    'Declare type
-                    If current_tok.type = tokenType.KW_VAR Then
-                        'Search for a "var"
-                        LastArgumentDeclarationType = VariableDeclarationType._var_
-                        advance()
-                    ElseIf current_tok.type = tokenType.KW_LET Then
-                        'Search for a "let"
-                        LastArgumentDeclarationType = VariableDeclarationType._let_
+                    'At
+                    If current_tok.type = tokenType.OP_AT Then
+                        doubleRef = True
                         advance()
                     End If
 
@@ -953,12 +948,15 @@
 
                     'Value
                     If current_tok.type = tokenType.OP_EQUAL Then
+                        If doubleRef Then
+                            addSyntaxError("NPF05", "A double-refer argument (defined by an ""@"") cannot be optional.", file, current_tok.positionStart, current_tok.positionEnd, "Remove the " = " followed by its value")
+                        End If
                         advance()
                         LastArgumentValue = boolOp()
                     End If
 
                     'Add argument
-                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, LastArgumentDeclarationType, LastArgumentValue))
+                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, doubleRef, LastArgumentValue))
 
                     'Search for end
                     If current_tok.type = tokenType.OP_COMMA Then
@@ -1037,12 +1035,15 @@
 
         'Check indentation
         Dim needToRecede As Boolean = False
-        Dim relationIndentation As Integer = 0
+        Dim funcIndentation As Integer = 0
         If current_tok.type = tokenType.CT_LINESTART Then
-            relationIndentation = Convert.ToInt32(current_tok.value)
+            funcIndentation = Convert.ToInt32(current_tok.value)
             advance()
             needToRecede = True
         End If
+
+        'Save start pos
+        Dim startPosition As Integer = current_tok.positionStart
 
         'Check if node is func
         If Not current_tok.type = tokenType.KW_RELATION Then
@@ -1054,96 +1055,84 @@
             Return func()
 
         End If
-
-        'Save start pos
-        Dim startPosition As Integer = current_tok.positionStart
         advance()
 
-        'Get error
-        If Not {tokenType.OP_PLUS, tokenType.OP_MINUS, tokenType.OP_MULTIPLICATION, tokenType.OP_DIVISION, tokenType.OP_MODULO, tokenType.OP_LESSTHAN, tokenType.OP_LESSTHANEQUAL, tokenType.OP_MORETHAN, tokenType.OP_MORETHANEQUAL, tokenType.OP_EQUAL, tokenType.OP_IN}.ToList().Contains(current_tok.type) Then
-            addSyntaxError("ASTR01", "A operator was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+        'Error if there is no name / ASD
+        If Not current_tok.type = tokenType.CT_TEXT Then
+            addSyntaxError("ASTR01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
-
-        'Get name
-        Dim name As token = current_tok
+        Dim name As String = current_tok.value
         advance()
 
-        'No arguments ?
+        'Get arguments
         Dim arguments As New List(Of FunctionArgument)
-        If Not current_tok.type = tokenType.OP_LPAR Then 'relation "+" (n1:int, var n2:str)
-            addSyntaxError("ASTR08", "A relation must have two arguments", file, current_tok.positionStart, current_tok.positionEnd, "Add two arguments.")
-        End If
+        If current_tok.type = tokenType.OP_LPAR Then 'relation [](current_list:<item_type>)
 
-        'First arg
-        advance()
+            'First arg
+            advance()
 
-        'Direct ending ?
-        If current_tok.type = tokenType.OP_RPAR Then
+            'Direct ending ?
+            If current_tok.type = tokenType.OP_RPAR Then
 
-            'Direct ending
-            addSyntaxError("ASTR02", "A relation must have two arguments", file, current_tok.positionStart, current_tok.positionEnd, "Add two arguments.")
-
-        Else
-
-            'Arguments in there
-            While True
-
-                'Variables
-                Dim LastArgumentName As String = ""
-                Dim LastArgumentDeclarationType As VariableDeclarationType = VariableDeclarationType._let_
-                Dim LastArgumentUnsafeType As typeNode = Nothing
-
-                'Declare type
-                If current_tok.type = tokenType.KW_VAR Then
-                    'Search for a "var"
-                    LastArgumentDeclarationType = VariableDeclarationType._var_
-                    advance()
-                ElseIf current_tok.type = tokenType.KW_LET Then
-                    'Search for a "let"
-                    LastArgumentDeclarationType = VariableDeclarationType._let_
-                    advance()
-                End If
-
-                'Search for a name
-                If Not current_tok.type = tokenType.CT_TEXT Then
-                    addSyntaxError("ASTR03", "A argument name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
-                End If
-                LastArgumentName = current_tok.value
+                'Direct ending
                 advance()
 
-                'Search for a type
-                If Not current_tok.type = tokenType.OP_TWOPOINT Then
-                    addSyntaxError("ASTR04", "A argument type was expected here (example : ""my_argument:str[]"")", file, current_tok.positionStart, current_tok.positionEnd)
-                End If
-                advance()
-                LastArgumentUnsafeType = type()
+            Else
 
-                'Add argument
-                arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, LastArgumentDeclarationType))
+                'Arguments in there
+                While True
 
-                'Search for end
-                If current_tok.type = tokenType.OP_COMMA Then
+                    'Variables
+                    Dim doubleRef As Boolean = False
+                    Dim LastArgumentName As String
+                    Dim LastArgumentUnsafeType As typeNode = Nothing
+                    Dim LastArgumentValue As Node = Nothing
 
+                    'At
+                    If current_tok.type = tokenType.OP_AT Then
+                        doubleRef = True
+                        advance()
+                    End If
+
+                    'Search for a name
+                    If Not current_tok.type = tokenType.CT_TEXT Then
+                        addSyntaxError("ASTR02", "A argument name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                    End If
+                    LastArgumentName = current_tok.value
                     advance()
 
-                ElseIf current_tok.type = tokenType.OP_RPAR Then
+                    'Search for a type
+                    If Not current_tok.type = tokenType.OP_TWOPOINT Then
+                        addSyntaxError("ASTR03", "A argument type was expected here (example : ""left:int"")", file, current_tok.positionStart, current_tok.positionEnd)
+                    End If
+                    If current_tok.type = tokenType.OP_TWOPOINT Then
+                        advance()
+                        LastArgumentUnsafeType = type()
+                    End If
 
-                    advance()
-                    Exit While
+                    'Add argument
+                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, doubleRef, LastArgumentValue))
 
-                Else
+                    'Search for end
+                    If current_tok.type = tokenType.OP_COMMA Then
 
-                    addSyntaxError("ASTR05", "An end of parenthesis or a comma was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                        advance()
 
-                End If
+                    ElseIf current_tok.type = tokenType.OP_RPAR Then
 
-            End While
+                        advance()
+                        Exit While
 
-        End If
+                    Else
 
-        'Arguments
-        If Not arguments.Count = 2 Then
-            addSyntaxError("ASTR09", "A relation must have two arguments", file, startPosition, current_tok.positionEnd, "Add two arguments.")
+                        addSyntaxError("ASTR04", "An end of parenthesis or a comma was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+
+                    End If
+
+                End While
+
+            End If
+
         End If
 
         'Unsafe type
@@ -1156,33 +1145,33 @@
         End If
 
         'Create node
-        Dim currentRelation As New RelationNode(startPosition, startPosition + 1, name, arguments, FunctionUnsafeType)
+        Dim currentFunction As New RelationNode(startPosition, startPosition + 1, name, arguments, FunctionUnsafeType)
 
         'Get error
         If Not current_tok.type = tokenType.CT_LINESTART Then
-            addSyntaxError("ASTR06", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            addSyntaxError("ASTR05", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
         End If
 
         'Get codes
         While True
 
             If Not current_tok.type = tokenType.CT_LINESTART Then
-                addSyntaxError("ASTR07", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                addSyntaxError("ASTR05", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
             End If
             Dim currentLineIndentation As Integer = Convert.ToInt32(current_tok.value)
 
-            If currentLineIndentation <= relationIndentation Then
+            If currentLineIndentation <= funcIndentation Then
                 Exit While
             End If
 
             Dim result As Node = line(currentLineIndentation)
-            result.parentNode = currentRelation
-            currentRelation.content.Add(result)
+            result.parentNode = currentFunction
+            currentFunction.content.Add(result)
 
         End While
 
         'Add node
-        Return currentRelation
+        Return currentFunction
 
     End Function
 
@@ -1302,6 +1291,7 @@
         Dim hasNewFunction As Boolean = False
         Dim hasCloneFunction As Boolean = False
         Dim hasStrFunction As Boolean = False
+        Dim hasReprFunction As Boolean = False
 
         'Get content
         While True
@@ -1332,6 +1322,13 @@
                     castedFunction.Name = castedFunction.Name.ToLower()
                     If castedFunction.Arguments.Count > 0 Then
                         addNodeSyntaxError("ASTC07", "The ""str"" method is special and cannot take an argument.", castedFunction, "Remove arguments.")
+                    End If
+                    'TODO: Check return type
+                ElseIf castedFunction.Name.ToLower() = "repr" Then
+                    hasReprFunction = True
+                    castedFunction.Name = castedFunction.Name.ToLower()
+                    If castedFunction.Arguments.Count > 0 Then
+                        addNodeSyntaxError("ASTC07", "The ""repr"" method is special and cannot take an argument.", castedFunction, "Remove arguments.")
                     End If
                     'TODO: Check return type
                 ElseIf castedFunction.Name.ToLower() = "clone" Then
@@ -1372,6 +1369,15 @@
         If Not hasStrFunction Then
 
             Dim fn As New FunctionNode(-1, -1, "str", New List(Of FunctionArgument), Nothing)
+            fn.parentNode = currentStruct
+            currentStruct.methods.Add(fn)
+
+        End If
+
+        'Add Repr function
+        If Not hasReprFunction Then
+
+            Dim fn As New FunctionNode(-1, -1, "repr", New List(Of FunctionArgument), Nothing)
             fn.parentNode = currentStruct
             currentStruct.methods.Add(fn)
 

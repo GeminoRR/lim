@@ -1,4 +1,5 @@
 func main
-	let test:list<str>
-	test.add("bob")
+	let test = new list<str>
+	test.add("sussy")
+	test.add("baka")
 	puts(test.str())

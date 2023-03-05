@@ -91,43 +91,26 @@ Public Class FunctionArgument
     Public name As String
     Public type As typeNode
     Public compiledType As Type = Nothing
-    Public declareType As VariableDeclarationType
+    Public doubleRef As Boolean
     Public value As Node
-    Public Sub New(ByVal name As String, ByVal type As typeNode, ByVal declareType As VariableDeclarationType, Optional value As Node = Nothing)
+    Public Sub New(ByVal name As String, ByVal type As typeNode, Optional ByVal doubleRef As Boolean = False, Optional ByVal value As Node = Nothing)
         Me.name = name
         Me.type = type
-        Me.declareType = declareType
+        Me.doubleRef = doubleRef
         Me.value = value
     End Sub
 
     Public Overrides Function ToString() As String
 
-        If declareType = VariableDeclarationType._let_ Then
-
-            'Ref
-            Dim result As String = name
-            If type IsNot Nothing Then
-                result &= ":" & type.ToString()
-            End If
-            If value IsNot Nothing Then
-                result &= " = " & value.ToString()
-            End If
-            Return result
-
-        Else
-
-            'Copy
-            'Ref
-            Dim result As String = "var " & name
-            If type IsNot Nothing Then
-                result &= ":" & type.ToString()
-            End If
-            If value IsNot Nothing Then
-                result &= " = " & value.ToString()
-            End If
-            Return result
-
+        'Ref
+        Dim result As String = name
+        If type IsNot Nothing Then
+            result &= ":" & type.ToString()
         End If
+        If value IsNot Nothing Then
+            result &= " = " & value.ToString()
+        End If
+        Return result
 
     End Function
 
@@ -142,8 +125,6 @@ Public Class RelationNode
     'Variable
     Public Name As String
     Public Arguments As List(Of FunctionArgument)
-    Public maxArguments As Integer
-    Public minArguments As Integer
 
     Public ReturnType As Type = Nothing
     Public unsafeReturnType As typeNode = Nothing
@@ -152,9 +133,6 @@ Public Class RelationNode
     Public compiled As Boolean
     Public compiling As Boolean
 
-    Public export As Boolean = False
-    Public AddSourceDirectly As AddSourceNode = Nothing
-
     Public content As New List(Of Node)
 
     'New
@@ -162,21 +140,8 @@ Public Class RelationNode
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.Arguments = Arguments
-        Me.maxArguments = Me.Arguments.Count
-        Me.minArguments = 0
-        Dim lastArgWasOptional As Boolean = False
         For Each arg As FunctionArgument In Me.Arguments
-            If arg.type IsNot Nothing Then
-                arg.type.parentNode = Me
-            End If
-            If arg.value IsNot Nothing Then
-                arg.value.parentNode = Me
-                lastArgWasOptional = True
-            ElseIf lastArgWasOptional Then
-                addNodeSyntaxError("NFN01", "A non-optional argument cannot follow an optional argument", Me, "Put optional arguments at the end of the argument list.")
-            Else
-                Me.minArguments += 1
-            End If
+            arg.type.parentNode = Me
         Next
         Me.unsafeReturnType = unsafeReturnType
         If Me.unsafeReturnType IsNot Nothing Then

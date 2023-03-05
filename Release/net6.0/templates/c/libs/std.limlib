@@ -78,6 +78,15 @@ export primary class __str__
 		$"//Return"
 		$"return self;"
 
+	//Repr
+	func repr:str
+		$"//Create string"
+		$"char * temp = tgc_alloc(&gc, sizeof(char) * (strlen(self->value) + 3));"
+		$'sprintf(temp, "\"%s\"", self->value);'
+		$""
+		$"//Return"
+		$"return new_str(temp);"
+
 //Creator
 func $"new_str(char * value)":str
 	$"__str__ * temp = __str___new();"
@@ -127,10 +136,13 @@ export class list<item_type>
 
 	//New
 	func new
-		$"return NULL;"
+		$""
+		$"self->item = NULL;"
+		$"self->next = NULL;"
 
 	//Add
 	func add(elm:item_type)
+		$""
 		$"//Create new node"
 		$"{{self}} * newNode = tgc_alloc(&gc, sizeof({{self}}));"
 		$""
@@ -140,12 +152,6 @@ export class list<item_type>
 		$"//Set next"
 		$"newNode->next = NULL;"
 		$""
-		$"//List empty"
-		$"if (self == NULL){"
-		$"	self = newNode;"
-		$"	return NULL;"
-		$"}"
-		$""
 		$"//Add to end of list"
 		$"{{self}} * temp = self;"
 		$"while (temp->next != NULL){"
@@ -154,20 +160,39 @@ export class list<item_type>
 		$""
 		$"temp->next = newNode;"
 
+	//Lenght
+	func len:int
+		$""
+		$"//Go through the whole list"
+		$"{{self}} * temp = self;"
+		$"int count = 0;"
+		$"while (temp->next != NULL){"
+		$"	temp = temp->next;"
+		$"	count++;"
+		$"}"
+		$""
+		$"//Return"
+		$"return new_int(count);"
+
 	//Str
 	func str:str
+		$""
 		$'char * result = tgc_alloc(&gc, sizeof(char) + 1);'
 		$'strcpy(result, "[");'
-		$"{{self}} * temp = self;"
+		$"{{self}} * temp = self->next;"
+		$"bool add_separator = false;"
 		$"while(temp != NULL) {"
-		$"	char * item_str = ({{item_type}}_str(temp->item))->value;"
+		$"	char * item_str = ({{item_type}}_repr(temp->item))->value;"
 		$"	char * new_result = tgc_alloc(&gc, strlen(result) + strlen(item_str) + 3);"
 		$"	strcpy(new_result, result);"
 		$"	tgc_free(&gc, result);"
-		$'	strcat(new_result, ", ");'
+		$"	if (add_separator){"
+		$'		strcat(new_result, ", ");'
+		$"	}"
 		$"	strcat(new_result, item_str);"
 		$"	result = new_result;"
-		$"  temp = temp->next;"
+		$"	temp = temp->next;"
+		$"	add_separator = true;"
 		$"}"
 		$"char * final = tgc_alloc(&gc, strlen(result) + 2);"
 		$"strcpy(final, result);"

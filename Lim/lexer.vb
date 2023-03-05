@@ -127,6 +127,11 @@ Public Class lexer
                 tokens.Add(New token(tokenType.OP_TWOPOINT, charCounter, charCounter))
                 advance()
 
+            ElseIf currentChar = "@" Then
+                'Multiply operator
+                tokens.Add(New token(tokenType.OP_AT, charCounter, charCounter))
+                advance()
+
             ElseIf currentChar = "!" Then
                 'Not operator
                 If charCounter + 1 < text.Length Then

@@ -531,15 +531,13 @@ Public Class C_Compiler
         'Fix name with class & add self
         If parentType IsNot Nothing Then
             If Not fun.compiledName = "new" Then
-                compiledArguments = parentType.compiledName & " * self"
-                If Not isLimLib Then
-                    optionnalArguments.Add("")
-                    optionnalArguments.Add("//Object NULL")
-                    optionnalArguments.Add("if (self == NULL){")
-                    optionnalArguments.Add(vbTab & "fatalError(""The \""" & fun.Name & "\"" method of the <" & parentType.Name & "> class was used on a \""null\"" variable. No object has been instantiated."");")
-                    optionnalArguments.Add("}")
-                    optionnalArguments.Add("")
-                End If
+                compiledArguments = parentType.compiledName & "* self"
+                optionnalArguments.Add("")
+                optionnalArguments.Add("//Object NULL")
+                optionnalArguments.Add("if (self == NULL){")
+                optionnalArguments.Add(vbTab & "fatalError(""The \""" & fun.Name & "\"" method of the <" & parentType.Name & "> class was used on a \""null\"" variable. No object has been instantiated."");")
+                optionnalArguments.Add("}")
+                optionnalArguments.Add("")
             End If
             fun.compiledName = parentType.compiledName & "_" & fun.compiledName
         End If
@@ -559,7 +557,7 @@ Public Class C_Compiler
             Else
                 variablename = getVariableName()
             End If
-            Dim var As New Variable(arg.name, Nothing, variablename, arg.declareType)
+            Dim var As New Variable(arg.name, Nothing, variablename, arg.doubleRef)
 
             'Compile argument
             If arg.value IsNot Nothing Then
@@ -596,7 +594,14 @@ Public Class C_Compiler
 
                 'Has type
                 var.type = compileTypeNode(arg.type, context)
-                compiledArguments &= ", " & var.type.compiledName & " * " & var.compiledName
+                If arg.doubleRef Then
+                    If var.type.primary Then
+                        addNodeTypeError("CCCF03", "A double-refer argument cannot take a primary type value.", arg.type)
+                    End If
+                    compiledArguments &= ", " & var.type.compiledName & " ** " & var.compiledName
+                Else
+                    compiledArguments &= ", " & var.type.compiledName & " * " & var.compiledName
+                End If
 
             End If
 
@@ -625,29 +630,77 @@ Public Class C_Compiler
 
         Next
 
-        'Clone method return type
-        If parentType IsNot Nothing And fun.Name = "clone" Then
+        'Standard methods
+        If parentType IsNot Nothing Then
 
-            'Return type error
-            If Not fun.ReturnType = parentType Then
-                addNodeTypeError("CCCF03", "The clone method can only return an object of its own type.", fun)
-            End If
+            Select Case fun.Name
 
-            'Empty Clone method
-            If fun.content.Count = 0 Then
-                noneTabContent.Add("")
-                noneTabContent.Add("//Create new object")
-                noneTabContent.Add(parentType.compiledName & " * clone = tgc_alloc(&gc, sizeof(" & parentType.compiledName & "));")
-                noneTabContent.Add("")
-                noneTabContent.Add("//Copy properties")
-                For Each propertie As Variable In parentType.variables
-                    noneTabContent.Add("/* " & propertie.name & " */ clone->" & propertie.compiledName & " = " & propertie.type.compiledName & "_clone(self->" & propertie.compiledName & ");")
-                Next
-                noneTabContent.Add("")
-                noneTabContent.Add("//Return")
-                noneTabContent.Add("return clone;")
+                Case "clone"
+                    'Empty Clone method
+                    If fun.content.Count = 0 Then
+                        noneTabContent.Add("")
+                        noneTabContent.Add("//Create new object")
+                        noneTabContent.Add(parentType.compiledName & " * clone = tgc_alloc(&gc, sizeof(" & parentType.compiledName & "));")
+                        noneTabContent.Add("")
+                        noneTabContent.Add("//Copy properties")
+                        For Each propertie As Variable In parentType.variables
+                            noneTabContent.Add("/* " & propertie.name & " */ clone->" & propertie.compiledName & " = " & propertie.type.compiledName & "_clone(self->" & propertie.compiledName & ");")
+                        Next
+                        noneTabContent.Add("")
+                        noneTabContent.Add("//Return")
+                        noneTabContent.Add("return clone;")
+                        Exit Select
 
-            End If
+                    End If
+
+                    'Return type error
+                    If fun.ReturnType Is Nothing Then
+                        addNodeTypeError("CCCF03", "The clone method need to return an object of its own type.", fun)
+                    End If
+                    If Not fun.ReturnType = parentType Then
+                        addNodeTypeError("CCCF04", "The clone method can only return an object of its own type.", fun)
+                    End If
+
+                Case "str"
+                    'Empty Str method
+                    If fun.content.Count = 0 Then
+                        noneTabContent.Add("")
+                        noneTabContent.Add("//Create string")
+                        noneTabContent.Add("char * temp = tgc_alloc(&gc, sizeof(char) * (" & parentType.Name.Length.ToString() & " + 21));")
+                        noneTabContent.Add("sprintf(temp, ""<" & parentType.Name.ToString() & ", %p>"", self);")
+                        noneTabContent.Add("")
+                        noneTabContent.Add("//Return")
+                        noneTabContent.Add("return new_str(temp);")
+                        Exit Select
+
+                    End If
+
+                    'Return type error
+                    If fun.ReturnType Is Nothing Then
+                        addNodeTypeError("CCCF05", "The str method need to return a string (<str>).", fun)
+                    End If
+                    If Not fun.ReturnType.compiledName = "__str__" Then
+                        addNodeTypeError("CCCF06", "The str method can only return a string (<str>).", fun)
+                    End If
+
+                Case "repr"
+                    'Empty Repr method
+                    If fun.content.Count = 0 Then
+                        noneTabContent.Add("//Return")
+                        noneTabContent.Add("return " & parentType.compiledName & "_str(self);")
+                        Exit Select
+
+                    End If
+
+                    'Return type error
+                    If fun.ReturnType Is Nothing Then
+                        addNodeTypeError("CCCF07", "The repr method need to return a string (<str>).", fun)
+                    End If
+                    If Not fun.ReturnType.compiledName = "__str__" Then
+                        addNodeTypeError("CCCF08", "The repr method can only return a string (<str>).", fun)
+                    End If
+
+            End Select
 
         End If
 
@@ -897,6 +950,7 @@ Public Class C_Compiler
         Dim new_method As FunctionNode = Nothing
         Dim str_method As FunctionNode = Nothing
         Dim clone_method As FunctionNode = Nothing
+        Dim repr_method As FunctionNode = Nothing
         For Each method As FunctionNode In target.methods
 
             'Clone
@@ -915,6 +969,12 @@ Public Class C_Compiler
                 str_method.compiledName = "str"
                 If str_method.unsafeReturnType Is Nothing Then
                     str_method.ReturnType = stdStr
+                End If
+            ElseIf method.Name = "repr" Then
+                repr_method = method
+                repr_method.compiledName = "repr"
+                If repr_method.unsafeReturnType Is Nothing Then
+                    repr_method.ReturnType = stdStr
                 End If
             ElseIf method.Name = "clone" Then
                 clone_method = method
@@ -964,7 +1024,7 @@ Public Class C_Compiler
         For Each def As DeclareVariableNode In target.declareVariables
 
             'Create variable
-            Dim var As New Variable(def.variableName, Nothing, getVariableName(), def.declarationType)
+            Dim var As New Variable(def.variableName, Nothing, getVariableName())
 
             'Set variable type
             If def.variableUnsafeType Is Nothing Then
@@ -1140,7 +1200,7 @@ Public Class C_Compiler
         Else
             compiledVariableName = getVariableName()
         End If
-        Dim var As New Variable(node.variableName, Nothing, compiledVariableName, node.declarationType)
+        Dim var As New Variable(node.variableName, Nothing, compiledVariableName)
 
         'Get type
         If node.value Is Nothing Then
@@ -1162,19 +1222,8 @@ Public Class C_Compiler
                 End If
             End If
 
-            'Ref
-            Select Case var.declarationType
-
-                Case VariableDeclarationType._let_
-                    content.Add(String.Format("{0} * {1} = {2};", var.type.compiledName, var.compiledName, compileNode(node.value, content, context)))
-
-                Case VariableDeclarationType._var_
-                    content.Add(String.Format("{0} * {1} = {0}_clone({2});", var.type.compiledName, var.compiledName, compileNode(node.value, content, context)))
-
-                Case Else
-                    Throw New NotImplementedException
-
-            End Select
+            'Compile
+            content.Add(String.Format("{0} * {1} = {2};", var.type.compiledName, var.compiledName, compileNode(node.value, content, context)))
 
         End If
 
@@ -1216,18 +1265,7 @@ Public Class C_Compiler
             Dim var As Variable = varResult.Item1
 
             'Compile
-            Select Case var.declarationType
-
-                Case VariableDeclarationType._let_
-                    content.Add(String.Format("{0} = {1};", compileVariable(castedTarget, content, context, True), compileNode(castedNode.NewValue, content, context)))
-
-                Case VariableDeclarationType._var_
-                    content.Add(String.Format("{0} = {1}_clone({2});", compileVariable(castedTarget, content, context, True), var.type.compiledName, compileNode(castedNode.NewValue, content, context)))
-
-                Case Else
-                    Throw New NotImplementedException
-
-            End Select
+            content.Add(String.Format("{0} = {1};", compileVariable(castedTarget, content, context, True), compileNode(castedNode.NewValue, content, context)))
 
         ElseIf TypeOf castedNode.Target Is BracketsSelectorNode Then
 
@@ -1336,27 +1374,23 @@ Public Class C_Compiler
             End If
 
             'Variables
-            Dim argModel As FunctionArgument = fun.Arguments(i)
-            Dim argNode As Node = node.Arguments(i)
+            Dim argumentModel As FunctionArgument = fun.Arguments(i)
+            Dim argumentValue As Node = node.Arguments(i)
 
             'Handle type error
-            Dim modelType As Type = argModel.compiledType
-            If Not (modelType = getNodeType(argNode, context)) Then
-                addNodeTypeError("CCCFC03", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+            If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
+                addNodeTypeError("CCCFC03", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argumentValue, context).ToString() & "> instead of being <" & argumentModel.type.ToString() & ">", argumentValue)
             End If
 
-            'Add node
-            Select Case argModel.declareType
-                Case VariableDeclarationType._let_
-                    arguments &= ", " & compileNode(argNode, content, context)
-
-                Case VariableDeclarationType._var_
-                    arguments &= ", " & modelType.compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
-
-                Case Else
-                    Throw New NotImplementedException
-
-            End Select
+            'Add argument
+            If argumentModel.doubleRef Then
+                If (TypeOf argumentValue IsNot VariableNode) Then
+                    addNodeTypeError("CCCFC04", "This argument can only take variables as its value.", argumentValue)
+                End If
+                arguments &= ", &(" & compileNode(argumentValue, content, context) & ")"
+            Else
+                arguments &= ", " & compileNode(argumentValue, content, context)
+            End If
 
         Next
         If arguments.StartsWith(", ") Then
@@ -1388,6 +1422,11 @@ Public Class C_Compiler
         Dim result As String = var.compiledName
         If varResult.Item2 IsNot Nothing Then
             result = "self->" & result
+        End If
+
+        'DoubleReference
+        If var.doubleRef Then
+            result = "(*(" & result & "))"
         End If
 
         'Clone
@@ -1472,27 +1511,23 @@ Public Class C_Compiler
                     End If
 
                     'Variables
-                    Dim argModel As FunctionArgument = fun.Arguments(i)
-                    Dim argNode As Node = funCall.Arguments(i)
+                    Dim argumentModel As FunctionArgument = fun.Arguments(i)
+                    Dim argumentValue As Node = funCall.Arguments(i)
 
                     'Handle type error
-                    Dim modelType As Type = argModel.compiledType
-                    If Not (modelType = getNodeType(argNode, context)) Then
-                        addNodeTypeError("CCCC05", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+                    If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
+                        addNodeTypeError("CCCC05", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argumentValue, context).ToString() & "> instead of being <" & argumentModel.type.ToString() & ">", argumentValue)
                     End If
 
-                    'Add node
-                    Select Case argModel.declareType
-                        Case VariableDeclarationType._let_
-                            arguments &= ", " & compileNode(argNode, content, context)
-
-                        Case VariableDeclarationType._var_
-                            arguments &= ", " & modelType.compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
-
-                        Case Else
-                            Throw New NotImplementedException
-
-                    End Select
+                    'Add argument
+                    If argumentModel.doubleRef Then
+                        If (TypeOf argumentValue IsNot VariableNode) Then
+                            addNodeTypeError("CCCCC06", "This argument can only take variables as its value.", argumentValue)
+                        End If
+                        arguments &= ", &(" & compileNode(argumentValue, content, context) & ")"
+                    Else
+                        arguments &= ", " & compileNode(argumentValue, content, context)
+                    End If
 
                 Next
 
@@ -1553,27 +1588,23 @@ Public Class C_Compiler
             End If
 
             'Variables
-            Dim argModel As FunctionArgument = fun.Arguments(i)
-            Dim argNode As Node = node.arguments(i)
+            Dim argumentModel As FunctionArgument = fun.Arguments(i)
+            Dim argumentValue As Node = node.arguments(i)
 
             'Handle type error
-            Dim modelType As Type = argModel.compiledType
-            If Not (modelType = getNodeType(argNode, context)) Then
-                addNodeTypeError("CCCN04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argNode, context).ToString() & "> instead of being <" & argModel.type.ToString() & ">", argNode)
+            If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
+                addNodeTypeError("CCCN04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argumentValue, context).ToString() & "> instead of being <" & argumentModel.type.ToString() & ">", argumentValue)
             End If
 
-            'Add node
-            Select Case argModel.declareType
-                Case VariableDeclarationType._let_
-                    arguments &= ", " & compileNode(argNode, content, context)
-
-                Case VariableDeclarationType._var_
-                    arguments &= ", " & modelType.compiledName & "_clone(" & compileNode(argNode, content, context) & ")"
-
-                Case Else
-                    Throw New NotImplementedException
-
-            End Select
+            'Add argument
+            If argumentModel.doubleRef Then
+                If (TypeOf argumentValue IsNot VariableNode) Then
+                    addNodeTypeError("CCCNC05", "This argument can only take variables as its value.", argumentValue)
+                End If
+                arguments &= ", &(" & compileNode(argumentValue, content, context) & ")"
+            Else
+                arguments &= ", " & compileNode(argumentValue, content, context)
+            End If
 
         Next
         If arguments.StartsWith(", ") Then
@@ -1596,7 +1627,7 @@ Public Class C_Compiler
         End If
 
         'Get type
-        Dim listType As Type = getNodeType(node.elements(0), context)
+        Dim listItemType As Type = getNodeType(node.elements(0), context)
 
         'Compile each arguments
         Dim helpVar As String = getHelpVariableName()
@@ -1605,8 +1636,8 @@ Public Class C_Compiler
 
             'Handle type error
             Dim elmType As Type = getNodeType(elm, context)
-            If Not listType = elmType Then
-                addNodeTypeError("CCCL02", "The list is a list of <" & listType.ToString() & "> elements, but this element is of type <" & elmType.ToString() & ">", elm)
+            If Not listItemType = elmType Then
+                addNodeTypeError("CCCL02", "The list is a list of <" & listItemType.ToString() & "> elements, but this element is of type <" & elmType.ToString() & ">", elm)
             End If
 
             'Compile

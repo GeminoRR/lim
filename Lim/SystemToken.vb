@@ -77,6 +77,7 @@ Public Enum tokenType
     OP_LBRACE
     OP_RBRACE
     OP_TWOPOINT
+    OP_AT
 
     OP_PLUS
     OP_MINUS
