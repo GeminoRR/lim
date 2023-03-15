@@ -1058,11 +1058,66 @@
         advance()
 
         'Error if there is no name / ASD
-        If Not current_tok.type = tokenType.CT_TEXT Then
-            addSyntaxError("ASTR01", "A name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+        Dim name As relation_type = Nothing
+        If current_tok.type = tokenType.OP_PLUS Then
+
+            name = relation_type.OP_ADD
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_MINUS Then
+
+            name = relation_type.OP_MIN
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_MULTIPLICATION Then
+
+            name = relation_type.OP_MULT
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_DIVISION Then
+
+            name = relation_type.OP_DIV
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_EQUAL Then
+
+            name = relation_type.COMP_EQUAL
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_LESSTHAN Then
+
+            name = relation_type.COMP_LESSTHAN
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_LESSTHANEQUAL Then
+
+            name = relation_type.COMP_LESSTHANEQUAL
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_MORETHAN Then
+
+            name = relation_type.COMP_MORETHAN
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_MORETHANEQUAL Then
+
+            name = relation_type.COMP_MORETHAN
+            advance()
+
+        ElseIf current_tok.type = tokenType.OP_LBRACKET Then
+
+            advance()
+            If Not current_tok.type = tokenType.OP_RBRACKET Then
+                addSyntaxError("ASTR02", "A ""]"" was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+            End If
+            advance()
+            name = relation_type.SELECT_BRACKETS
+
+        Else
+
+            addSyntaxError("ASTR01", "A relation type was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+
         End If
-        Dim name As String = current_tok.value
-        advance()
 
         'Get arguments
         Dim arguments As New List(Of FunctionArgument)
@@ -1086,7 +1141,6 @@
                     Dim doubleRef As Boolean = False
                     Dim LastArgumentName As String
                     Dim LastArgumentUnsafeType As typeNode = Nothing
-                    Dim LastArgumentValue As Node = Nothing
 
                     'At
                     If current_tok.type = tokenType.OP_AT Then
@@ -1111,7 +1165,7 @@
                     End If
 
                     'Add argument
-                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, doubleRef, LastArgumentValue))
+                    arguments.Add(New FunctionArgument(LastArgumentName, LastArgumentUnsafeType, doubleRef))
 
                     'Search for end
                     If current_tok.type = tokenType.OP_COMMA Then
@@ -1142,6 +1196,11 @@
             advance()
             FunctionUnsafeType = type()
 
+        End If
+
+        'Unary operation
+        If name = relation_type.OP_MIN And arguments.Count = 1 Then
+            name = relation_type.UNARY_MIN
         End If
 
         'Create node

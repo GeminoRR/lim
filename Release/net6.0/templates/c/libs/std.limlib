@@ -24,6 +24,14 @@ export primary class __int__
 		$'sprintf(result, "%i", self->value);'
 		$"return new_str(result);"
 
+	//Repr
+	func repr:str
+		$"return {{self}}_str(self);"
+
+	//Relation
+	relation +(num1:int, num2:int):int
+		$"return new_int(num1->value + num2->value)"
+
 //Creator
 func $"new_int(int value)":int
 	$"__int__ * temp = __int___new();"
@@ -47,6 +55,17 @@ export primary class __float__
 		$""
 		$"//Return"
 		$"return clone;"
+
+	//Str
+	func str:str
+		$"//Create result"
+		$"char * result = tgc_alloc(&gc, sizeof(char) * 20);"
+		$'sprintf(result, "%lf", self->value);'
+		$"return new_str(result);"
+
+	//Repr
+	func repr:str
+		$"return {{self}}_str(self);"
 
 //Creator
 func $"new_float(float value)":float
@@ -120,6 +139,10 @@ export primary class __bool__
 		$"} else {"
 		$'	return new_str("False");'
 		$"}"
+		
+	//Repr
+	func repr:str
+		$"return {{self}}_str(self);"
 
 //Creator
 func $"new_bool(bool value)":bool
@@ -127,10 +150,53 @@ func $"new_bool(bool value)":bool
 	$"temp->value = value;"
 	$"return temp;"
 
-//////////////////////
-//////// LIST ////////
-//////////////////////
+////////////////////
+/////// LIST ///////
+////////////////////
 export class list<item_type>
+	//Content of the struct
+	$"{{item_type}} ** array;"
+	$"size_t used;"
+	$"size_t size;"
+
+	//New
+	func new
+		$"self->array = tgc_alloc(&gc, (5 * sizeof({{self}})));"
+		$"self->used = 0;"
+		$"self->size = 5;"
+		$"return self;"
+
+	//Add (insert last)
+	func add(elm:item_type)
+		$"if (self->used == self->size) {"
+		$"	self->size *= 2;"
+		$"	self->array = tgc_realloc(&gc, self->array, self->size * sizeof({{self}}));"
+		$"}"
+		$"self->array[self->used++] = elm;"
+
+	//Str
+	func str:str
+		$"char * result = malloc(sizeof(char) * 2);"
+		$'strcpy(result, "[");'
+		$"bool first_object = true;"
+		$"for (int i = 0; i < self->used; i++){"
+		$"	char * elm_str = ({{item_type}}_repr(self->array[i]))->value;"
+		$"	char * temp = malloc(sizeof(char) * (strlen(result) + strlen(elm_str) + 3));"
+		$"	if (first_object)"
+		$'		sprintf(temp, "%s%s", result, elm_str);'
+		$"	else"
+		$'		sprintf(temp, "%s, %s", result, elm_str);'
+		$"first_object = false;"
+		$"result = temp;"
+		$"}"
+		$"char * final = malloc(sizeof(char) * (strlen(result) + 2));"
+		$'sprintf(final, "%s]", result);'
+		$"return new_str(final);"
+
+/////////////////////////////
+//////// LINKED LIST ////////
+/////////////////////////////
+export class linkedlist<item_type>
 	$"{{self}} * next;"
 	$"{{item_type}} * item;"
 
@@ -214,6 +280,20 @@ export class map<key_type, value_type>
 //Puts (print to the standard output)
 export func __puts__(value:str)
 	$'printf("%s\n", value->value);'
+
+//Gets (input from the standart terminal)
+export func __gets__(value:str):str
+	$'printf("%s", value->value);'
+	$"char * buffer = tgc_alloc(&gc, sizeof(char) * 999);"
+	$"if (fgets(buffer, 998, stdin) != 0){"
+	$'	buffer[strlen(buffer) - 1 ] = "\0";'
+	$"	return new_str(buffer);"
+	$"}"
+	$'return new_str("");'
+
+/////////////////////
+//////// CMD ////////
+/////////////////////
 
 ///////////////////////////////
 //////// RUNTIME ERROR ////////

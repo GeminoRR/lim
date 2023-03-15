@@ -123,7 +123,7 @@ Public Class RelationNode
     Inherits Node
 
     'Variable
-    Public Name As String
+    Public type As relation_type
     Public Arguments As List(Of FunctionArgument)
 
     Public ReturnType As Type = Nothing
@@ -136,9 +136,9 @@ Public Class RelationNode
     Public content As New List(Of Node)
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal type As relation_type, ByVal Arguments As List(Of FunctionArgument), ByVal unsafeReturnType As typeNode)
         MyBase.New(positionStart, positionEnd)
-        Me.Name = Name
+        Me.type = type
         Me.Arguments = Arguments
         For Each arg As FunctionArgument In Me.Arguments
             arg.type.parentNode = Me
@@ -170,7 +170,7 @@ Public Class RelationNode
         End If
 
         'Return
-        Return String.Format("relation {1}({2}){3})", Me.Name, argumentsSTR, returnTypeSTR)
+        Return String.Format("relation {1}({2}){3})", Me.type.ToString(), argumentsSTR, returnTypeSTR)
 
     End Function
 
@@ -180,3 +180,21 @@ Public Class RelationNode
     End Function
 
 End Class
+Public Enum relation_type
+
+    OP_ADD
+    OP_MIN
+    OP_MULT
+    OP_DIV
+
+    UNARY_MIN
+
+    COMP_EQUAL
+    COMP_LESSTHAN
+    COMP_LESSTHANEQUAL
+    COMP_MORETHAN
+    COMP_MORETHANEQUAL
+
+    SELECT_BRACKETS
+
+End Enum

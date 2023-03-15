@@ -87,10 +87,10 @@ Public Class C_Compiler
         End If
 
         'Get std's types
-        stdInt = compileTypeNode(New typeNode(-1, -1, "int", New List(Of typeNode)))
-        stdFloat = compileTypeNode(New typeNode(-1, -1, "float", New List(Of typeNode)))
-        stdStr = compileTypeNode(New typeNode(-1, -1, "str", New List(Of typeNode)))
-        stdBool = compileTypeNode(New typeNode(-1, -1, "bool", New List(Of typeNode)))
+        stdInt = compileTypeNode(New typeNode(-1, -1, "int", New List(Of typeNode)), Nothing)
+        stdFloat = compileTypeNode(New typeNode(-1, -1, "float", New List(Of typeNode)), Nothing)
+        stdStr = compileTypeNode(New typeNode(-1, -1, "str", New List(Of typeNode)), Nothing)
+        stdBool = compileTypeNode(New typeNode(-1, -1, "bool", New List(Of typeNode)), Nothing)
 
         'Logs
         If logs Then
@@ -386,12 +386,17 @@ Public Class C_Compiler
     Public Function getVariable(ByVal name As String, ByVal context As context, Optional ByVal nodeCaller As Node = Nothing) As Tuple(Of Variable, Type)
 
         'Search in current context
+        Dim variableInRelationNode As Boolean = False
         For Each ctx As context In getContexts(context)
+
+            If TypeOf ctx.from Is RelationNode Then
+                variableInRelationNode = True
+            End If
 
             For Each var As Variable In ctx.variables
                 If var.name = name Then
                     Dim type_associeted_with_variable As Type = Nothing
-                    If TypeOf ctx.from Is Type Then
+                    If TypeOf ctx.from Is Type And Not variableInRelationNode Then
                         type_associeted_with_variable = ctx.from
                     End If
                     Return New Tuple(Of Variable, Type)(var, type_associeted_with_variable)
@@ -649,6 +654,7 @@ Public Class C_Compiler
                         noneTabContent.Add("")
                         noneTabContent.Add("//Return")
                         noneTabContent.Add("return clone;")
+                        fun.ReturnType = parentType
                         Exit Select
 
                     End If
@@ -671,6 +677,7 @@ Public Class C_Compiler
                         noneTabContent.Add("")
                         noneTabContent.Add("//Return")
                         noneTabContent.Add("return new_str(temp);")
+                        fun.ReturnType = stdStr
                         Exit Select
 
                     End If
@@ -688,6 +695,7 @@ Public Class C_Compiler
                     If fun.content.Count = 0 Then
                         noneTabContent.Add("//Return")
                         noneTabContent.Add("return " & parentType.compiledName & "_str(self);")
+                        fun.ReturnType = stdStr
                         Exit Select
 
                     End If
@@ -774,11 +782,146 @@ Public Class C_Compiler
     '======================================
     '========== COMPILE RELATION ==========
     '======================================
-    Public Function compileRelation(ByVal relation As RelationNode) As String
+    Public Sub compileRelation(ByVal relation As RelationNode, ByVal targetResult As List(Of String), Optional ByVal up_context As context = Nothing)
 
+        'State handler
+        If relation.compiled Then
+            If relation.compiling Then
+                addNodeSyntaxError("VBCCR01", "The type of this relation must be explicitly noted by its use. Example: ""relation +(left:int, right:float):float""", relation)
+            End If
+            Exit Sub
+        End If
+        relation.compiled = True
+        relation.compiling = True
 
+        'Struct
+        Dim parentType As Type = Nothing
+        Dim context As context = New context(relation, up_context)
+        If up_context IsNot Nothing Then
+            If TypeOf up_context.from Is Type Then
+                parentType = DirectCast(up_context.from, Type)
+            End If
+        End If
+        If parentType Is Nothing Then
+            addNodeSyntaxError("VBCCR02", "Something is wrong, this relation cannot find its parent class.", relation)
+        End If
 
-    End Function
+        'Get name
+        Dim isLimLib As Boolean = getNodeParentFile(relation).LimLib
+        If relation.compiledName = "" Then
+
+            'Normal handling
+            relation.compiledName = parentType.compiledName & "_" & relation.type.ToString().ToLower()
+
+        End If
+
+        'Some variables
+        Dim content As New List(Of String)
+        Dim headerArguments As String = ""
+        Dim compiledArguments As String = ""
+        Dim noneTabContent As New List(Of String)
+
+        'Get unsafe type
+        If relation.unsafeReturnType IsNot Nothing Then
+            relation.ReturnType = compileTypeNode(relation.unsafeReturnType, context)
+        End If
+
+        'Arguments
+        noneTabContent.Add("")
+        noneTabContent.Add("//NULL OBJECT HANDLER")
+        For Each arg As FunctionArgument In relation.Arguments
+
+            'Create var
+            Dim variablename As String = ""
+            If isLimLib Then
+                variablename = arg.name
+            Else
+                variablename = getVariableName()
+            End If
+            Dim var As New Variable(arg.name, Nothing, variablename, arg.doubleRef)
+
+            'Has type
+            If arg.type Is Nothing Then
+                addNodeSyntaxError("CCCR03", "A relation argument must specify its type and cannot be optional.", relation)
+            End If
+
+            'Compile argument
+            var.type = compileTypeNode(arg.type, context)
+            If arg.doubleRef Then
+                If var.type.primary Then
+                    addNodeTypeError("CCCR04", "A double-refer argument cannot take a primary type value.", arg.type)
+                End If
+                compiledArguments &= ", " & var.type.compiledName & " ** " & var.compiledName
+            Else
+                compiledArguments &= ", " & var.type.compiledName & " * " & var.compiledName
+            End If
+
+            'Null object
+            noneTabContent.Add("if (" & var.compiledName & " == NULL){")
+            noneTabContent.Add(vbTab & "fatalError(""A null value was passed to the \""" & arg.name.ToString() & "\"" argument of the \""" & relation.type.ToString() & "\"" relation of the \""" & parentType.Name & "\"" class."");")
+            noneTabContent.Add("}")
+
+            'Add variable
+            context.variables.Add(var)
+
+            'Add type
+            arg.compiledType = var.type
+
+            'Add to header
+            headerArguments &= ", " & arg.ToString()
+
+        Next
+        If compiledArguments.StartsWith(", ") Then
+            compiledArguments = compiledArguments.Substring(2)
+        End If
+        noneTabContent.Add("")
+
+        'Compile content
+        For Each action As Node In relation.content
+
+            Dim compiledAction As String = compileNode(action, noneTabContent, context)
+            If Not compiledAction = "" Then
+                noneTabContent.Add(compiledAction)
+            End If
+
+        Next
+
+        'Define prototype
+        Dim returnTypeSTR As String = "void"
+        If relation.ReturnType IsNot Nothing Then
+            returnTypeSTR = relation.ReturnType.compiledName
+        End If
+        compiledFunctionsPrototypes.Add(String.Format("{0} * {1}({2});", returnTypeSTR, relation.compiledName, compiledArguments))
+
+        'Add header
+        If headerArguments.StartsWith(", ") Then
+            headerArguments = headerArguments.Substring(2)
+        End If
+        Dim headerReturnTypeSTR As String = ""
+        If Not relation.ReturnType Is Nothing Then
+            headerReturnTypeSTR = ":" & relation.ReturnType.ToString()
+        End If
+        content.Add("")
+        Dim headerText As String = "//////// " & parentType.Name & " RELATION: " & relation.type.ToString() & "(" & headerArguments & ")" & headerReturnTypeSTR & " ////////"
+        content.Add(headerText)
+
+        'Define function
+        content.Add(String.Format("{0} * {1}({2})", returnTypeSTR, relation.compiledName, compiledArguments) & "{")
+
+        'Add compiled content
+        For Each line As String In noneTabContent
+            content.Add(vbTab & line)
+        Next
+        content.Add(vbTab)
+
+        'End
+        content.Add("}")
+
+        'Result
+        relation.compiling = False
+        targetResult.AddRange(content)
+
+    End Sub
 
     '==================================
     '========== SEARCH CLASS ==========
@@ -968,6 +1111,8 @@ Public Class C_Compiler
                 str_method = method
                 str_method.compiledName = "str"
                 If str_method.unsafeReturnType Is Nothing Then
+                    If stdStr Is Nothing Then
+                    End If
                     str_method.ReturnType = stdStr
                 End If
             ElseIf method.Name = "repr" Then
@@ -987,7 +1132,13 @@ Public Class C_Compiler
         Next
 
         'Copy relations
-        currentType.relations = target.relations
+        For Each relation As RelationNode In target.relations
+
+            'Clone
+            relation = relation.clone()
+            currentType.relations.Add(relation)
+
+        Next
 
         'Some variables
         Dim content As New List(Of String)
@@ -1085,7 +1236,10 @@ Public Class C_Compiler
             compileFunction(method, content, context)
         Next
 
-        'TODO: Compile relations
+        'Compile relations
+        For Each relation As RelationNode In currentType.relations
+            compileRelation(relation, content, context)
+        Next
 
         'Add content
         compiledClasss.AddRange(content)
@@ -1616,6 +1770,15 @@ Public Class C_Compiler
 
     End Function
 
+    '====================================
+    '========== COMPILE BIN OP ==========
+    '====================================
+    Private Function compileBinOp(ByVal node As binOpNode, ByVal content As List(Of String), ByVal context As context) As String
+
+
+
+    End Function
+
     '==================================
     '========== COMPILE LIST ==========
     '==================================
@@ -1718,6 +1881,10 @@ Public Class C_Compiler
             'Compile
             Return compileVariable(DirectCast(node, VariableNode), content, context)
 
+        ElseIf TypeOf node Is binOpNode Then
+
+            'Compile
+            Return compileBinOp(DirectCast(node, binOpNode), content, context)
 
         End If
 
@@ -1873,6 +2040,38 @@ Public Class C_Compiler
 
             'Return
             Return stdBool
+
+        End If
+
+        'Operation
+        If TypeOf node Is binOpNode Then
+
+            'Cast
+            Dim castedNode As binOpNode = DirectCast(node, binOpNode)
+
+            'Left node type
+            Dim leftNodeType As Type = getNodeType(castedNode.leftNode, context)
+
+            'Add
+            If castedNode.op.type = tokenType.OP_PLUS Then
+
+                'Get relation
+                For Each relation As RelationNode In leftNodeType.relations
+                    If relation.type = relation_type.OP_ADD Then
+                        Return relation.ReturnType
+                    End If
+                Next
+
+            ElseIf castedNode.op.type = tokenType.OP_MINUS Then
+
+                'Get relation
+                For Each relation As RelationNode In leftNodeType.relations
+                    If relation.type = relation_type.OP_MIN Then
+                        Return relation.ReturnType
+                    End If
+                Next
+
+            End If
 
         End If
 
