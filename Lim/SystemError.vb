@@ -89,6 +89,16 @@
 
     End Sub
 
+    '=========================================
+    '========== NODE INTERNAL ERROR ==========
+    '=========================================
+    Public Sub addNodeInternalError(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal trymessage As String = "")
+
+        'Execute addSyntaxError
+        addComplexError(code, "INTERNAL ERROR", message, getNodeParentFile(node), node.positionStart, node.positionEnd, trymessage)
+
+    End Sub
+
     '=======================================
     '========== NODE SYNTAX ERROR ==========
     '=======================================

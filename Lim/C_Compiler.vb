@@ -20,6 +20,8 @@ Public Class C_Compiler
     Private helpVariableCount As Integer = 0
     Private functionCount As Integer = 0
     Private classCount As Integer = 0
+    Private relationsCount As Integer = 0
+    Private typesCount As Integer = 0
 
     Private compiledTypes As New List(Of Type)
 
@@ -27,7 +29,7 @@ Public Class C_Compiler
     Private stdFloat As Type
     Private stdStr As Type
     Private stdBool As Type
-    Private stdList As Type
+    Private stdAny As Type
 
     Private logs As Boolean = False
 
@@ -55,6 +57,8 @@ Public Class C_Compiler
         helpVariableCount = 0
         functionCount = 0
         classCount = 0
+        relationsCount = 0
+        typesCount = 0
         Me.logs = flags.Contains("-l") Or flags.Contains("--logs")
         Dim outputFolder As String = AppData & "/compiled"
 
@@ -91,6 +95,7 @@ Public Class C_Compiler
         stdFloat = compileTypeNode(New typeNode(-1, -1, "float", New List(Of typeNode)), Nothing)
         stdStr = compileTypeNode(New typeNode(-1, -1, "str", New List(Of typeNode)), Nothing)
         stdBool = compileTypeNode(New typeNode(-1, -1, "bool", New List(Of typeNode)), Nothing)
+        stdAny = compileTypeNode(New typeNode(-1, -1, "any", New List(Of typeNode)), Nothing)
 
         'Logs
         If logs Then
@@ -283,6 +288,13 @@ Public Class C_Compiler
     '============================================
     Private Function getFunctionName() As String
         Return "f_" & generateCompiledName(functionCount)
+    End Function
+
+    '============================================
+    '========== GENERATE FUNCTION NAME ==========
+    '============================================
+    Private Function getRelationName() As String
+        Return "r_" & generateCompiledName(relationsCount)
     End Function
 
     '=========================================
@@ -811,7 +823,7 @@ Public Class C_Compiler
         If relation.compiledName = "" Then
 
             'Normal handling
-            relation.compiledName = parentType.compiledName & "_" & relation.type.ToString().ToLower()
+            relation.compiledName = parentType.compiledName & "_" & getRelationName()
 
         End If
 
@@ -963,12 +975,6 @@ Public Class C_Compiler
     '==================================
     Private Function compileTypeNode(ByVal type As typeNode, Optional ByVal type_context As context = Nothing) As Type
 
-        If type.className = "item_type" And type_context IsNot Nothing Then
-            If type_context.upperContext Is Nothing Then
-                Debugger.Break()
-                Return Nothing
-            End If
-        End If
         'Type already exist ?
         For Each compiled_type As Type In compiledTypes
             If compiled_type.Name = type.className Then
@@ -1038,7 +1044,8 @@ Public Class C_Compiler
         End If
 
         'Create new type
-        Dim currentType As New Type(target.positionStart, target.positionEnd, target.Name, target.arguments)
+        typesCount += 1
+        Dim currentType As New Type(target.positionStart, target.positionEnd, target.Name, target.arguments, typesCount)
         currentType.parentNode = target.parentNode
         currentType.primary = target.primary
         currentType.compiled = False
@@ -1249,6 +1256,62 @@ Public Class C_Compiler
 
         'Return
         Return currentType
+
+    End Function
+
+    '======================================
+    '========== COMPILE UNARY OP ==========
+    '======================================
+    Public Function compileUnaryOp(ByVal node As UnaryOpNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Find relation
+        If node.target_relation Is Nothing Then
+
+            'Node type
+            Dim leftNodeType As Type = getNodeType(node.node, context)
+
+            'Convert token to type
+            Dim relationTypeNeeded As relation_type = Nothing
+            Select Case node.op.type
+
+                Case tokenType.OP_PLUS
+                    relationTypeNeeded = relation_type.UNARY_ADD
+
+                Case tokenType.OP_MINUS
+                    relationTypeNeeded = relation_type.UNARY_MIN
+
+                Case Else
+                    addNodeInternalError("I-CCCUO01", "No relationship is defined by the compiler for the operator to use.", node)
+
+            End Select
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relationTypeNeeded Then
+                    node.target_relation = relation
+                End If
+            Next
+
+            'Error
+            If node.target_relation Is Nothing Then
+                addNodeSyntaxError("CCCC01", "No such relationship exists for the <" & leftNodeType.ToString() & "> type.", node)
+            End If
+
+        End If
+
+        'Compile arguments
+        Dim leftArgCompiled As String = ""
+        If node.target_relation.Arguments(0).doubleRef Then
+            If (TypeOf node.node IsNot VariableNode) Then
+                addNodeTypeError("CCCUO01", "This argument can only take variables as its value.", node.node)
+            End If
+            leftArgCompiled &= "&(" & compileNode(node.node, content, context) & ")"
+        Else
+            leftArgCompiled &= compileNode(node.node, content, context)
+        End If
+
+        'Compile
+        Return node.target_relation.compiledName & "(" & leftArgCompiled & ")"
 
     End Function
 
@@ -1775,7 +1838,152 @@ Public Class C_Compiler
     '====================================
     Private Function compileBinOp(ByVal node As binOpNode, ByVal content As List(Of String), ByVal context As context) As String
 
+        'Find relation
+        If node.target_relation Is Nothing Then
 
+            'Node type
+            Dim leftNodeType As Type = getNodeType(node.leftNode, context)
+            Dim rightNodeType As Type = getNodeType(node.rightNode, context)
+
+            'Convert token to type
+            Dim relationTypeNeeded As relation_type = Nothing
+            Select Case node.op.type
+
+                Case tokenType.OP_PLUS
+                    relationTypeNeeded = relation_type.OP_ADD
+
+                Case tokenType.OP_MINUS
+                    relationTypeNeeded = relation_type.OP_MIN
+
+                Case tokenType.OP_MULTIPLICATION
+                    relationTypeNeeded = relation_type.OP_MULT
+
+                Case tokenType.OP_DIVISION
+                    relationTypeNeeded = relation_type.OP_DIV
+
+                Case tokenType.OP_MODULO
+                    relationTypeNeeded = relation_type.OP_MODULO
+
+                Case Else
+                    addNodeInternalError("I-CCGNT01", "No relationship is defined by the compiler for the operator to use.", node)
+
+            End Select
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relationTypeNeeded Then
+                    If relation.Arguments(1).compiledType = rightNodeType Then
+                        node.target_relation = relation
+                    End If
+                End If
+            Next
+
+            'Error
+            If node.target_relation Is Nothing Then
+                addNodeSyntaxError("CCCBO01", "No such relationship exists between the <" & leftNodeType.ToString() & "> and <" & rightNodeType.ToString() & "> types.", node)
+            End If
+
+        End If
+
+        'Compile arguments
+        Dim leftArgCompiled As String = ""
+        If node.target_relation.Arguments(0).doubleRef Then
+            If (TypeOf node.leftNode IsNot VariableNode) Then
+                addNodeTypeError("CCCBO02", "This argument can only take variables as its value.", node.leftNode)
+            End If
+            leftArgCompiled &= "&(" & compileNode(node.leftNode, content, context) & ")"
+        Else
+            leftArgCompiled &= compileNode(node.leftNode, content, context)
+        End If
+        Dim rightArgCompiled As String = ""
+        If node.target_relation.Arguments(1).doubleRef Then
+            If (TypeOf node.rightNode IsNot VariableNode) Then
+                addNodeTypeError("CCCBO03", "This argument can only take variables as its value.", node.rightNode)
+            End If
+            rightArgCompiled &= "&(" & compileNode(node.rightNode, content, context) & ")"
+        Else
+            rightArgCompiled &= compileNode(node.rightNode, content, context)
+        End If
+
+        'Compile
+        Return node.target_relation.compiledName & "(" & leftArgCompiled & ", " & rightArgCompiled & ")"
+
+    End Function
+
+    '========================================
+    '========== COMPILE COMPARISON ==========
+    '========================================
+    Private Function compileComparison(ByVal node As ComparisonNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Find relation
+        If node.target_relation Is Nothing Then
+
+            'Node type
+            Dim leftNodeType As Type = getNodeType(node.leftNode, context)
+            Dim rightNodeType As Type = getNodeType(node.rightNode, context)
+
+            'Convert token to type
+            Dim relationTypeNeeded As relation_type = Nothing
+            Select Case node.op.type
+
+                Case tokenType.OP_EQUAL
+                    relationTypeNeeded = relation_type.COMP_EQUAL
+
+                Case tokenType.OP_LESSTHAN
+                    relationTypeNeeded = relation_type.COMP_LESSTHAN
+
+                Case tokenType.OP_LESSTHANEQUAL
+                    relationTypeNeeded = relation_type.COMP_LESSTHANEQUAL
+
+                Case tokenType.OP_MORETHAN
+                    relationTypeNeeded = relation_type.COMP_MORETHAN
+
+                Case tokenType.OP_MORETHANEQUAL
+                    relationTypeNeeded = relation_type.COMP_MORETHANEQUAL
+
+                Case Else
+                    addNodeInternalError("I-CCGNT01", "No relationship is defined by the compiler for the operator to use.", node)
+
+            End Select
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relationTypeNeeded Then
+                    If relation.Arguments(1).compiledType = rightNodeType Then
+                        node.target_relation = relation
+                    End If
+                End If
+            Next
+
+            'Error
+            If node.target_relation Is Nothing Then
+                addNodeSyntaxError("CCCC01", "No such relationship exists between the <" & leftNodeType.ToString() & "> and <" & rightNodeType.ToString() & "> types.", node)
+            End If
+
+        End If
+
+        'Compile arguments
+        Dim leftArgCompiled As String = ""
+        If node.target_relation.Arguments(0).doubleRef Then
+            If (TypeOf node.leftNode IsNot VariableNode) Then
+                addNodeTypeError("CCCFC04", "This argument can only take variables as its value.", node.leftNode)
+            End If
+            leftArgCompiled &= "&(" & compileNode(node.leftNode, content, context) & ")"
+        Else
+            leftArgCompiled &= compileNode(node.leftNode, content, context)
+        End If
+        Dim rightArgCompiled As String = ""
+        If node.target_relation.Arguments(1).doubleRef Then
+            If (TypeOf node.rightNode IsNot VariableNode) Then
+                addNodeTypeError("CCCFC04", "This argument can only take variables as its value.", node.rightNode)
+            End If
+            rightArgCompiled &= "&(" & compileNode(node.rightNode, content, context) & ")"
+        Else
+            rightArgCompiled &= compileNode(node.rightNode, content, context)
+        End If
+
+        'Compile
+        Return node.target_relation.compiledName & "(" & leftArgCompiled & ", " & rightArgCompiled & ")"
 
     End Function
 
@@ -1885,6 +2093,16 @@ Public Class C_Compiler
 
             'Compile
             Return compileBinOp(DirectCast(node, binOpNode), content, context)
+
+        ElseIf TypeOf node Is UnaryOpNode Then
+
+            'Compile
+            Return compileUnaryOp(DirectCast(node, UnaryOpNode), content, context)
+
+        ElseIf TypeOf node Is ComparisonNode Then
+
+            'Compile
+            Return compileComparison(DirectCast(node, ComparisonNode), content, context)
 
         End If
 
@@ -2049,29 +2267,84 @@ Public Class C_Compiler
             'Cast
             Dim castedNode As binOpNode = DirectCast(node, binOpNode)
 
+            'Already find relation
+            If castedNode.target_relation IsNot Nothing Then
+                Return castedNode.target_relation.ReturnType
+            End If
+
             'Left node type
             Dim leftNodeType As Type = getNodeType(castedNode.leftNode, context)
 
             'Add
-            If castedNode.op.type = tokenType.OP_PLUS Then
+            Dim relationTypeNeeded As relation_type = Nothing
+            Select Case castedNode.op.type
 
-                'Get relation
-                For Each relation As RelationNode In leftNodeType.relations
-                    If relation.type = relation_type.OP_ADD Then
-                        Return relation.ReturnType
-                    End If
-                Next
+                Case tokenType.OP_PLUS
+                    relationTypeNeeded = relation_type.OP_ADD
 
-            ElseIf castedNode.op.type = tokenType.OP_MINUS Then
+                Case tokenType.OP_MINUS
+                    relationTypeNeeded = relation_type.OP_MIN
 
-                'Get relation
-                For Each relation As RelationNode In leftNodeType.relations
-                    If relation.type = relation_type.OP_MIN Then
-                        Return relation.ReturnType
-                    End If
-                Next
+                Case tokenType.OP_MULTIPLICATION
+                    relationTypeNeeded = relation_type.OP_MULT
 
+                Case tokenType.OP_DIVISION
+                    relationTypeNeeded = relation_type.OP_DIV
+
+                Case tokenType.OP_MODULO
+                    relationTypeNeeded = relation_type.OP_MODULO
+
+                Case Else
+                    addNodeInternalError("I-CCGNT01", "No relationship is defined by the compiler for the operator to use.", castedNode)
+
+            End Select
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relationTypeNeeded Then
+                    castedNode.target_relation = relation
+                    Return relation.ReturnType
+                End If
+            Next
+
+        End If
+
+        'Unary node
+        If TypeOf node Is UnaryOpNode Then
+
+            'Cast
+            Dim castedNode As UnaryOpNode = DirectCast(node, UnaryOpNode)
+
+            'Already find relation
+            If castedNode.target_relation IsNot Nothing Then
+                Return castedNode.target_relation.ReturnType
             End If
+
+            'Left node type
+            Dim leftNodeType As Type = getNodeType(castedNode.node, context)
+
+            'Add
+            Dim relationTypeNeeded As relation_type = Nothing
+            Select Case castedNode.op.type
+
+                Case tokenType.OP_PLUS
+                    relationTypeNeeded = relation_type.UNARY_ADD
+
+                Case tokenType.OP_MINUS
+                    relationTypeNeeded = relation_type.UNARY_MIN
+
+                Case Else
+                    addNodeInternalError("I-CCGNT02", "No relationship is defined by the compiler for the operator to use.", castedNode)
+
+            End Select
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relationTypeNeeded Then
+                    castedNode.target_relation = relation
+                    Return relation.ReturnType
+                End If
+            Next
 
         End If
 

@@ -45,16 +45,19 @@ Public Class Type
     Public methods As New List(Of FunctionNode)
     Public relations As New List(Of RelationNode)
 
+    Public typeID As Integer
+
     Public export As Boolean = False
     Public primary As Boolean = False
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal arguments As List(Of String))
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Name As String, ByVal arguments As List(Of String), ByVal typeID As Integer)
 
         MyBase.New(positionStart, positionEnd)
         Me.Name = Name
         Me.compiled = False
         Me.arguments = arguments
+        Me.typeID = typeID
 
     End Sub
 
@@ -78,14 +81,14 @@ Public Class Type
     'Equal
     Public Shared Operator =(ByVal type1 As Type, ByVal type2 As Type) As Boolean
 
-        Return type1.compiledName = type2.compiledName
+        Return (type1.compiledName = type2.compiledName Or (type1.compiledName = "__any__" Or type2.compiledName = "__any__"))
 
     End Operator
 
     'Not Equal
     Public Shared Operator <>(ByVal type1 As Type, ByVal type2 As Type) As Boolean
 
-        Return Not type1.compiledName = type2.compiledName
+        Return Not (type1.compiledName = type2.compiledName Or (type1.compiledName = "__any__" Or type2.compiledName = "__any__"))
 
     End Operator
 

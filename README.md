@@ -1,22 +1,19 @@
-# LimCompiler
-## WARNING
-The current version of the repo does not contain a working version.
+# The lim programming language
 
-## Intro
-Lim Compiler is the programming language compiler I am creating.
-Please don't look at my horrible code.
+<img style="float: right; margin-left: 30px" src="https://github.com/GeminoRR/Lim/blob/master/Lim/logo_compiler.ico?raw=true">
 
-![Alt text](https://github.com/GeminoRR/Lim/blob/master/Lim/logo_compiler.ico?raw=true "LimCompiler's logo")
+## Introduction
+This repository contains the source code for the lim compiler. It is a language inspired by the syntax of python but with a strict typing. Its particularity is that it compiles to C then to the executable. So it is possible to use C libraries in Lim.
+
+I strongly urge you not to notice my inability to code correctly. More seriously, this project does not aim, for the moment, to be used in production.
 
 ## The particularities of lim
 - Statically Typed
 - High-level language with low-level speed
 - Compatible with OOP
-- Simple and efficient reference management
 - Indentation-based statements
 - Simple file import system
 - Compile first to C, then to the desired executable (Windows, Linux, MacOS)
-- Minimal Runtime
 - Allows the use of all C libraries via .limlib files (Inject C code into a Lim file)
 
 ## Examples
@@ -35,23 +32,24 @@ func main
 ```
 
 ### Class
-```c
+```python
 func main
 	let current_user = new user("Pierre", 16)
 	puts(current_user.str())
 
 class user
 	
-	let _username:str
-	let _age:int
-	let hobby:list<str>
+	let username:str
+	let age:int
+	let hobbies:list<str>
 
-	func new(username:str, age:int) //Constructor
-		_username = username
-		_age = age
+	func new(_username:str, _age:int) //Constructor
+		username = _username
+		age = _age
+		hobbies = new list<str>
 
 	func str
-		return _username + " is " + _age.str() + "yo"
+		return username + " is " + age.str() + "yo"
 ```
 
 ### Window Graphics
@@ -59,9 +57,9 @@ class user
 import graphics
 
 func main
-	initWindow("My window", 500, 500) //initWindow(windowsName, width, height)
+	let mainWindow = new window("My window", 500, 500, drawFrame)
+	mainWindow.show()
 
-let rectangleX = 225
 let rectangleY = 0
 
 func drawFrame(screen:image)
@@ -69,7 +67,7 @@ func drawFrame(screen:image)
 	screen.fillRectangle(0, 0, 500, 500, "#FFFFFF")
 
 	//Draw the rectangle
-	screen.fillRectangle(rectangleX, rectangleY, 50, 50, "#27AE60")
+	screen.fillRectangle(225, rectangleY, 50, 50, "#27AE60")
 
 	//Move rectange
 	if keyPressed("up")

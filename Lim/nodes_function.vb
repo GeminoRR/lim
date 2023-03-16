@@ -186,8 +186,10 @@ Public Enum relation_type
     OP_MIN
     OP_MULT
     OP_DIV
+    OP_MODULO
 
     UNARY_MIN
+    UNARY_ADD
 
     COMP_EQUAL
     COMP_LESSTHAN

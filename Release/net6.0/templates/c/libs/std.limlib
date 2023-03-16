@@ -1,7 +1,33 @@
 /////////////////////
+//////// ANY ////////
+/////////////////////
+export class __any__
+	//Properties
+	$"void * value;"
+	$"int typeID;"
+
+	//Clone
+	func clone:any
+		$'fatalError("Unable to clone an unknown type.");'
+
+	//Str
+	func str:str
+		$'fatalError("Unable to stringify an unknown type.");'
+
+	//Repr
+	func repr:str
+		$'fatalError("Unable to represent an unknown type.");'
+
+//Creator
+func $"new_any(void * value, int typeID)":any
+	$"__any__ * temp = __any___new();"
+	$"temp->value = value;"
+	$"temp->typeID = typeID;"
+	$"return temp;"
+
+/////////////////////
 //////// INT ////////
 /////////////////////
-//Class
 export primary class __int__
 	//Properties
 	$"int value;"
@@ -28,9 +54,61 @@ export primary class __int__
 	func repr:str
 		$"return {{self}}_str(self);"
 
-	//Relation
+	//Unary
+	relation +(num:int):int
+		$"return num;"
+	relation -(num:int):int
+		$"return new_int(-(num->value));"
+
+	//Operations
 	relation +(num1:int, num2:int):int
-		$"return new_int(num1->value + num2->value)"
+		$"return new_int(num1->value + num2->value);"
+	relation +(num1:int, num2:float):float
+		$"return new_float((double)(num1->value + num2->value));"
+
+	relation -(num1:int, num2:int):int
+		$"return new_int(num1->value - num2->value);"
+	relation -(num1:int, num2:float):float
+		$"return new_float((double)(num1->value - num2->value));"
+
+	relation *(num1:int, num2:int):int
+		$"return new_int(num1->value * num2->value);"
+	relation *(num1:int, num2:float):float
+		$"return new_float((double)(num1->value * num2->value));"
+
+	relation /(num1:int, num2:int):float
+		$"return new_float((double)(num1->value / num2->value));"
+	relation /(num1:int, num2:float):float
+		$"return new_float((double)(num1->value / num2->value));"
+
+	relation %(num1:int, num2:int):int
+		$"return new_int((int)(num1->value % num2->value));"
+
+	//Comparisons
+	relation =(num1:int, num2:int):bool
+		$"return new_bool(num1->value == num2->value);"
+	relation =(num1:int, num2:float):bool
+		$"return new_bool(num1->value == num2->value);"
+
+	relation >(num1:int, num2:int):bool
+		$"return new_bool(num1->value > num2->value);"
+	relation >(num1:int, num2:float):bool
+		$"return new_bool(num1->value > num2->value);"
+	
+	relation >=(num1:int, num2:int):bool
+		$"return new_bool(num1->value >= num2->value);"
+	relation >=(num1:int, num2:float):bool
+		$"return new_bool(num1->value >= num2->value);"
+
+	relation <(num1:int, num2:int):bool
+		$"return new_bool(num1->value < num2->value);"
+	relation <(num1:int, num2:float):bool
+		$"return new_bool(num1->value < num2->value);"
+	
+	relation <=(num1:int, num2:int):bool
+		$"return new_bool(num1->value <= num2->value);"
+	relation <=(num1:int, num2:float):bool
+		$"return new_bool(num1->value <= num2->value);"
 
 //Creator
 func $"new_int(int value)":int

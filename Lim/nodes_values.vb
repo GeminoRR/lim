@@ -196,7 +196,9 @@ Public Class ComparisonNode
     'Variable
     Public leftNode As node
     Public op As token
-    Public rightNode As node
+    Public rightNode As Node
+
+    Public target_relation As RelationNode = Nothing
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal leftNode As node, ByVal op As token, ByVal rightNode As node)
@@ -358,7 +360,9 @@ Public Class UnaryOpNode
 
     'Variables
     Public op As token
-    Public node As node
+    Public node As Node
+
+    Public target_relation As RelationNode = Nothing
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal op As token, ByVal node As node)
@@ -387,7 +391,9 @@ Public Class binOpNode
     'Variables
     Public leftNode As node
     Public op As token
-    Public rightNode As node
+    Public rightNode As Node
+
+    Public target_relation As RelationNode = Nothing
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal leftNode As node, ByVal op As token, ByVal rightNode As node)

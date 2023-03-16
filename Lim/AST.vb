@@ -1079,6 +1079,11 @@
             name = relation_type.OP_DIV
             advance()
 
+        ElseIf current_tok.type = tokenType.OP_MODULO Then
+
+            name = relation_type.OP_MODULO
+            advance()
+
         ElseIf current_tok.type = tokenType.OP_EQUAL Then
 
             name = relation_type.COMP_EQUAL
@@ -1201,6 +1206,8 @@
         'Unary operation
         If name = relation_type.OP_MIN And arguments.Count = 1 Then
             name = relation_type.UNARY_MIN
+        ElseIf name = relation_type.OP_ADD And arguments.Count = 1 Then
+            name = relation_type.UNARY_ADD
         End If
 
         'Create node
