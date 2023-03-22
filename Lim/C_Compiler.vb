@@ -36,7 +36,7 @@ Public Class C_Compiler
     '==================================
     '========== COMPILE CODE ==========
     '==================================
-    Public Sub compileCode(ByVal inputFile As String, flags As List(Of String))
+    Public Sub compileCode(ByVal inputFile As String, ByVal outputFolder As String, flags As List(Of String))
 
         'Restore variables
         compiledImports.Clear()
@@ -60,7 +60,6 @@ Public Class C_Compiler
         relationsCount = 0
         typesCount = 0
         Me.logs = flags.Contains("-l") Or flags.Contains("--logs")
-        Dim outputFolder As String = AppData & "/compiled"
 
         'Get template
         Dim cTemplates As String = templateFolder & "/c"
@@ -1487,9 +1486,7 @@ Public Class C_Compiler
         ElseIf TypeOf castedNode.Target Is BracketsSelectorNode Then
 
             'Compile
-            'TODO: DO
             content.Add(String.Format("{0} = {1};", compileNode(castedNode.Target, content, context), compileNode(castedNode.NewValue, content, context)))
-
 
         ElseIf TypeOf castedNode.Target Is childNode Then
 
@@ -1501,6 +1498,80 @@ Public Class C_Compiler
             addNodeSyntaxError("CCCSV02", "It is not possible to assign a value to this target", castedNode.Target)
 
         End If
+
+        'Return
+        Return ""
+
+    End Function
+
+    '==========================================
+    '========== COMPILE IF STATEMENT ==========
+    '==========================================
+    Private Function compileIfStatement(ByVal node As ifStatementNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'If header
+        content.Add("if ((" & compileNode(node.condition, content, context) & ")->value){")
+
+        'If content
+        Dim noneTabContent As New List(Of String)
+        For Each line As Node In node.if_statements
+            Dim result As String = compileNode(line, noneTabContent, context)
+            If Not result = "" Then
+                noneTabContent.Add(result)
+            End If
+        Next
+        For Each line As String In noneTabContent
+            content.Add(vbTab & line)
+        Next
+
+        'Finish if
+        content.Add("}")
+
+        'Elseif
+        For Each elseif_statement As Tuple(Of Node, List(Of Node)) In node.elseif_statements
+
+            'If header
+            content.Add("else if ((" & compileNode(elseif_statement.Item1, content, context) & ")->value){")
+
+            'If content
+            noneTabContent = New List(Of String)
+            For Each line As Node In elseif_statement.Item2
+                Dim result As String = compileNode(line, noneTabContent, context)
+                If Not result = "" Then
+                    noneTabContent.Add(result)
+                End If
+            Next
+            For Each line As String In noneTabContent
+                content.Add(vbTab & line)
+            Next
+
+            'Finish if
+            content.Add("}")
+
+        Next
+
+        'No else
+        If Not node.else_statement.Count > 0 Then
+            Return ""
+        End If
+
+        'Else header
+        content.Add("else {")
+
+        'Else content
+        noneTabContent = New List(Of String)
+        For Each line As Node In node.else_statement
+            Dim result As String = compileNode(line, noneTabContent, context)
+            If Not result = "" Then
+                noneTabContent.Add(result)
+            End If
+        Next
+        For Each line As String In noneTabContent
+            content.Add(vbTab & line)
+        Next
+
+        'Else if
+        content.Add("}")
 
         'Return
         Return ""
@@ -1544,7 +1615,7 @@ Public Class C_Compiler
 
         'Compile while header
         content.Add("")
-        content.Add("while (" & compileNode(node.condition, content, context) & "->value){")
+        content.Add("while ((" & compileNode(node.condition, content, context) & ")->value){")
 
         'Compile core
         Dim core As New List(Of String)
@@ -1565,34 +1636,50 @@ Public Class C_Compiler
     End Function
 
     '===========================================
-    '========== COMPILE FUNCTION CALL ==========
+    '========== COMPILE FOR STATEMENT ==========
     '===========================================
-    Private Function compileFunctionCall(ByVal node As FunctionCallNode, ByVal content As List(Of String), ByVal context As context) As String
+    Private Function compileForStatement(ByVal node As forStatementNode, ByVal content As List(Of String), ByVal context As context)
 
-        'Get function
-        Dim fun As FunctionNode = getFunction(node.FunctionName, node)
+        'Get target type
+        Dim targetType As Type = getNodeType(node.looperTarget, context)
+
+
+        'Return
+        Return ""
+
+    End Function
+
+    '======================================
+    '========== COMPILE FUN CALL ==========
+    '======================================
+    Private Function compileFunCall(ByVal content As List(Of String), ByVal context As context, ByVal callerNode As Node, ByVal function_compiledname As String, ByVal modelArguments As List(Of FunctionArgument), ByVal passedArguments As List(Of Node), Optional ByVal minArgument As Integer = -1) As String
+
+        'Min Argument
+        If minArgument = -1 Then
+            minArgument = modelArguments.Count
+        End If
 
         'Handle argument error
-        If node.Arguments.Count < fun.minArguments Then
-            addNodeTypeError("CCCFC01", (fun.Arguments.Count - node.Arguments.Count).ToString() & " arguments are missing", node)
+        If passedArguments.Count < minArgument Then
+            addNodeTypeError("CCCFC01", (minArgument - passedArguments.Count).ToString() & " arguments are missing", callerNode)
         End If
-        If node.Arguments.Count > fun.maxArguments Then
-            addNodeTypeError("CCCFC02", (node.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
+        If passedArguments.Count > modelArguments.Count Then
+            addNodeTypeError("CCCFC02", (passedArguments.Count - modelArguments.Count).ToString() & " arguments are useless (too many arguments)", callerNode)
         End If
 
         'Argument
         Dim arguments As String = ""
-        For i As Integer = 0 To fun.Arguments.Count - 1
+        For i As Integer = 0 To modelArguments.Count - 1
 
             'Fill optionnal argument
-            If i >= node.Arguments.Count Then
+            If i >= passedArguments.Count Then
                 arguments &= ", NULL"
                 Continue For
             End If
 
             'Variables
-            Dim argumentModel As FunctionArgument = fun.Arguments(i)
-            Dim argumentValue As Node = node.Arguments(i)
+            Dim argumentModel As FunctionArgument = modelArguments(i)
+            Dim argumentValue As Node = passedArguments(i)
 
             'Handle type error
             If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
@@ -1615,13 +1702,29 @@ Public Class C_Compiler
         End If
 
         'Return
+        Return function_compiledname & "(" & arguments & ")"
+
+    End Function
+
+    '===========================================
+    '========== COMPILE FUNCTION CALL ==========
+    '===========================================
+    Private Function compileFunctionCall(ByVal node As FunctionCallNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Get function
+        Dim fun As FunctionNode = getFunction(node.FunctionName, node)
+
+        'Compile
+        Dim result As String = compileFunCall(content, context, node, fun.compiledName, fun.Arguments, node.Arguments, fun.minArguments)
+
+        'Return
         If node.allLineFunction Then
             content.Add("")
             content.Add("//Function call to """ & fun.Name & """")
-            content.Add(fun.compiledName & "(" & arguments & ");")
+            content.Add(result & ";")
             Return ""
         Else
-            Return fun.compiledName & "(" & arguments & ")"
+            Return result
         End If
 
     End Function
@@ -1709,50 +1812,20 @@ Public Class C_Compiler
                     Continue For
                 End If
 
-                'Handle argument error
-                If funCall.Arguments.Count < fun.minArguments Then
-                    addNodeTypeError("CCCC03", (fun.Arguments.Count - funCall.Arguments.Count).ToString() & " arguments are missing", node)
+                'Compile
+                Dim result As String = compileFunCall(content, context, node, "", fun.Arguments, funCall.Arguments, fun.minArguments).Substring(1)
+                If result = ")" Then
+                    result = fun.compiledName & "(" & compileNode(node.parentStruct, content, context) & result
+                Else
+                    result = fun.compiledName & "(" & compileNode(node.parentStruct, content, context) & ", " & result
                 End If
-                If funCall.Arguments.Count > fun.maxArguments Then
-                    addNodeTypeError("CCCC04", (funCall.Arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
-                End If
 
-                'Argument
-                Dim arguments As String = ""
-                For i As Integer = 0 To fun.Arguments.Count - 1
-
-                    'Fill optionnal argument
-                    If i >= funCall.Arguments.Count Then
-                        arguments &= ", NULL"
-                        Continue For
-                    End If
-
-                    'Variables
-                    Dim argumentModel As FunctionArgument = fun.Arguments(i)
-                    Dim argumentValue As Node = funCall.Arguments(i)
-
-                    'Handle type error
-                    If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
-                        addNodeTypeError("CCCC05", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argumentValue, context).ToString() & "> instead of being <" & argumentModel.type.ToString() & ">", argumentValue)
-                    End If
-
-                    'Add argument
-                    If argumentModel.doubleRef Then
-                        If (TypeOf argumentValue IsNot VariableNode) Then
-                            addNodeTypeError("CCCCC06", "This argument can only take variables as its value.", argumentValue)
-                        End If
-                        arguments &= ", &(" & compileNode(argumentValue, content, context) & ")"
-                    Else
-                        arguments &= ", " & compileNode(argumentValue, content, context)
-                    End If
-
-                Next
-
+                'Return
                 If node.allLine Then
-                    content.Add(String.Format("{0}({1}{2});", fun.compiledName, compileNode(node.parentStruct, content, context), arguments))
+                    content.Add(result & ";")
                     Return ""
                 Else
-                    Return String.Format("{0}({1}{2})", fun.compiledName, compileNode(node.parentStruct, content, context), arguments)
+                    Return result
                 End If
 
             Next
@@ -1786,50 +1859,8 @@ Public Class C_Compiler
             addNodeSyntaxError("CCCN01", "Class <" & targetType.Name & "> does not contain a constructor", node, "Add a ""new"" method to the class")
         End If
 
-        'Handle argument error
-        If node.arguments.Count < fun.minArguments Then
-            addNodeSyntaxError("CCCN02", (fun.Arguments.Count - node.arguments.Count).ToString() & " arguments are missing", node)
-        End If
-        If node.arguments.Count > fun.maxArguments Then
-            addNodeSyntaxError("CCCN03", (node.arguments.Count - fun.Arguments.Count).ToString() & " arguments are useless (too many arguments)", node)
-        End If
-
-        'Argument
-        Dim arguments As String = ""
-        For i As Integer = 0 To fun.Arguments.Count - 1
-
-            'Fill optionnal argument
-            If i >= node.arguments.Count Then
-                arguments &= ", NULL"
-                Continue For
-            End If
-
-            'Variables
-            Dim argumentModel As FunctionArgument = fun.Arguments(i)
-            Dim argumentValue As Node = node.arguments(i)
-
-            'Handle type error
-            If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
-                addNodeTypeError("CCCN04", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argumentValue, context).ToString() & "> instead of being <" & argumentModel.type.ToString() & ">", argumentValue)
-            End If
-
-            'Add argument
-            If argumentModel.doubleRef Then
-                If (TypeOf argumentValue IsNot VariableNode) Then
-                    addNodeTypeError("CCCNC05", "This argument can only take variables as its value.", argumentValue)
-                End If
-                arguments &= ", &(" & compileNode(argumentValue, content, context) & ")"
-            Else
-                arguments &= ", " & compileNode(argumentValue, content, context)
-            End If
-
-        Next
-        If arguments.StartsWith(", ") Then
-            arguments = arguments.Substring(2)
-        End If
-
-        'Return
-        Return String.Format("{0}({1})", fun.compiledName, arguments)
+        'Compile
+        Return compileFunCall(content, context, node, fun.compiledName, fun.Arguments, node.arguments, fun.minArguments)
 
     End Function
 
@@ -1885,28 +1916,8 @@ Public Class C_Compiler
 
         End If
 
-        'Compile arguments
-        Dim leftArgCompiled As String = ""
-        If node.target_relation.Arguments(0).doubleRef Then
-            If (TypeOf node.leftNode IsNot VariableNode) Then
-                addNodeTypeError("CCCBO02", "This argument can only take variables as its value.", node.leftNode)
-            End If
-            leftArgCompiled &= "&(" & compileNode(node.leftNode, content, context) & ")"
-        Else
-            leftArgCompiled &= compileNode(node.leftNode, content, context)
-        End If
-        Dim rightArgCompiled As String = ""
-        If node.target_relation.Arguments(1).doubleRef Then
-            If (TypeOf node.rightNode IsNot VariableNode) Then
-                addNodeTypeError("CCCBO03", "This argument can only take variables as its value.", node.rightNode)
-            End If
-            rightArgCompiled &= "&(" & compileNode(node.rightNode, content, context) & ")"
-        Else
-            rightArgCompiled &= compileNode(node.rightNode, content, context)
-        End If
-
         'Compile
-        Return node.target_relation.compiledName & "(" & leftArgCompiled & ", " & rightArgCompiled & ")"
+        Return compileFunCall(content, context, node, node.target_relation.compiledName, node.target_relation.Arguments, {node.leftNode, node.rightNode}.ToList())
 
     End Function
 
@@ -1962,28 +1973,8 @@ Public Class C_Compiler
 
         End If
 
-        'Compile arguments
-        Dim leftArgCompiled As String = ""
-        If node.target_relation.Arguments(0).doubleRef Then
-            If (TypeOf node.leftNode IsNot VariableNode) Then
-                addNodeTypeError("CCCFC04", "This argument can only take variables as its value.", node.leftNode)
-            End If
-            leftArgCompiled &= "&(" & compileNode(node.leftNode, content, context) & ")"
-        Else
-            leftArgCompiled &= compileNode(node.leftNode, content, context)
-        End If
-        Dim rightArgCompiled As String = ""
-        If node.target_relation.Arguments(1).doubleRef Then
-            If (TypeOf node.rightNode IsNot VariableNode) Then
-                addNodeTypeError("CCCFC04", "This argument can only take variables as its value.", node.rightNode)
-            End If
-            rightArgCompiled &= "&(" & compileNode(node.rightNode, content, context) & ")"
-        Else
-            rightArgCompiled &= compileNode(node.rightNode, content, context)
-        End If
-
         'Compile
-        Return node.target_relation.compiledName & "(" & leftArgCompiled & ", " & rightArgCompiled & ")"
+        Return compileFunCall(content, context, node, node.target_relation.compiledName, node.target_relation.Arguments, {node.leftNode, node.rightNode}.ToList())
 
     End Function
 
@@ -2018,6 +2009,36 @@ Public Class C_Compiler
 
         'Finish compile
         Return helpVar
+
+    End Function
+
+    '===============================================
+    '========== COMPILE BRACKETS SELECTOR ==========
+    '===============================================
+    Private Function compileBracketsSelector(ByVal node As BracketsSelectorNode, ByVal content As List(Of String), ByVal context As context) As String
+
+        'Find relation
+        If node.target_relation Is Nothing Then
+
+            'Left node type
+            Dim leftNodeType As Type = getNodeType(node.Target, context)
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relation_type.SELECT_BRACKETS Then
+                    node.target_relation = relation
+                End If
+            Next
+
+            'Error
+            If node.target_relation Is Nothing Then
+                addNodeSyntaxError("CCCC01", "No index relation is defined for type <" & leftNodeType.ToString() & ">.", node)
+            End If
+
+        End If
+
+        'Compile
+        Return compileFunCall(content, context, node, node.target_relation.compiledName, node.target_relation.Arguments, {node.Target, node.index}.ToList())
 
     End Function
 
@@ -2103,6 +2124,21 @@ Public Class C_Compiler
 
             'Compile
             Return compileComparison(DirectCast(node, ComparisonNode), content, context)
+
+        ElseIf TypeOf node Is BracketsSelectorNode Then
+
+            'Compile
+            Return compileBracketsSelector(DirectCast(node, BracketsSelectorNode), content, context)
+
+        ElseIf TypeOf node Is ifStatementNode Then
+
+            'Compile
+            Return compileIfStatement(DirectCast(node, ifStatementNode), content, context)
+
+        ElseIf TypeOf node Is forStatementNode Then
+
+            'Compile
+            Return compileForStatement(DirectCast(node, forStatementNode), content, context)
 
         End If
 
@@ -2341,6 +2377,30 @@ Public Class C_Compiler
             'Get relation
             For Each relation As RelationNode In leftNodeType.relations
                 If relation.type = relationTypeNeeded Then
+                    castedNode.target_relation = relation
+                    Return relation.ReturnType
+                End If
+            Next
+
+        End If
+
+        'BracketSelector
+        If TypeOf node Is BracketsSelectorNode Then
+
+            'Cast
+            Dim castedNode As BracketsSelectorNode = DirectCast(node, BracketsSelectorNode)
+
+            'Already find relation
+            If castedNode.target_relation IsNot Nothing Then
+                Return castedNode.target_relation.ReturnType
+            End If
+
+            'Left node type
+            Dim leftNodeType As Type = getNodeType(castedNode.Target, context)
+
+            'Get relation
+            For Each relation As RelationNode In leftNodeType.relations
+                If relation.type = relation_type.SELECT_BRACKETS Then
                     castedNode.target_relation = relation
                     Return relation.ReturnType
                 End If

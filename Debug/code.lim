@@ -1,3 +1,10 @@
 func main
-	puts((5 > -10).str())
-	puts((5 > 10).str())
+	let i = 1
+	let names = new list<str>
+	while i < 5
+		names.add(gets("name " + i.str() + " : "))
+		i = i + 1
+	i = 0
+	while i < names.len()
+		puts("Hello " + names[i] + "!")
+		i = i + 1

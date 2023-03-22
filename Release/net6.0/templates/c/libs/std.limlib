@@ -184,6 +184,27 @@ export primary class __str__
 		$"//Return"
 		$"return new_str(temp);"
 
+	//Int
+	func int:int
+		$"int result;"
+		$'sscanf(self->value, "%d", &result);'
+		$"return new_int(result);"
+
+	//Comparison
+	relation =(str1:str, str2:str):bool
+		$"if (strcmp(str1->value, str2->value) == 0){"
+		$"	return new_bool(true);"
+		$"} else {"
+		$"	return new_bool(false);"
+		$"}"
+
+	//Concat
+	relation +(str1:str, str2:str):str
+		$"char * result = tgc_alloc(&gc, sizeof(char) * (strlen(str1->value) + strlen(str2->value) + 1));"
+		$"strcpy(result, str1->value);"
+		$"strcat(result, str2->value);"
+		$"return new_str(result);"
+
 //Creator
 func $"new_str(char * value)":str
 	$"__str__ * temp = __str___new();"
@@ -244,6 +265,10 @@ export class list<item_type>
 		$"self->size = 5;"
 		$"return self;"
 
+	//Lenght
+	func len:int
+		$"return new_int((int)self->used);"
+
 	//Add (insert last)
 	func add(elm:item_type)
 		$"if (self->used == self->size) {"
@@ -270,6 +295,20 @@ export class list<item_type>
 		$"char * final = malloc(sizeof(char) * (strlen(result) + 2));"
 		$'sprintf(final, "%s]", result);'
 		$"return new_str(final);"
+
+	//Get
+	relation [](target:list<item_type>, index:int):item_type
+		$"int idx = 0;"
+		$"if (index->value < 0){"
+		$"	idx = (int)(target->used) + index->value;"
+		$"} else {"
+		$"	idx = index->value;"
+		$"}"
+		$""
+		$"if (idx >= (int)(target->used) || idx < 0){"
+		$'	fatalError("Index out of range");'
+		$"}"
+		$"return target->array[idx];"
 
 /////////////////////////////
 //////// LINKED LIST ////////
@@ -344,17 +383,36 @@ export class linkedlist<item_type>
 		$'strcat(final, "]");'
 		$"return new_str(final);"
 
-/////////////////////
-//////// MAP ////////
-/////////////////////
-export class map<key_type, value_type>
-	let keys:list<key_type>
-	let values:list<value_type>
+	//Get
+	relation [](target:linkedlist<item_type>, index:int):item_type
+		$""
+		$"//Fix index"
+		$"int idx = 0;"
+		$"int len = {{self}}_len(target)->value;"
+		$"if (index->value < 0){"
+		$"	idx = len + index->value;"
+		$"} else {"
+		$"	idx = index->value;"
+		$"}"
+		$"++idx;"
+		$""
+		$"//Go through the whole list"
+		$"{{self}} * temp = target;"
+		$"while (temp->next != NULL && idx > 0){"
+		$"	temp = temp->next;"
+		$"	idx--;"
+		$"}"
+		$""
+		$"if (idx != 0){"
+		$'	fatalError("Index out of range");'
+		$"}"
+		$""
+		$"//Return"
+		$"return temp->item;"
 
 ////////////////////
 //////// IO ////////
 ////////////////////
-
 //Puts (print to the standard output)
 export func __puts__(value:str)
 	$'printf("%s\n", value->value);'
@@ -364,10 +422,30 @@ export func __gets__(value:str):str
 	$'printf("%s", value->value);'
 	$"char * buffer = tgc_alloc(&gc, sizeof(char) * 999);"
 	$"if (fgets(buffer, 998, stdin) != 0){"
-	$'	buffer[strlen(buffer) - 1 ] = "\0";'
+	$"	buffer[strlen(buffer) - 1 ] = '\0';"
 	$"	return new_str(buffer);"
 	$"}"
 	$'return new_str("");'
+
+///////////////////////////////////
+//////// SET CONSOLE COLOR ////////
+///////////////////////////////////
+export func setConsoleColor(color:str)
+	$'if (strcmp(color->value, "red") == 0){'
+	$'	printf("\x1b[31m");'
+	$'} else if (strcmp(color->value, "default") == 0){'
+	$'	printf("\x1b[0m");'
+	$'} else if (strcmp(color->value, "green") == 0){'
+	$'	printf("\x1b[32m");'
+	$'} else if (strcmp(color->value, "yellow") == 0){'
+	$'	printf("\x1b[33m");'
+	$'} else if (strcmp(color->value, "blue") == 0){'
+	$'	printf("\x1b[34m");'
+	$'} else if (strcmp(color->value, "magenta") == 0){'
+	$'	printf("\x1b[35m");'
+	$'} else if (strcmp(color->value, "cyan") == 0){'
+	$'	printf("\x1b[36m");'
+	$'}'
 
 /////////////////////
 //////// CMD ////////
@@ -377,5 +455,5 @@ export func __gets__(value:str):str
 //////// RUNTIME ERROR ////////
 ///////////////////////////////
 func $"fatalError(const char * message)"
-	$'printf("FATAL RUNTIME ERROR: %s\n", message);'
+	$'printf("\x1b[31mFATAL RUNTIME ERROR: \x1b[0m%s\n", message);'
 	$"exit(-1);"

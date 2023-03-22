@@ -30,8 +30,10 @@ Public Class BracketsSelectorNode
     Inherits node
 
     'Variable
-    Public Target As node
-    Public index As node
+    Public Target As Node
+    Public index As Node
+
+    Public target_relation As RelationNode
 
     'New
     Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal Target As node, ByVal index As node)

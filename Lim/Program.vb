@@ -43,72 +43,121 @@ Module Program
             outputFile = arguments(1)
         End If
 
+        'Debug
+        Dim debugLogs As Boolean = False
+        If flags.Contains("-d") Or flags.Contains("--debug") Then
+            debugLogs = True
+        End If
+
         'Compile
         If outputFile = "" Then
 
             'Run
-            Dim compiler As New C_Compiler()
-            compiler.compileCode(inputFile, flags)
+
+            'Compile to publish
+            Dim executable As String = compileInPublish(inputFile, flags)
 
             'Open
             Process.Start("C:\Program Files\Sublime Text\subl.exe", """" & AppData & "/compiled/main.c""")
 
-            'Run
-            'Throw New NotImplementedException()
-            'Dim run As New Process()
-            ''run.StartInfo.FileName = "dotnet"
-            ''run.StartInfo.Arguments = "run --project """ & AppData & "/compiled/VB.vbproj"""
-            'run.StartInfo.WorkingDirectory = Directory.GetCurrentDirectory()
-            'run.Start()
+            'Error
+            If executable = Nothing Then
+                Console.ForegroundColor = ConsoleColor.DarkRed
+                Console.WriteLine("Compilation failed!")
+                Console.ResetColor()
+            End If
 
-            ''Wait until programs end
-            'While Not run.HasExited
-            '    Threading.Thread.Sleep(200)
-            'End While
+            'Start process
+            Dim runtime As New Process()
+            runtime.StartInfo.FileName = executable
+            runtime.StartInfo.WorkingDirectory = Directory.GetCurrentDirectory()
+            runtime.Start()
 
-            'End app
-            endApp()
 
         Else
 
             'Fix output
-            If Not outputFile.EndsWith(".exe") Then
+            If Not outputFile.EndsWith(".exe") And Environment.OSVersion.Platform = PlatformID.Win32NT Then
                 outputFile &= ".exe"
             End If
 
-            'Get compiling target
-            If flags.Contains("-c") Or flags.Contains("--c") Then
+            'Compile to publish
+            Dim executable As String = compileInPublish(inputFile, flags)
 
-                'C
-                addBasicError("feature unavailable", "Compilation on the C language is not yet available")
-
-            ElseIf flags.Contains("-m") Or flags.Contains("--macos") Then
-
-                'MacOs
-                addBasicError("feature unavailable", "Compilation to MacOs is not yet available")
-
-            ElseIf flags.Contains("-l") Or flags.Contains("--linux") Then
-
-                'Linux
-                addBasicError("feature unavailable", "Compilation to Linux is not yet available")
-
-            Else
-
-                'Windows
-                Dim compiler As New C_Compiler()
-                compiler.compileCode(inputFile, flags)
-
-                'Executalbe zbi
-                Throw New NotImplementedException()
-
+            'Error
+            If executable = Nothing Then
+                Console.ForegroundColor = ConsoleColor.DarkRed
+                Console.WriteLine("Compilation failed!")
+                Console.ResetColor()
             End If
 
-            'End app
-            endApp()
+            'Move file
+            File.Move(executable, outputFile, True)
+
+            'Finished
+            Console.ForegroundColor = ConsoleColor.DarkGreen
+            Console.WriteLine("Compilation successful!")
+            Console.ResetColor()
 
         End If
 
+        'End app
+        endApp()
+
     End Sub
+
+    '========================================
+    '========== COMPILE IN PUBLISH ==========
+    '========================================
+    Function compileInPublish(ByVal inputFile As String, ByVal flags As List(Of String)) As String
+
+        'Compile file
+        Dim compiler As New C_Compiler()
+        compiler.compileCode(inputFile, AppData & "/compiled", flags)
+
+        'Set publish folder
+        If Directory.Exists(AppData & "/publish") Then
+            Directory.Delete(AppData & "/publish", True)
+        End If
+        Directory.CreateDirectory(AppData & "/publish")
+
+        'Executalbe zbi
+        Dim gcc As New Process()
+        gcc.StartInfo.FileName = templateFolder & "/mingw64/bin/gcc.exe"
+        gcc.StartInfo.Arguments = "* -o ../publish/prog.exe """ & templateFolder & "/my.res"""
+        gcc.StartInfo.WorkingDirectory = AppData & "/compiled"
+        gcc.Start()
+
+        'Wait
+        Dim debugLogs As Boolean = flags.Contains("-d") Or flags.Contains("--debug")
+        If debugLogs Then
+            Console.Write("[")
+        End If
+        While Not gcc.HasExited
+            If debugLogs Then
+                Console.Write("~")
+            End If
+            Threading.Thread.Sleep(5)
+        End While
+        If debugLogs Then
+            Console.Write("]" & Environment.NewLine)
+        End If
+
+        'File Compiled
+        If gcc.ExitCode = 0 Then
+
+            Dim publishFiles() As String = Directory.GetFiles(AppData & "/publish")
+            If Not publishFiles.Count = 1 Then
+                Return Nothing
+            End If
+            Return publishFiles(0)
+
+        End If
+
+        'Return nothing
+        Return gcc.ExitCode
+
+    End Function
 
     '===========================
     '========== CLOSE ==========
@@ -123,24 +172,33 @@ Module Program
     '===============================
     Public Sub showHelp()
 
-        'Example
+        'Usage
         Console.ForegroundColor = ConsoleColor.DarkGreen
-        Console.WriteLine("RUN : Lim <input_file>")
-        Console.WriteLine("COMPILE: lim <input_file> <output_file> [-arguments]")
+        Console.WriteLine("USAGE:")
+        Console.ResetColor()
+        Console.WriteLine(vbTab & "lim <input_file>")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine(vbTab & vbTab & "Run the application in the console directly.")
+        Console.ResetColor()
+        Console.WriteLine("")
+        Console.WriteLine(vbTab & "lim <input_file> <output_file> [-arguments]")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine(vbTab & vbTab & "Compile to an executable.")
+
+        'Arguments
+        Console.ForegroundColor = ConsoleColor.DarkGreen
+        Console.WriteLine("")
+        Console.WriteLine("ARGUMENTS:")
+        Console.ResetColor()
+        Console.WriteLine(vbTab & "<input_file>" & vbTab & "Path of the .lim file to compile")
+        Console.WriteLine(vbTab & "<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
+        Console.WriteLine(vbTab & "[-arguments]" & vbTab & "Optional. Argument list.")
+        Console.WriteLine(vbTab & vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show debug logs")
+
+        Console.WriteLine("")
         Console.ForegroundColor = ConsoleColor.DarkGray
         Console.WriteLine("*Lim is in beta. Many bugs are to be deplored*")
-
-        'Explains
         Console.ResetColor()
-        Console.WriteLine("<input_file>" & vbTab & "Path of the .lim file to compile")
-        Console.WriteLine("<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
-        Console.WriteLine("[-arguments]" & vbTab & "Optional. Argument list.")
-        Console.WriteLine(vbTab & "-c" & vbTab & "--c" & vbTab & vbTab & "Compiles to a .c file (C)")
-        Console.WriteLine(vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles to a .exe file (Executable)")
-        Console.WriteLine(vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles to a linux executable")
-        Console.WriteLine(vbTab & "-m" & vbTab & "--macos" & vbTab & vbTab & "Compiles to a MacOS executable")
-        Console.WriteLine(vbTab & "-l" & vbTab & "--logs" & vbTab & vbTab & "Show logs")
-        Console.WriteLine("If no arguments are entered, lim will compile to your operating system's executable.")
 
     End Sub
 

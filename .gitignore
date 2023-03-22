@@ -3,3 +3,4 @@ Lim/bin/
 Lim/obj/
 desktop.ini
 Publish/
+Release/net6.0/templates/mingw64
