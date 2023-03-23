@@ -103,6 +103,32 @@ Public Class whileStatementNode
 
 End Class
 
+'======================================
+'========= FOR EACH STATEMENT =========
+'======================================
+Public Class forEachStatementNode
+    Inherits Node
+
+    'Variable
+    Public looperTarget As Node
+    Public variableName As String
+    Public content As New List(Of Node)
+
+    'New
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal looperTarget As Node, ByVal variableName As String)
+        MyBase.New(positionStart, positionEnd)
+        Me.looperTarget = looperTarget
+        Me.looperTarget.parentNode = Me
+        Me.variableName = variableName
+    End Sub
+
+    'ToString
+    Public Overrides Function ToString() As String
+        Return "(For " & variableName & " in " & looperTarget.ToString() & ")"
+    End Function
+
+End Class
+
 '=================================
 '========= FOR STATEMENT =========
 '=================================
@@ -110,31 +136,24 @@ Public Class forStatementNode
     Inherits Node
 
     'Variable
-    Public looperTarget As Node
+    Public iterator_from As Node
+    Public iterator_to As Node
     Public variableName As String
-    Public variableDeclareType As VariableDeclarationType
     Public content As New List(Of Node)
 
     'New
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal looperTarget As Node, ByVal variableName As String, ByVal variableDeclareType As VariableDeclarationType)
+    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer, ByVal iterator_from As Node, ByVal iterator_to As Node, ByVal variableName As String)
         MyBase.New(positionStart, positionEnd)
-        Me.looperTarget = looperTarget
-        Me.looperTarget.parentNode = Me
+        Me.iterator_from = iterator_from
+        Me.iterator_from.parentNode = Me
+        Me.iterator_to = iterator_to
+        Me.iterator_to.parentNode = Me
         Me.variableName = variableName
-        Me.variableDeclareType = variableDeclareType
     End Sub
 
     'ToString
     Public Overrides Function ToString() As String
-        Dim declarationType As String = ""
-        Select Case variableDeclareType
-            Case VariableDeclarationType._let_
-                declarationType = "let "
-            Case VariableDeclarationType._var_
-                declarationType = "var"
-        End Select
-
-        Return "(For " & declarationType & " " & variableName & " in " & looperTarget.ToString() & ")"
+        Return "(For " & variableName & " from " & iterator_from.ToString() & " to " & iterator_to.ToString() & ")"
     End Function
 
 End Class

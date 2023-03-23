@@ -45,6 +45,7 @@ Public Class C_Compiler
         compiledImports.Add("#include <string.h>")
         compiledImports.Add("#include <stdbool.h>")
         compiledImports.Add("#include <math.h>")
+        compiledImports.Add("#include <time.h>")
         compiledImports.Add("#include ""tgc.h""")
         compiledStructsPrototypes.Clear()
         compiledTypeDefs.Clear()
@@ -66,9 +67,6 @@ Public Class C_Compiler
         If Not Directory.Exists(cTemplates) Then
             addBasicError("Folder not found", "The ""templates/c"" folder could not be found. Try reinstalling lim.")
         End If
-
-        'Add dimensions
-        'TODO: Add dimensions load
 
         'Analyse first file
         entryFile = New LimFile(inputFile, Me)
@@ -200,6 +198,7 @@ Public Class C_Compiler
         finalCode &= "////////// ENTRY POINT //////////" & Environment.NewLine
         finalCode &= "/////////////////////////////////" & Environment.NewLine
         finalCode &= "int main(int argc, char **argv){" & Environment.NewLine
+        finalCode &= vbTab & "srand(time(NULL));" & Environment.NewLine
         finalCode &= vbTab & "tgc_start(&gc, &argc);" & Environment.NewLine
         finalCode &= vbTab & entryPoint.compiledName & "();" & Environment.NewLine
         finalCode &= vbTab & "tgc_stop(&gc);" & Environment.NewLine
@@ -1513,9 +1512,10 @@ Public Class C_Compiler
         content.Add("if ((" & compileNode(node.condition, content, context) & ")->value){")
 
         'If content
+        Dim ifContext As New context(node, context)
         Dim noneTabContent As New List(Of String)
         For Each line As Node In node.if_statements
-            Dim result As String = compileNode(line, noneTabContent, context)
+            Dim result As String = compileNode(line, noneTabContent, ifContext)
             If Not result = "" Then
                 noneTabContent.Add(result)
             End If
@@ -1534,9 +1534,10 @@ Public Class C_Compiler
             content.Add("else if ((" & compileNode(elseif_statement.Item1, content, context) & ")->value){")
 
             'If content
+            Dim elseifContext As New context(node, context)
             noneTabContent = New List(Of String)
             For Each line As Node In elseif_statement.Item2
-                Dim result As String = compileNode(line, noneTabContent, context)
+                Dim result As String = compileNode(line, noneTabContent, elseifContext)
                 If Not result = "" Then
                     noneTabContent.Add(result)
                 End If
@@ -1559,9 +1560,10 @@ Public Class C_Compiler
         content.Add("else {")
 
         'Else content
+        Dim elseContext As New context(node, context)
         noneTabContent = New List(Of String)
         For Each line As Node In node.else_statement
-            Dim result As String = compileNode(line, noneTabContent, context)
+            Dim result As String = compileNode(line, noneTabContent, elseContext)
             If Not result = "" Then
                 noneTabContent.Add(result)
             End If
@@ -1614,8 +1616,9 @@ Public Class C_Compiler
         End If
 
         'Compile while header
+        Dim whileContext As New context(node, context)
         content.Add("")
-        content.Add("while ((" & compileNode(node.condition, content, context) & ")->value){")
+        content.Add("while ((" & compileNode(node.condition, content, whileContext) & ")->value){")
 
         'Compile core
         Dim core As New List(Of String)
@@ -1635,13 +1638,56 @@ Public Class C_Compiler
 
     End Function
 
+    '================================================
+    '========== COMPILE FOR EACH STATEMENT ==========
+    '================================================
+    Private Function compileForEachStatement(ByVal node As forEachStatementNode, ByVal content As List(Of String), ByVal context As context)
+
+        'Get target type
+        Dim targetType As Type = getNodeType(node.looperTarget, context)
+
+
+        'Return
+        Return ""
+
+    End Function
+
     '===========================================
     '========== COMPILE FOR STATEMENT ==========
     '===========================================
     Private Function compileForStatement(ByVal node As forStatementNode, ByVal content As List(Of String), ByVal context As context)
 
         'Get target type
-        Dim targetType As Type = getNodeType(node.looperTarget, context)
+        Dim iterator_from_type As Type = getNodeType(node.iterator_from, context)
+        Dim iterator_to_type As Type = getNodeType(node.iterator_to, context)
+
+        'Error in types
+        If Not iterator_from_type = stdInt Then
+            addNodeTypeError("CCCFS01", "the start value of the loop must be an integer (""int"") and not """ & iterator_from_type.ToString() & """.", node.iterator_from)
+        End If
+        If Not iterator_to_type = stdInt Then
+            addNodeTypeError("CCCFS01", "the end value of the loop must be an integer (""int"") and not """ & iterator_from_type.ToString() & """.", node.iterator_to)
+        End If
+
+        'Create variable
+        Dim var As New Variable(node.variableName, stdInt, getHelpVariableName())
+        Dim forContext As New context(node, context)
+        forContext.variables.Add(var)
+
+        'Compile header
+        content.Add("for (" & stdInt.compiledName & " * " & var.compiledName & " = (" & compileNode(node.iterator_from, content, context) & "); " & var.compiledName & "->value < (" & compileNode(node.iterator_to, content, context) & ")->value; ++(" & var.compiledName & ")->value){")
+
+        'Compile content
+        Dim core As New List(Of String)
+        For Each line As Node In node.content
+            core.Add(compileNode(line, core, forContext))
+        Next
+        For Each line As String In core
+            content.Add(vbTab & line)
+        Next
+
+        'Compile footer
+        content.Add("}")
 
 
         'Return
@@ -1680,18 +1726,16 @@ Public Class C_Compiler
             'Variables
             Dim argumentModel As FunctionArgument = modelArguments(i)
             Dim argumentValue As Node = passedArguments(i)
+            Dim argumentType As Type = getNodeType(argumentValue, context)
 
             'Handle type error
-            If Not (argumentModel.compiledType = getNodeType(argumentValue, context)) Then
+            If (Not (argumentModel.compiledType = argumentType)) And (Not argumentModel.compiledType = stdAny) Then
                 addNodeTypeError("CCCFC03", "The " & (i + 1).ToString() & " argument is of type <" & getNodeType(argumentValue, context).ToString() & "> instead of being <" & argumentModel.type.ToString() & ">", argumentValue)
             End If
 
             'Add argument
-            If argumentModel.doubleRef Then
-                If (TypeOf argumentValue IsNot VariableNode) Then
-                    addNodeTypeError("CCCFC04", "This argument can only take variables as its value.", argumentValue)
-                End If
-                arguments &= ", &(" & compileNode(argumentValue, content, context) & ")"
+            If argumentModel.compiledType = stdAny Then
+                arguments &= ", new_any(" & compileNode(argumentValue, content, context) & ", " & argumentType.typeID.ToString() & ")"
             Else
                 arguments &= ", " & compileNode(argumentValue, content, context)
             End If
@@ -2134,6 +2178,11 @@ Public Class C_Compiler
 
             'Compile
             Return compileIfStatement(DirectCast(node, ifStatementNode), content, context)
+
+        ElseIf TypeOf node Is forEachStatementNode Then
+
+            'Compile
+            Return compileForEachStatement(DirectCast(node, forEachStatementNode), content, context)
 
         ElseIf TypeOf node Is forStatementNode Then
 

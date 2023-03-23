@@ -81,14 +81,14 @@ Public Class Type
     'Equal
     Public Shared Operator =(ByVal type1 As Type, ByVal type2 As Type) As Boolean
 
-        Return (type1.compiledName = type2.compiledName Or (type1.compiledName = "__any__" Or type2.compiledName = "__any__"))
+        Return (type1.compiledName = type2.compiledName)
 
     End Operator
 
     'Not Equal
     Public Shared Operator <>(ByVal type1 As Type, ByVal type2 As Type) As Boolean
 
-        Return Not (type1.compiledName = type2.compiledName Or (type1.compiledName = "__any__" Or type2.compiledName = "__any__"))
+        Return Not (type1.compiledName = type2.compiledName)
 
     End Operator
 

@@ -3,21 +3,26 @@ Imports System.IO
 
 Module Program
 
+    '===============================
+    '========== VARIABLES ==========
+    '===============================
+    Dim flags As New List(Of String)
+    Dim arguments As New List(Of String)
+    Dim debugLogs As Boolean = False
+    Dim appFolder As String
+
+
     '================================
     '========== MAIN ENTRY ==========
     '================================
     Sub Main(args As String())
 
         'Get template folder
-        templateFolder = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName
-        templateFolder = Directory.GetParent(templateFolder).FullName.Replace("\", "/") & "/templates"
+        appFolder = Directory.GetParent(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName).FullName.Replace("\", "/")
+        templateFolder = appFolder & "/templates"
         If Not Directory.Exists(templateFolder) Then
             addBasicError("Folder not found", "The ""templates"" folder could not be found. Try reinstalling lim.")
         End If
-
-        'Variables
-        Dim flags As New List(Of String)
-        Dim arguments As New List(Of String)
 
         'Parse command
         For Each arg As String In args
@@ -32,7 +37,15 @@ Module Program
 
         'Get input
         If Not arguments.Count > 0 Then
-            showHelp()
+
+            If flags.Contains("-h") Or flags.Contains("--help") Then
+                showHelp()
+            ElseIf flags.Contains("-v") Or flags.Contains("--version") Then
+                showVersion()
+            Else
+                Console.WriteLine("Unable to execute the command. Use ""lim -h"" for help.")
+            End If
+
             endApp()
         End If
         Dim inputFile As String = arguments(0)
@@ -41,10 +54,15 @@ Module Program
         Dim outputFile As String = ""
         If arguments.Count > 1 Then
             outputFile = arguments(1)
+            'If outputFile.StartsWith("""") Then
+            '    outputFile = outputFile.Substring(1)
+            'End If
+            'If outputFile.EndsWith("""") Then
+            '    outputFile = outputFile.Substring(0, outputFile.Length - 1)
+            'End If
         End If
 
         'Debug
-        Dim debugLogs As Boolean = False
         If flags.Contains("-d") Or flags.Contains("--debug") Then
             debugLogs = True
         End If
@@ -55,10 +73,10 @@ Module Program
             'Run
 
             'Compile to publish
-            Dim executable As String = compileInPublish(inputFile, flags)
+            Dim executable As String = compileInPublish(inputFile)
 
             'Open
-            Process.Start("C:\Program Files\Sublime Text\subl.exe", """" & AppData & "/compiled/main.c""")
+            'Process.Start("C:\Program Files\Sublime Text\subl.exe", """" & AppData & "/compiled/main.c""")
 
             'Error
             If executable = Nothing Then
@@ -73,6 +91,9 @@ Module Program
             runtime.StartInfo.WorkingDirectory = Directory.GetCurrentDirectory()
             runtime.Start()
 
+            'Wait until clode
+            While Not runtime.HasExited
+            End While
 
         Else
 
@@ -82,7 +103,7 @@ Module Program
             End If
 
             'Compile to publish
-            Dim executable As String = compileInPublish(inputFile, flags)
+            Dim executable As String = compileInPublish(inputFile)
 
             'Error
             If executable = Nothing Then
@@ -109,7 +130,7 @@ Module Program
     '========================================
     '========== COMPILE IN PUBLISH ==========
     '========================================
-    Function compileInPublish(ByVal inputFile As String, ByVal flags As List(Of String)) As String
+    Function compileInPublish(ByVal inputFile As String) As String
 
         'Compile file
         Dim compiler As New C_Compiler()
@@ -120,16 +141,54 @@ Module Program
             Directory.Delete(AppData & "/publish", True)
         End If
         Directory.CreateDirectory(AppData & "/publish")
+        If Directory.Exists(AppData & "/icon") Then
+            Directory.Delete(AppData & "/icon", True)
+        End If
+
+        'Icon
+        Dim resPath As String = """" & templateFolder & "/My.res"""
+        Dim iconPath As String = Nothing
+        For Each flag As String In flags
+            If flag.StartsWith("-i") Then
+                iconPath = flag.Substring(2)
+            ElseIf flag.StartsWith("--icon") Then
+                iconPath = flag.Substring(6)
+            End If
+        Next
+        If iconPath IsNot Nothing Then
+            Directory.CreateDirectory(AppData & "/icon")
+            If iconPath.StartsWith("""") Then
+                iconPath = iconPath.Substring(1)
+            End If
+            If iconPath.EndsWith("""") Then
+                iconPath = iconPath.Substring(0, iconPath.Length - 1)
+            End If
+            If Not File.Exists(iconPath) Then
+                addBasicError("File doesn't exist", iconPath & " doesn't exist")
+            Else
+                File.Copy(iconPath, AppData & "/icon/icon.ico", True)
+            End If
+            File.WriteAllText(AppData & "/icon/temp.rc", "id ICON ""icon.ico""")
+            While Not File.Exists(AppData & "/icon/temp.rc")
+            End While
+            Dim windres As New Process()
+            windres.StartInfo.FileName = templateFolder & "/mingw64/bin/windres.exe"
+            windres.StartInfo.Arguments = "temp.rc -O coff -o my.res"
+            windres.StartInfo.WorkingDirectory = AppData & "/icon"
+            windres.Start()
+            While Not windres.HasExited
+            End While
+            resPath = "../icon/my.res"
+        End If
 
         'Executalbe zbi
         Dim gcc As New Process()
         gcc.StartInfo.FileName = templateFolder & "/mingw64/bin/gcc.exe"
-        gcc.StartInfo.Arguments = "* -o ../publish/prog.exe """ & templateFolder & "/my.res"""
+        gcc.StartInfo.Arguments = "* -o ../publish/prog.exe " & resPath
         gcc.StartInfo.WorkingDirectory = AppData & "/compiled"
         gcc.Start()
 
         'Wait
-        Dim debugLogs As Boolean = flags.Contains("-d") Or flags.Contains("--debug")
         If debugLogs Then
             Console.Write("[")
         End If
@@ -155,7 +214,7 @@ Module Program
         End If
 
         'Return nothing
-        Return gcc.ExitCode
+        Return Nothing
 
     End Function
 
@@ -163,7 +222,18 @@ Module Program
     '========== CLOSE ==========
     '===========================
     Public Sub endApp()
-        Console.ReadKey()
+        If Not (flags.Contains("-k") Or flags.Contains("--keep")) Then
+            If Directory.Exists(AppData & "/publish") Then
+                Directory.Delete(AppData & "/publish", True)
+            End If
+            If Directory.Exists(AppData & "/icon") Then
+                Directory.Delete(AppData & "/icon", True)
+            End If
+            If Directory.Exists(AppData & "/compiled") Then
+                Directory.Delete(AppData & "/compiled", True)
+            End If
+        End If
+        'Console.ReadKey()
         End
     End Sub
 
@@ -194,11 +264,32 @@ Module Program
         Console.WriteLine(vbTab & "<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
         Console.WriteLine(vbTab & "[-arguments]" & vbTab & "Optional. Argument list.")
         Console.WriteLine(vbTab & vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show debug logs")
+        Console.WriteLine(vbTab & vbTab & "-i" & vbTab & "--icon" & vbTab & vbTab & "Select the executable icon.")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine(vbTab & vbTab & vbTab & vbTab & vbTab & "Exemple : -i""hello.ico""")
+        Console.ResetColor()
+        Console.WriteLine(vbTab & vbTab & "-k" & vbTab & "--keep" & vbTab & vbTab & "Does not delete temporary files.")
+        Console.WriteLine(vbTab & vbTab & "-h" & vbTab & "--help" & vbTab & vbTab & "Show the help menu.")
+        Console.WriteLine(vbTab & vbTab & "-v" & vbTab & "--version" & vbTab & vbTab & "Shows the current version of lim.")
 
         Console.WriteLine("")
         Console.ForegroundColor = ConsoleColor.DarkGray
         Console.WriteLine("*Lim is in beta. Many bugs are to be deplored*")
         Console.ResetColor()
+
+    End Sub
+
+    '==================================
+    '========== SHOW VERSION ==========
+    '==================================
+    Public Sub showVersion()
+
+        'Usage
+        Console.ForegroundColor = ConsoleColor.DarkGreen
+        Console.WriteLine("Lim")
+        Console.ResetColor()
+        Dim fileinfo As FileVersionInfo = FileVersionInfo.GetVersionInfo(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName)
+        Console.WriteLine("version: " & fileinfo.FileVersion)
 
     End Sub
 

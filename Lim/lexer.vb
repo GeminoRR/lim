@@ -270,6 +270,10 @@ Public Class lexer
                         tokens.Add(New token(tokenType.KW_RELATION, startPos, charCounter - 1))
                     Case "primary"
                         tokens.Add(New token(tokenType.KW_PRIMARY, startPos, charCounter - 1))
+                    Case "from"
+                        tokens.Add(New token(tokenType.KW_FROM, startPos, charCounter - 1))
+                    Case "to"
+                        tokens.Add(New token(tokenType.KW_TO, startPos, charCounter - 1))
                     Case Else
                         tokens.Add(New token(tokenType.CT_TEXT, startPos, charCounter - 1, create_var))
                 End Select

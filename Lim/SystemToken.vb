@@ -57,6 +57,8 @@ Public Enum tokenType
     KW_ELSE
     KW_ELSEIF
 
+    KW_FROM
+    KW_TO
 
     KW_RETURN
     KW_CLASS

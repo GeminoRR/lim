@@ -572,16 +572,6 @@
             Dim startPosition As Integer = current_tok.positionStart
             advance()
 
-            'Declaration
-            Dim declarationType As VariableDeclarationType = VariableDeclarationType._let_
-            If current_tok.type = tokenType.KW_VAR Then
-                declarationType = VariableDeclarationType._var_
-                advance()
-            ElseIf current_tok.type = tokenType.KW_LET Then
-                declarationType = VariableDeclarationType._let_
-                advance()
-            End If
-
             'Get variable name
             If Not current_tok.type = tokenType.CT_TEXT Then
                 addSyntaxError("NPF06", "A variable name was expected here", file, current_tok.positionStart, current_tok.positionEnd)
@@ -589,41 +579,86 @@
             Dim variableName As String = current_tok.value
             advance()
 
-            'Get in
-            If Not current_tok.type = tokenType.OP_IN Then
-                addSyntaxError("NPF07", "A ""in"" token was expected here", file, current_tok.positionStart, current_tok.positionEnd, "for variable_name in a_list")
+            'For / ForEach
+            If current_tok.type = tokenType.OP_IN Then
+
+                'Get target
+                advance()
+                Dim target As Node = boolOp()
+
+                'Create for object
+                Dim for_statement As New forEachStatementNode(positionStart, current_tok.positionEnd, target, variableName)
+
+                'Get lines
+                While True
+
+                    If Not current_tok.type = tokenType.CT_LINESTART Then
+                        addSyntaxError("NPF08", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                    End If
+                    Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                    If addLineIndentation <= currentLineIndentation Then
+                        Exit While
+                    End If
+
+                    Dim result As Node = line(currentLineIndentation)
+                    result.parentNode = for_statement
+                    for_statement.content.Add(result)
+
+                End While
+
+                'Set position end
+                for_statement.positionEnd = tokens(tok_index - 1).positionEnd
+
+                'Return
+                Return for_statement
+
+            ElseIf current_tok.type = tokenType.KW_FROM Then
+
+                'Get iterator from
+                advance()
+                Dim iterator_from As Node = boolOp()
+
+                'Get iterator to
+                If Not current_tok.type = tokenType.KW_TO Then
+                    addSyntaxError("NPF08", "A ""to"" keyword was expected here", file, current_tok.positionStart, current_tok.positionEnd, "for [variable_name] from [number] to [number]")
+                End If
+                advance()
+                Dim iterator_to As Node = boolOp()
+
+                'Create for object
+                Dim for_statement As New forStatementNode(positionStart, current_tok.positionEnd, iterator_from, iterator_to, variableName)
+
+                'Get lines
+                While True
+
+                    If Not current_tok.type = tokenType.CT_LINESTART Then
+                        addSyntaxError("NPF08", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
+                    End If
+                    Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
+
+                    If addLineIndentation <= currentLineIndentation Then
+                        Exit While
+                    End If
+
+                    Dim result As Node = line(currentLineIndentation)
+                    result.parentNode = for_statement
+                    for_statement.content.Add(result)
+
+                End While
+
+                'Set position end
+                for_statement.positionEnd = tokens(tok_index - 1).positionEnd
+
+                'Return
+                Return for_statement
+
+            Else
+
+                addSyntaxError("NPF07", "A ""in"" or ""from"" token was expected here", file, current_tok.positionStart, current_tok.positionEnd, "for variable_name in [list] / for variable_name from [number] to [number]")
+                Return Nothing
+
             End If
-            advance()
-
-            'Get target
-            Dim target As Node = boolOp()
-
-            'Create for object
-            Dim for_statement As New forStatementNode(positionStart, current_tok.positionEnd, target, variableName, declarationType)
-
-            'Get lines
-            While True
-
-                If Not current_tok.type = tokenType.CT_LINESTART Then
-                    addSyntaxError("NPF08", "A newline was expected here", file, current_tok.positionStart, current_tok.positionEnd)
-                End If
-                Dim addLineIndentation As Integer = Convert.ToInt32(current_tok.value)
-
-                If addLineIndentation <= currentLineIndentation Then
-                    Exit While
-                End If
-
-                Dim result As Node = line(currentLineIndentation)
-                result.parentNode = for_statement
-                for_statement.content.Add(result)
-
-            End While
-
-            'Set position end
-            for_statement.positionEnd = tokens(tok_index - 1).positionEnd
-
-            'Return
-            Return for_statement
 
         End If
 
