@@ -5,15 +5,12 @@
     <RootNamespace>Lim</RootNamespace>
     <TargetFramework>net6.0</TargetFramework>
     <ApplicationIcon>logo_compiler.ico</ApplicationIcon>
-    <Company>Lim Lang</Company>
-    <Authors>Gémino Ruffault--Ravenel</Authors>
-    <RepositoryUrl>https://github.com/GeminoRR/lim</RepositoryUrl>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
+    <StartupObject>Sub Main</StartupObject>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <OutputPath>../Release\</OutputPath>
+    <OutputPath>C:\Users\gemin\Documents\Projets\Applications\Lim\Lim\bin\</OutputPath>
   </PropertyGroup>
 
 </Project>

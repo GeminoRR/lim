@@ -1,6 +1,8 @@
 .vs/
 Lim/bin/
 Lim/obj/
+"Lim/My Project/"
 desktop.ini
-Publish/
-Release/net6.0/templates/mingw64
+publish/
+bin/
+debug/

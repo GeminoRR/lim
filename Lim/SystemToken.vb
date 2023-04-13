@@ -1,104 +1,46 @@
-﻿'===========================
-'========== TOKEN ==========
-'===========================
-Public Class token
+﻿'==================================
+'========== SYSTEM TOKEN ==========
+'==================================
+'
+' Manage the token class.
+'
 
-    Public type As tokenType
-    Public value As Object
+Class Token
 
-    Public positionStart As Integer
-    Public positionEnd As Integer
+    Public Value As Object
+    Public Type As TokenType
 
-    Public Sub New(ByVal type As tokenType, ByVal positionStart As Integer, ByVal positionEnd As Integer, Optional ByVal value As String = Nothing)
+    Public SourceFile As SourceFile
+    Public PositionStartY As Integer
+    Public PositionStartX As Integer
+    Public PositionEndY As Integer
+    Public PositionEndX As Integer
 
-        Me.type = type
-        Me.value = value
+    Public Sub New(ByVal Type As TokenType, ByVal SourceFile As SourceFile, ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, Optional ByVal Value As Object = Nothing)
 
-        Me.positionStart = positionStart
-        Me.positionEnd = positionEnd
+        Me.Value = Value
+        Me.Type = Type
+
+        Me.SourceFile = SourceFile
+        Me.PositionStartY = PositionStartY
+        Me.PositionStartX = PositionStartX
+        Me.PositionEndY = PositionEndY
+        Me.PositionEndX = PositionEndX
 
     End Sub
 
     Public Overrides Function ToString() As String
-        If value Is Nothing Then
-            Return String.Format("[{0}]", Me.type.ToString())
+        If Me.Value Is Nothing Then
+            Return "[" & Me.Type.ToString() & "]"
         Else
-            Return String.Format("[{0}, ""{1}""]", Me.type.ToString(), Me.value.ToString())
+            Return "[" & Me.Type.ToString() & ", " & Me.Value.ToString() & "]"
         End If
     End Function
 
 End Class
+Public Enum TokenType
 
-'================================
-'========== TOKEN TYPE ==========
-'================================
-Public Enum tokenType
-
-    'Content (CT)
-    CT_STRING
-    CT_INTEGER
-    CT_FLOAT
-    CT_TRUE
-    CT_FALSE
-    CT_NULL
-
-    CT_TEXT
-
-    CT_LINESTART
-
-    'Keywords (KW)
-    KW_VAR
-    KW_LET
-    KW_NEW
-
-    KW_WHILE
-    KW_FOR
-    KW_IF
-    KW_ELSE
-    KW_ELSEIF
-
-    KW_FROM
-    KW_TO
-
-    KW_RETURN
-    KW_CLASS
-    KW_FUNC
-    KW_RELATION
-
-    KW_EXPORT
-    KW_PRIMARY
-    KW_IMPORT
-
-    'Operators (OP)
-    OP_POINT
-    OP_COMMA
-    OP_LPAR
-    OP_RPAR
-    OP_LBRACKET
-    OP_RBRACKET
-    OP_LBRACE
-    OP_RBRACE
-    OP_TWOPOINT
-    OP_AT
-
-    OP_PLUS
-    OP_MINUS
-    OP_MULTIPLICATION
-    OP_DIVISION
-    OP_MODULO
-
-    OP_NOT
-    OP_AND
-    OP_OR
-    OP_EQUAL
-    OP_NOTEQUAL
-    OP_LESSTHAN
-    OP_LESSTHANEQUAL
-    OP_MORETHAN
-    OP_MORETHANEQUAL
-    OP_IN
-
-    OP_FSTRING
-    OP_ADDSOURCE
+    CONSTANT_INTEGER
+    CONSTANT_FLOAT
 
 End Enum

@@ -1,19 +1,38 @@
-﻿'========================
-'========= NODE =========
-'========================
+﻿'==========================
+'========== NODE ==========
+'==========================
+'
+' Node class.
+'
 Public MustInherit Class Node
 
-    Public positionStart As Integer
-    Public positionEnd As Integer
-    Public parentNode As Node = Nothing
+    '===============================
+    '========== VARIABLES ==========
+    '===============================
 
-    Public Sub New(ByVal positionStart As Integer, ByVal positionEnd As Integer)
-        Me.positionStart = positionStart
-        Me.positionEnd = positionEnd
+    '=================================
+    '========== CONSTRUCTOR ==========
+    '=================================
+    Public Sub New()
+
     End Sub
 
+    '==============================
+    '========== TOSTRING ==========
+    '==============================
     Public Overrides Function ToString() As String
-        Return "()"
+        Return ""
     End Function
+
+    '=============================
+    '========== COMPILE ==========
+    '=============================
+    Public MustOverride Function compile() As String
+
+
+    '=================================
+    '========== GETNODETYPE ==========
+    '=================================
+
 
 End Class
