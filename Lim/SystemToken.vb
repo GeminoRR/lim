@@ -37,10 +37,61 @@ Class Token
         End If
     End Function
 
+    Public Function IsKeyword(ByVal name As String)
+
+        If Not Me.Type = TokenType.KEYWORD Then
+            Return False
+        End If
+        Return Me.Value = name
+
+    End Function
+
 End Class
-Public Enum TokenType
 
-    CONSTANT_INTEGER
-    CONSTANT_FLOAT
+'================================
+'========== TOKEN ENUM ==========
+'================================
+'
+' List token values.
+'
+Module TokenEnum
 
-End Enum
+    Public Enum TokenType
+
+        CONSTANT_INTEGER
+        CONSTANT_FLOAT
+        CONSTANT_STRING
+        CONSTANT_TRUE
+        CONSTANT_FALSE
+        CONSTANT_NULL
+
+        CODE_LINEINDENTATION
+        CODE_TERM
+        KEYWORD
+
+        OP_LEFT_PARENTHESIS
+        OP_RIGHT_PARENTHESIS
+        OP_LEFT_BRACKET
+        OP_RIGHT_BRACKET
+
+        OP_COMMA
+
+        OP_EQUAL
+        OP_LESSTHAN
+        OP_LESSTHANEQUAL
+        OP_MORETHAN
+        OP_MORETHANEQUAL
+
+        OP_PLUS
+        OP_MINUS
+        OP_DIVISION
+        OP_MULTIPLICATION
+
+    End Enum
+
+    Public LimKeyword As New List(Of String) From {
+        "func",
+        "let"
+    }
+
+End Module

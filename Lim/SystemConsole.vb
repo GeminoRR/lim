@@ -46,6 +46,8 @@ Module SystemConsole
         Console.ReadKey()
 #End If
 
+        End
+
     End Sub
 
     '=================================

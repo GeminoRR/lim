@@ -15,8 +15,9 @@ Module Lexer
     Private currentCharColumn As Integer
     Private lines As List(Of String)
 
-    Private Const AuthorizedNameCharacters As String = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+    Private Const AuthorizedNameFirstLetterCharacters As String = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
     Private Const Digits As String = "1234567890"
+    Private Const AuthorizedNameCharacters As String = AuthorizedNameFirstLetterCharacters & Digits
 
     '=============================
     '========== ADVANCE ==========
@@ -27,19 +28,22 @@ Module Lexer
         currentCharColumn += 1
 
         'Advance line ?
-        If currentCharColumn >= lines(currentCharLine).Count Then
+        While currentCharColumn >= lines(currentCharLine).Count
 
             currentCharLine += 1
             currentCharColumn = 0
 
-        End If
+            If currentCharLine >= lines.Count Then
+                currentCharLine = lines.Count - 1
+                currentCharColumn = lines(currentCharLine).Count
+                currentChar = Nothing
+                Exit Sub
+            End If
+
+        End While
 
         'End of the text ?
-        If currentCharLine >= lines.Count Then
-            currentChar = Nothing
-        Else
-            currentChar = lines(currentCharLine)(currentCharColumn)
-        End If
+        currentChar = lines(currentCharLine)(currentCharColumn)
 
     End Sub
 
@@ -49,7 +53,7 @@ Module Lexer
     Public Function LexerParse(ByVal lines As List(Of String), ByVal file As SourceFile) As List(Of Token)
 
         'Variables
-        Dim result As New List(Of Token)
+        Dim result As New List(Of Token) From {New Token(TokenType.CODE_LINEINDENTATION, file, 0, 0, 0, 0, 0)}
         Lexer.lines = lines
         currentCharLine = 0
         currentCharColumn = -1
@@ -58,12 +62,14 @@ Module Lexer
         'For each character of the text
         While Not currentChar = Nothing
 
+            'Get current char start positions
+            Dim PositionStartY = currentCharLine
+            Dim PositionStartX = currentCharColumn
+
             'Number
             If Digits.Contains(currentChar) Then
 
                 Dim numberString As String = ""
-                Dim PositionStartY = currentCharLine
-                Dim PositionStartX = currentCharColumn
 
                 While (Digits & ".").Contains(currentChar)
                     numberString &= currentChar
@@ -88,6 +94,261 @@ Module Lexer
 
                 End If
 
+                Continue While
+
+            End If
+
+            'String
+            If {"""", "'"}.Contains(currentChar) Then
+
+                Dim EndCharacter As Char = currentChar
+                Dim Value As String = ""
+                advance()
+
+                While Not (currentChar = EndCharacter Or currentChar = Nothing)
+                    Value &= currentChar
+                    advance()
+                End While
+
+                If currentChar = Nothing Then
+                    ThrowCoordinatesSyntaxLimException("LLP03", "The character " & EndCharacter & " was expected to terminate the string.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
+                End If
+
+                result.Add(New Token(TokenType.CONSTANT_STRING, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Value))
+                advance()
+
+            End If
+
+            'Keyword or Code term
+            If AuthorizedNameCharacters.Contains(currentChar) Then
+
+                Dim Keyword As String = ""
+                While AuthorizedNameCharacters.Contains(currentChar)
+
+                    Keyword &= currentChar
+                    advance()
+
+                End While
+                Keyword = Keyword.ToLower()
+
+                'Constnat
+                Select Case Keyword
+                    Case "true"
+                        result.Add(New Token(TokenType.CONSTANT_TRUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        Continue While
+                    Case "false"
+                        result.Add(New Token(TokenType.CONSTANT_FALSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        Continue While
+                    Case "null"
+                        result.Add(New Token(TokenType.CONSTANT_NULL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        Continue While
+                End Select
+
+                'Keyword
+                Dim FindKeyword As Boolean = False
+                For Each defined_keyword As String In TokenEnum.LimKeyword
+                    If Keyword = defined_keyword.ToLower() Then
+                        result.Add(New Token(TokenType.KEYWORD, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        FindKeyword = True
+                        Exit For
+                    End If
+                Next
+
+                'Code term
+                If Not FindKeyword Then
+                    result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                End If
+
+                'End
+                Continue While
+
+            End If
+
+            'Space
+            If currentChar = " " Or currentChar = vbTab Then
+
+                advance()
+                Continue While
+
+            End If
+
+            '(
+            If currentChar = "(" Then
+
+                result.Add(New Token(TokenType.OP_LEFT_PARENTHESIS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            ')
+            If currentChar = ")" Then
+
+                result.Add(New Token(TokenType.OP_RIGHT_PARENTHESIS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '[
+            If currentChar = "[" Then
+
+                result.Add(New Token(TokenType.OP_LEFT_BRACKET, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            ']
+            If currentChar = "]" Then
+
+                result.Add(New Token(TokenType.OP_RIGHT_BRACKET, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            ',
+            If currentChar = "," Then
+
+                result.Add(New Token(TokenType.OP_COMMA, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '=
+            If currentChar = "=" Then
+
+                result.Add(New Token(TokenType.OP_EQUAL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '> | >=
+            If currentChar = ">" Then
+
+                advance()
+                If currentChar = "=" Then
+                    '>=
+                    result.Add(New Token(TokenType.OP_MORETHANEQUAL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                    advance()
+                Else
+                    '>
+                    result.Add(New Token(TokenType.OP_MORETHAN, file, PositionStartY, PositionStartX, PositionStartY, PositionStartX))
+                End If
+
+                Continue While
+
+            End If
+
+            '< | <=
+            If currentChar = "<" Then
+
+                advance()
+                If currentChar = "=" Then
+                    '<=
+                    result.Add(New Token(TokenType.OP_LESSTHANEQUAL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                    advance()
+                Else
+                    '<
+                    result.Add(New Token(TokenType.OP_LESSTHAN, file, PositionStartY, PositionStartX, PositionStartY, PositionStartX))
+                End If
+
+                Continue While
+
+            End If
+
+            '+
+            If currentChar = "+" Then
+
+                result.Add(New Token(TokenType.OP_PLUS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '-
+            If currentChar = "-" Then
+
+                result.Add(New Token(TokenType.OP_MINUS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '*
+            If currentChar = "+" Then
+
+                result.Add(New Token(TokenType.OP_MULTIPLICATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '/ | //
+            If currentChar = "/" Then
+
+                advance()
+                If currentChar = "/" Then
+                    '// Comment
+                    While Not (currentChar = vbLf Or currentChar = Nothing)
+                        advance()
+                    End While
+                Else
+                    '/
+                    result.Add(New Token(TokenType.OP_DIVISION, file, PositionStartY, PositionStartX, PositionStartY, PositionStartX))
+                End If
+
+                Continue While
+
+            End If
+
+            'Linefeed
+            If currentChar = vbLf Then
+
+                Dim tabCount As Integer = 0
+
+                While {Environment.NewLine, vbLf, vbCr, vbCrLf}.Contains(currentChar)
+                    advance()
+                End While
+
+                While currentChar = vbTab
+
+                    advance()
+                    tabCount += 1
+
+                End While
+
+                result.Add(New Token(TokenType.CODE_LINEINDENTATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, tabCount))
+
+                Continue While
+
+            End If
+
+            'Nothing
+            ThrowCoordinatesSyntaxLimException("LLP00", "The """ & currentChar & """ character was unexpected here.", file, currentCharLine, currentCharColumn, currentCharLine, currentCharColumn)
+
+        End While
+
+        'Remove empty lines
+        Dim i As Integer = -1
+        Dim LastTokenIsNewLine As Boolean = False
+        While i + 1 < result.Count
+
+            i += 1
+
+            If Not result(i).Type = TokenType.CODE_LINEINDENTATION Then
+                LastTokenIsNewLine = False
+                Continue While
+            End If
+
+            If LastTokenIsNewLine Then
+                i -= 1
+                result.RemoveAt(i)
+            Else
+                LastTokenIsNewLine = True
             End If
 
         End While

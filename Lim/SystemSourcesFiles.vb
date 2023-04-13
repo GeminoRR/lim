@@ -32,7 +32,7 @@ Public Class SourceFile
 
             Dim reader As New StreamReader(filepath)
             Do Until reader.EndOfStream
-                lines.Add(reader.ReadLine())
+                lines.Add(reader.ReadLine() & vbLf)
             Loop
 
         Catch ex As Exception

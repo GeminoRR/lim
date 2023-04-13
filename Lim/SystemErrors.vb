@@ -34,20 +34,20 @@ Public Module LimExceptions
         Console.WriteLine(name.ToUpper() & ": " & message)
 
         'Get lines
-        Console.ForegroundColor = ConsoleColor.Gray
-        For i As Integer = PositionStartY To PositionEndY - 1
+        Console.ResetColor()
+        For i As Integer = PositionStartY To PositionEndY
 
             Console.Write((i + 1).ToString() & vbTab & "|")
 
             For y As Integer = 0 To file.lines(i).Count - 1
 
                 If i = PositionStartY And y = PositionStartX Then
-                    Console.ForegroundColor = ConsoleColor.White
-                End If
-                If i = PositionEndY And y = PositionEndX Then
-                    Console.ForegroundColor = ConsoleColor.Gray
+                    Console.BackgroundColor = ConsoleColor.DarkRed
                 End If
                 Console.Write(file.lines(i)(y))
+                If i = PositionEndY And y = PositionEndX Then
+                    Console.ResetColor()
+                End If
 
             Next
             Console.Write(Environment.NewLine)
@@ -57,9 +57,9 @@ Public Module LimExceptions
         'Bottom
         Dim lineToString As String
         If PositionStartY = PositionEndY Then
-            lineToString = "lines " & (PositionStartY + 1).ToString() & " to " & (PositionEndY + 1).ToString()
-        Else
             lineToString = "line " & (PositionStartY + 1).ToString()
+        Else
+            lineToString = "lines " & (PositionStartY + 1).ToString() & " to " & (PositionEndY + 1).ToString()
         End If
         Console.ForegroundColor = ConsoleColor.Red
         Console.WriteLine("""" & file.filename & """, " & lineToString & ", code " & code)
