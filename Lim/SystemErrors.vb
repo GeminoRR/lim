@@ -34,10 +34,12 @@ Public Module LimExceptions
         Console.WriteLine(name.ToUpper() & ": " & message)
 
         'Get lines
-        Console.ResetColor()
         For i As Integer = PositionStartY To PositionEndY
 
+            Dim OriginalColor As ConsoleColor = Console.BackgroundColor
+            Console.ResetColor()
             Console.Write((i + 1).ToString() & vbTab & "|")
+            Console.BackgroundColor = OriginalColor
 
             For y As Integer = 0 To file.lines(i).Count - 1
 
@@ -50,7 +52,6 @@ Public Module LimExceptions
                 End If
 
             Next
-            Console.Write(Environment.NewLine)
 
         Next
 
@@ -75,6 +76,27 @@ Public Module LimExceptions
     '======================================================
     Public Sub ThrowCoordinatesSyntaxLimException(ByVal code As String, ByVal message As String, ByVal file As SourceFile, ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, Optional ByVal HelpMessage As String = Nothing)
         ThrowCoordinatesLimException(code, "syntax error", message, file, PositionStartY, PositionStartX, PositionEndY, PositionEndX, HelpMessage)
+    End Sub
+
+    '========================================
+    '========== LIM NODE EXCEPTION ==========
+    '========================================
+    Public Sub ThrowNodeException(ByVal code As String, ByVal title As String, ByVal message As String, ByVal node As Node, Optional ByVal HelpMessage As String = Nothing)
+        ThrowCoordinatesLimException(code, title, message, node.ParentFile, node.PositionStartY, node.PositionStartX, node.PositionEndY, node.PositionEndX, HelpMessage)
+    End Sub
+
+    '===============================================
+    '========== LIM NODE SYNTAX EXCEPTION ==========
+    '===============================================
+    Public Sub ThrowNodeSyntaxException(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal HelpMessage As String = Nothing)
+        ThrowCoordinatesLimException(code, "syntax error", message, node.ParentFile, node.PositionStartY, node.PositionStartX, node.PositionEndY, node.PositionEndX, HelpMessage)
+    End Sub
+
+    '=============================================
+    '========== LIM NODE TYPE EXCEPTION ==========
+    '=============================================
+    Public Sub ThrowNodeTypeException(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal HelpMessage As String = Nothing)
+        ThrowCoordinatesLimException(code, "type error", message, node.ParentFile, node.PositionStartY, node.PositionStartX, node.PositionEndY, node.PositionEndX, HelpMessage)
     End Sub
 
 End Module

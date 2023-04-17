@@ -13,6 +13,7 @@ Module Lexer
     Private currentChar As Char
     Private currentCharLine As Integer
     Private currentCharColumn As Integer
+    Private TotalCount As Integer
     Private lines As List(Of String)
 
     Private Const AuthorizedNameFirstLetterCharacters As String = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
@@ -26,6 +27,7 @@ Module Lexer
 
         'Advance X
         currentCharColumn += 1
+        TotalCount += 1
 
         'Advance line ?
         While currentCharColumn >= lines(currentCharLine).Count
@@ -57,10 +59,39 @@ Module Lexer
         Lexer.lines = lines
         currentCharLine = 0
         currentCharColumn = -1
-        advance()
+        TotalCount = 0
+
+        'Debug
+        Dim MegaDebugProgressPos As Integer = 0
+        Dim TotalCharacters As Integer = 0
+        If MegaDebug Then
+            For Each line As String In lines
+                TotalCharacters += line.Length
+            Next
+            Dim message As String = "[LOG] """ & file.filename & """"
+            Console.Write(message)
+            MegaDebugProgressPos = message.Length + 1
+        End If
+
+        'No lines ?
+        If lines.Count < 1 Then
+            If MegaDebug Then
+                Console.SetCursorPosition(MegaDebugProgressPos, Console.CursorTop)
+                Console.Write("0/0")
+                Console.Write(Environment.NewLine)
+            End If
+            Return result
+        End If
 
         'For each character of the text
+        advance()
         While Not currentChar = Nothing
+
+            'Mega Debug
+            If MegaDebug Then
+                Console.SetCursorPosition(MegaDebugProgressPos, Console.CursorTop)
+                Console.Write(TotalCount.ToString(StrDup(TotalCharacters.ToString().Length, "0")) & "/" & TotalCharacters.ToString())
+            End If
 
             'Get current char start positions
             Dim PositionStartY = currentCharLine
@@ -131,33 +162,23 @@ Module Lexer
                 End While
                 Keyword = Keyword.ToLower()
 
-                'Constnat
+                'Constant / Keyword
                 Select Case Keyword
+
                     Case "true"
                         result.Add(New Token(TokenType.CONSTANT_TRUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
-                        Continue While
                     Case "false"
                         result.Add(New Token(TokenType.CONSTANT_FALSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
-                        Continue While
                     Case "null"
                         result.Add(New Token(TokenType.CONSTANT_NULL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
-                        Continue While
+
+                    Case "import"
+                        result.Add(New Token(TokenType.KW_IMPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+
+                    Case Else
+                        result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+
                 End Select
-
-                'Keyword
-                Dim FindKeyword As Boolean = False
-                For Each defined_keyword As String In TokenEnum.LimKeyword
-                    If Keyword = defined_keyword.ToLower() Then
-                        result.Add(New Token(TokenType.KEYWORD, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
-                        FindKeyword = True
-                        Exit For
-                    End If
-                Next
-
-                'Code term
-                If Not FindKeyword Then
-                    result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
-                End If
 
                 'End
                 Continue While
@@ -279,7 +300,7 @@ Module Lexer
             End If
 
             '*
-            If currentChar = "+" Then
+            If currentChar = "*" Then
 
                 result.Add(New Token(TokenType.OP_MULTIPLICATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
                 advance()
@@ -301,6 +322,33 @@ Module Lexer
                     result.Add(New Token(TokenType.OP_DIVISION, file, PositionStartY, PositionStartX, PositionStartY, PositionStartX))
                 End If
 
+                Continue While
+
+            End If
+
+            '$
+            If currentChar = "$" Then
+
+                result.Add(New Token(TokenType.CODE_DOLLAR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            ':
+            If currentChar = ":" Then
+
+                result.Add(New Token(TokenType.CODE_COLON, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
+            '.
+            If currentChar = "." Then
+
+                result.Add(New Token(TokenType.CODE_POINT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
                 Continue While
 
             End If
@@ -352,6 +400,11 @@ Module Lexer
             End If
 
         End While
+
+        'Finish mega debug
+        If MegaDebug Then
+            Console.Write(Environment.NewLine)
+        End If
 
         'Return
         Return result

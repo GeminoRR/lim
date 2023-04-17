@@ -4,7 +4,6 @@
 '
 ' Manage the token class.
 '
-
 Class Token
 
     Public Value As Object
@@ -37,16 +36,9 @@ Class Token
         End If
     End Function
 
-    Public Function IsKeyword(ByVal name As String)
-
-        If Not Me.Type = TokenType.KEYWORD Then
-            Return False
-        End If
-        Return Me.Value = name
-
-    End Function
-
 End Class
+
+
 
 '================================
 '========== TOKEN ENUM ==========
@@ -67,7 +59,10 @@ Module TokenEnum
 
         CODE_LINEINDENTATION
         CODE_TERM
-        KEYWORD
+
+        CODE_DOLLAR
+        CODE_COLON
+        CODE_POINT
 
         OP_LEFT_PARENTHESIS
         OP_RIGHT_PARENTHESIS
@@ -87,11 +82,8 @@ Module TokenEnum
         OP_DIVISION
         OP_MULTIPLICATION
 
-    End Enum
+        KW_IMPORT
 
-    Public LimKeyword As New List(Of String) From {
-        "func",
-        "let"
-    }
+    End Enum
 
 End Module

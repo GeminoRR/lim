@@ -1,4 +1,5 @@
-﻿'====================================
+﻿Imports System.IO
+'====================================
 '========== SYSTEM CONSOLE ==========
 '====================================
 '
@@ -12,14 +13,15 @@ Module SystemConsole
     '===============================
     Private files As New List(Of String)
     Private flags As New List(Of String)
-    Public debugLogs As Boolean
+    Public ShowDebug As Boolean
+    Public MegaDebug As Boolean
 
     '==============================
     '========== HAS FLAG ==========
     '==============================
     Public Function HasFlag(ByVal ShortName As String, ByVal LongName As String) As Boolean
 
-        Return flags.Contains("-" & ShortName) Or flags.Contains("--" & LongName)
+        Return flags.Contains("-" & ShortName.ToLower()) Or flags.Contains("--" & LongName.ToLower())
 
     End Function
 
@@ -27,6 +29,11 @@ Module SystemConsole
     '========== MAIN ENTRY POINT ==========
     '======================================
     Sub Main(args As String())
+
+        'Get executable directory
+        If Not Directory.Exists(Compiler.executableDirectory) Then
+            ThrowSimpleLimException("SCM01", "Folder missing", "Unable to find the executable folder. Try reinstalling lim.")
+        End If
 
         'App culture
         Threading.Thread.CurrentThread.CurrentUICulture = New System.Globalization.CultureInfo("en")
@@ -61,7 +68,7 @@ Module SystemConsole
             If arg.StartsWith("-") Then
 
                 'Add flag
-                flags.Add(arg)
+                flags.Add(arg.ToLower())
 
             Else
 
@@ -74,7 +81,7 @@ Module SystemConsole
                 End If
 
                 'Add file
-                files.Add(arg)
+                files.Add(arg.ToLower())
 
             End If
 
@@ -100,6 +107,10 @@ Module SystemConsole
             Return
 
         End If
+
+        'Debug
+        ShowDebug = HasFlag("d", "debug")
+        MegaDebug = HasFlag("md", "megadebug")
 
         'Compile
         If files.Count = 1 Then

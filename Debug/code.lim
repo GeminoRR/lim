@@ -1,6 +1,1 @@
-test
-//iii
-test2
-
-
-test3
+import "test.lim"
