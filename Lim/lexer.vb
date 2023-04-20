@@ -174,6 +174,14 @@ Module Lexer
 
                     Case "import"
                         result.Add(New Token(TokenType.KW_IMPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                    Case "class"
+                        result.Add(New Token(TokenType.KW_CLASS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                    Case "func"
+                        result.Add(New Token(TokenType.KW_FUNC, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                    Case "export"
+                        result.Add(New Token(TokenType.KW_EXPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                    Case "primary"
+                        result.Add(New Token(TokenType.KW_PRIMARY, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
 
                     Case Else
                         result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))

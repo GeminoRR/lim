@@ -6,7 +6,7 @@
 '
 ' This class represents a code file.
 '
-Public Class SourceFile
+Class SourceFile
     Inherits ScopeNode
 
     'Properties
@@ -24,7 +24,7 @@ Public Class SourceFile
     Public Sub New(ByVal filepath As String)
 
         'Inherit
-        MyBase.New(Nothing, 0, 0, 0, 0)
+        MyBase.New(0, 0, 0, 0)
 
         'Fix filename
         Me.filename = filepath.Replace("\", "/").Substring(filepath.LastIndexOf("/") + 1)
@@ -107,6 +107,7 @@ Public Class SourceFile
         End While
 
         'AST (Abstract Syntax Tree)
+        AST.Parse(tokens, Me)
 
     End Sub
 

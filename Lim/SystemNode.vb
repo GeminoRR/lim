@@ -19,6 +19,7 @@ Public MustInherit Class Node
     '========== PARENT FILE ==========
     '=================================
     Private _ParentFile As SourceFile
+    <System.Diagnostics.DebuggerBrowsable(DebuggerBrowsableState.Never)>
     Public ReadOnly Property ParentFile
         Get
             If Me._ParentFile Is Nothing Then
@@ -38,8 +39,8 @@ Public MustInherit Class Node
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal ParentNode As Node, ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
-        Me.ParentNode = ParentNode
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
+        Me.ParentNode = Nothing
         Me.PositionStartY = PositionStartY
         Me.PositionStartX = PositionStartX
         Me.PositionEndY = PositionEndY
@@ -80,8 +81,8 @@ Public MustInherit Class ScopeNode
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal ParentNode As Node, ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
-        MyBase.New(ParentNode, PositionStartY, PositionStartX, PositionEndY, PositionEndX)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
+        MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
     End Sub
 
 End Class
@@ -100,10 +101,10 @@ Public MustInherit Class ValueNode
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public ReadOnly Property Constant As Boolean
+    Public ReadOnly Property IsConstant As Boolean
         Get
             If Me._Constant = Nothing Then
-                Me._Constant = Me.IsConstant()
+                Me._Constant = Me.CheckIsConstant()
             End If
             Return Me._Constant
         End Get
@@ -124,15 +125,15 @@ Public MustInherit Class ValueNode
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal ParentNode As Node, ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
-        MyBase.New(ParentNode, PositionStartY, PositionStartX, PositionEndY, PositionEndX)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
+        MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
         Me._Constant = Nothing
     End Sub
 
     '=================================
     '========== IS CONSTANT ==========
     '=================================
-    Protected MustOverride Function IsConstant() As Boolean
+    Protected MustOverride Function CheckIsConstant() As Boolean
 
     '=================================
     '========== RETURN TYPE ==========

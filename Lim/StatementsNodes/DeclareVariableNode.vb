@@ -19,10 +19,10 @@ Public Class DeclareVariableNode
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal ParentNode As Node, ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
 
         'Inherits
-        MyBase.New(ParentNode, PositionStartY, PositionStartX, PositionEndY, PositionEndX)
+        MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
 
         'Properties
 

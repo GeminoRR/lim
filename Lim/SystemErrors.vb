@@ -4,7 +4,7 @@
 '
 ' This module takes care of interpreting and displaying errors.
 '
-Public Module LimExceptions
+Module LimExceptions
 
     '==========================================
     '========== LIM SIMPLE EXCEPTION ==========
@@ -55,6 +55,13 @@ Public Module LimExceptions
 
         Next
 
+        'Help message
+        If Not HelpMessage = Nothing Then
+            Console.ResetColor()
+            Console.ForegroundColor = ConsoleColor.DarkGreen
+            Console.WriteLine(vbTab & vbTab & HelpMessage)
+        End If
+
         'Bottom
         Dim lineToString As String
         If PositionStartY = PositionEndY Then
@@ -62,8 +69,10 @@ Public Module LimExceptions
         Else
             lineToString = "lines " & (PositionStartY + 1).ToString() & " to " & (PositionEndY + 1).ToString()
         End If
+        Console.ResetColor()
         Console.ForegroundColor = ConsoleColor.Red
         Console.WriteLine("""" & file.filename & """, " & lineToString & ", code " & code)
+        Console.ResetColor()
 
         'Finish application
         Console.ResetColor()

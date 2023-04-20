@@ -83,6 +83,10 @@ Module TokenEnum
         OP_MULTIPLICATION
 
         KW_IMPORT
+        KW_CLASS
+        KW_FUNC
+        KW_EXPORT
+        KW_PRIMARY
 
     End Enum
 

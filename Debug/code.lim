@@ -1,1 +1,8 @@
-import "test.lim"
+func main
+	puts("hello world")
+
+class test
+	func bob(a:int, b = "sus")
+		puts("test")
+		puts("ol")
+	func la:type
