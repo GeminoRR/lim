@@ -37,7 +37,13 @@ Class NumericValueNode
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
-        Throw New NotImplementedException()
+
+        If Value.Type = TokenType.CT_INTEGER Then
+            Return "new_int((int)" & Value.Value.ToString() & ")"
+        Else
+            Return "new_float((double)" & Value.Value.ToString() & ")"
+        End If
+
     End Function
 
     '=================================
@@ -51,7 +57,13 @@ Class NumericValueNode
     '========== RETURN TYPE ==========
     '=================================
     Protected Overrides Function NodeReturnType() As Type
-        Throw New NotImplementedException()
+
+        If Value.Type = TokenType.CT_INTEGER Then
+            Return STD_int
+        Else
+            Return STD_float
+        End If
+
     End Function
 
 End Class

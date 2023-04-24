@@ -36,7 +36,14 @@ Class StringNode
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
-        Throw New NotImplementedException()
+
+        Dim ProcessValue As String = Me.Value
+
+        ProcessValue = ProcessValue.Replace("\", "\\")
+        ProcessValue = ProcessValue.Replace("""", "\""")
+
+        Return "new_str(""" & ProcessValue & """)"
+
     End Function
 
     '=================================
@@ -50,7 +57,7 @@ Class StringNode
     '========== RETURN TYPE ==========
     '=================================
     Protected Overrides Function NodeReturnType() As Type
-        Throw New NotImplementedException()
+        Return STD_str
     End Function
 
 End Class

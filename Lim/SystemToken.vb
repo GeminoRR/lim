@@ -50,20 +50,31 @@ Module TokenEnum
 
     Public Enum TokenType
 
-        CONSTANT_INTEGER
-        CONSTANT_FLOAT
-        CONSTANT_STRING
-        CONSTANT_TRUE
-        CONSTANT_FALSE
-        CONSTANT_NULL
+        'Constant (CT)
+        CT_INTEGER
+        CT_FLOAT
+        CT_STRING
+        CT_TRUE
+        CT_FALSE
+        CT_NULL
 
+        'Code component (CODE)
         CODE_LINEINDENTATION
         CODE_TERM
-
         CODE_DOLLAR
         CODE_COLON
         CODE_POINT
 
+        'Keywords
+        KW_IMPORT
+        KW_CLASS
+        KW_FUNC
+        KW_RELATION
+        KW_EXPORT
+        KW_PRIMARY
+        KW_LET
+
+        'Operators (OP)
         OP_LEFT_PARENTHESIS
         OP_RIGHT_PARENTHESIS
         OP_LEFT_BRACKET
@@ -81,12 +92,6 @@ Module TokenEnum
         OP_MINUS
         OP_DIVISION
         OP_MULTIPLICATION
-
-        KW_IMPORT
-        KW_CLASS
-        KW_FUNC
-        KW_EXPORT
-        KW_PRIMARY
 
     End Enum
 

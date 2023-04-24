@@ -1,8 +1,12 @@
 func main
-	puts("hello world")
+	bob("Hello world !")
+	let t = bob
+	t("sus")
+	callback(bob, "un")
+	callback(t, "deux")
 
-class test
-	func bob(a:int, b = "sus")
-		puts("test")
-		puts("ol")
-	func la:type
+func callback(f:fun<str>, name:str)
+	f(name)
+
+func bob(message:str)
+	puts(message)

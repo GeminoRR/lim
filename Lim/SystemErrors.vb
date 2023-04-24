@@ -71,7 +71,7 @@ Module LimExceptions
         End If
         Console.ResetColor()
         Console.ForegroundColor = ConsoleColor.Red
-        Console.WriteLine("""" & file.filename & """, " & lineToString & ", code " & code)
+        Console.WriteLine("<" & file.filename & "> at " & lineToString & ", code " & code)
         Console.ResetColor()
 
         'Finish application
@@ -106,6 +106,13 @@ Module LimExceptions
     '=============================================
     Public Sub ThrowNodeTypeException(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal HelpMessage As String = Nothing)
         ThrowCoordinatesLimException(code, "type error", message, node.ParentFile, node.PositionStartY, node.PositionStartX, node.PositionEndY, node.PositionEndX, HelpMessage)
+    End Sub
+
+    '=============================================
+    '========== LIM NODE NAME EXCEPTION ==========
+    '=============================================
+    Public Sub ThrowNodeNamingException(ByVal code As String, ByVal message As String, ByVal node As Node, Optional ByVal HelpMessage As String = Nothing)
+        ThrowCoordinatesLimException(code, "naming error", message, node.ParentFile, node.PositionStartY, node.PositionStartX, node.PositionEndY, node.PositionEndX, HelpMessage)
     End Sub
 
 End Module

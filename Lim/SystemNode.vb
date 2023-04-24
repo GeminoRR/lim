@@ -4,7 +4,7 @@
 '
 ' Node class.
 '
-Public MustInherit Class Node
+MustInherit Class Node
 
     '===============================
     '========== VARIABLES ==========
@@ -20,7 +20,7 @@ Public MustInherit Class Node
     '=================================
     Private _ParentFile As SourceFile
     <System.Diagnostics.DebuggerBrowsable(DebuggerBrowsableState.Never)>
-    Public ReadOnly Property ParentFile
+    Public ReadOnly Property ParentFile As SourceFile
         Get
             If Me._ParentFile Is Nothing Then
                 Dim Temp As Node = Me
@@ -55,13 +55,52 @@ Public MustInherit Class Node
         Return "()"
     End Function
 
+End Class
+
+
+
+'===============================
+'========== STATEMENT ==========
+'================================
+'
+' Represents a line (declare variable / if / function / class).
+'
+MustInherit Class StatementNode
+    Inherits Node
+
+    '=================================
+    '========== CONSTRUCTOR ==========
+    '=================================
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer)
+        MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
+    End Sub
+
     '=============================
     '========== COMPILE ==========
     '=============================
-    Public MustOverride Function Compile(ByVal content As List(Of String)) As String
+    Public MustOverride Sub Compile(ByVal content As List(Of String))
+
+    '==================================
+    '========== PARENT SCOPE ==========
+    '==================================
+    Public ReadOnly Property ParentScope As ScopeNode
+        Get
+            Dim Parent As Node = Me
+            While Parent.ParentNode IsNot Nothing
+
+                Parent = Parent.ParentNode
+
+                If TypeOf Parent Is ScopeNode Then
+                    Return DirectCast(Parent, ScopeNode)
+                End If
+
+            End While
+            Return Nothing
+        End Get
+    End Property
+
 
 End Class
-
 
 
 '===========================
@@ -70,8 +109,8 @@ End Class
 '
 ' Represents a node containing variables.
 '
-Public MustInherit Class ScopeNode
-    Inherits Node
+MustInherit Class ScopeNode
+    Inherits StatementNode
 
     '===============================
     '========== VARIABLES ==========
@@ -87,15 +126,13 @@ Public MustInherit Class ScopeNode
 
 End Class
 
-
-
 '===========================
 '========== VALUE ==========
 '===========================
 '
 ' Represents a node containing a value.
 '
-Public MustInherit Class ValueNode
+MustInherit Class ValueNode
     Inherits Node
 
     '===============================
@@ -139,5 +176,10 @@ Public MustInherit Class ValueNode
     '========== RETURN TYPE ==========
     '=================================
     Protected MustOverride Function NodeReturnType() As Type
+
+    '=============================
+    '========== COMPILE ==========
+    '=============================
+    Public MustOverride Function Compile(ByVal content As List(Of String)) As String
 
 End Class

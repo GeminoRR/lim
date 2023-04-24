@@ -13,6 +13,10 @@ Module Lexer
     Private currentChar As Char
     Private currentCharLine As Integer
     Private currentCharColumn As Integer
+    Private _currentCharLine As Integer
+    Private _currentCharColumn As Integer
+    Private TranslateY As Integer
+    Private TranslateX As Integer
     Private TotalCount As Integer
     Private lines As List(Of String)
 
@@ -26,39 +30,46 @@ Module Lexer
     Private Sub advance()
 
         'Advance X
-        currentCharColumn += 1
+        _currentCharColumn += 1
         TotalCount += 1
 
         'Advance line ?
-        While currentCharColumn >= lines(currentCharLine).Count
+        While _currentCharColumn >= lines(_currentCharLine).Count
 
-            currentCharLine += 1
-            currentCharColumn = 0
+            _currentCharLine += 1
+            _currentCharColumn = 0
 
-            If currentCharLine >= lines.Count Then
-                currentCharLine = lines.Count - 1
-                currentCharColumn = lines(currentCharLine).Count
+            If _currentCharLine >= lines.Count Then
+                _currentCharLine = lines.Count - 1
+                _currentCharColumn = lines(_currentCharLine).Count
                 currentChar = Nothing
+                currentCharLine = _currentCharLine + TranslateY
+                currentCharColumn = _currentCharColumn + TranslateX
                 Exit Sub
             End If
 
         End While
 
         'End of the text ?
-        currentChar = lines(currentCharLine)(currentCharColumn)
+        currentCharLine = _currentCharLine + TranslateY
+        currentCharColumn = _currentCharColumn + TranslateX
+        currentChar = lines(_currentCharLine)(_currentCharColumn)
 
     End Sub
 
-    '===========================
-    '========== PARSE ==========
-    '===========================
-    Public Function LexerParse(ByVal lines As List(Of String), ByVal file As SourceFile) As List(Of Token)
+    '===============================
+    '========== LEX LINES ==========
+    '===============================
+    Public Function LexLines(ByVal lines As List(Of String), ByVal file As SourceFile, Optional ByVal TranslateY As Integer = 0, Optional ByVal TranslateX As Integer = 0) As List(Of Token)
 
         'Variables
         Dim result As New List(Of Token) From {New Token(TokenType.CODE_LINEINDENTATION, file, 0, 0, 0, 0, 0)}
         Lexer.lines = lines
-        currentCharLine = 0
-        currentCharColumn = -1
+        _currentCharLine = 0
+        _currentCharColumn = -1
+        Lexer.TranslateY = TranslateY
+        Lexer.TranslateX = TranslateX
+        Dim TabIndentation As String = Nothing
         TotalCount = 0
 
         'Debug
@@ -110,7 +121,7 @@ Module Lexer
                 If numberString.Contains(".") Then
                     'Float
                     Try
-                        result.Add(New Token(TokenType.CONSTANT_FLOAT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Convert.ToDouble(numberString.Replace(".", ","))))
+                        result.Add(New Token(TokenType.CT_FLOAT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Convert.ToDouble(numberString.Replace(".", ","))))
                     Catch ex As Exception
                         ThrowCoordinatesSyntaxLimException("LLP01", "Could not convert number to float.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
                     End Try
@@ -118,7 +129,7 @@ Module Lexer
                 Else
                     'Integer
                     Try
-                        result.Add(New Token(TokenType.CONSTANT_INTEGER, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Convert.ToInt64(numberString)))
+                        result.Add(New Token(TokenType.CT_INTEGER, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Convert.ToInt64(numberString)))
                     Catch ex As Exception
                         ThrowCoordinatesSyntaxLimException("LLP02", "Could not convert number to integer.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
                     End Try
@@ -145,7 +156,7 @@ Module Lexer
                     ThrowCoordinatesSyntaxLimException("LLP03", "The character " & EndCharacter & " was expected to terminate the string.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
                 End If
 
-                result.Add(New Token(TokenType.CONSTANT_STRING, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Value))
+                result.Add(New Token(TokenType.CT_STRING, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Value))
                 advance()
 
             End If
@@ -166,11 +177,11 @@ Module Lexer
                 Select Case Keyword
 
                     Case "true"
-                        result.Add(New Token(TokenType.CONSTANT_TRUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CT_TRUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
                     Case "false"
-                        result.Add(New Token(TokenType.CONSTANT_FALSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CT_FALSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
                     Case "null"
-                        result.Add(New Token(TokenType.CONSTANT_NULL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CT_NULL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
 
                     Case "import"
                         result.Add(New Token(TokenType.KW_IMPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
@@ -182,6 +193,10 @@ Module Lexer
                         result.Add(New Token(TokenType.KW_EXPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
                     Case "primary"
                         result.Add(New Token(TokenType.KW_PRIMARY, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                    Case "relation"
+                        result.Add(New Token(TokenType.KW_RELATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                    Case "let"
+                        result.Add(New Token(TokenType.KW_LET, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
 
                     Case Else
                         result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
@@ -334,15 +349,6 @@ Module Lexer
 
             End If
 
-            '$
-            If currentChar = "$" Then
-
-                result.Add(New Token(TokenType.CODE_DOLLAR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
-                advance()
-                Continue While
-
-            End If
-
             ':
             If currentChar = ":" Then
 
@@ -361,6 +367,15 @@ Module Lexer
 
             End If
 
+            '$
+            If currentChar = "$" Then
+
+                result.Add(New Token(TokenType.CODE_DOLLAR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn))
+                advance()
+                Continue While
+
+            End If
+
             'Linefeed
             If currentChar = vbLf Then
 
@@ -370,13 +385,37 @@ Module Lexer
                     advance()
                 End While
 
-                While currentChar = vbTab
+                If TabIndentation = Nothing Then
 
-                    advance()
-                    tabCount += 1
+                    tabCount = 1
+                    If currentChar = vbTab Then
+                        TabIndentation = vbTab
+                    ElseIf currentChar = " " Then
+                        TabIndentation = " "
+                        advance()
+                        While currentChar = " "
+                            TabIndentation &= " "
+                            advance()
+                        End While
+                    Else
+                        tabCount = 0
+                    End If
 
-                End While
+                Else
 
+                    Dim CurrentTabIndentation As String = TabIndentation
+                    While currentChar = TabIndentation(0)
+
+                        advance()
+                        CurrentTabIndentation = CurrentTabIndentation.Substring(1)
+                        If CurrentTabIndentation = "" Then
+                            tabCount += 1
+                            CurrentTabIndentation = TabIndentation
+                        End If
+
+                    End While
+
+                End If
                 result.Add(New Token(TokenType.CODE_LINEINDENTATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, tabCount))
 
                 Continue While
@@ -408,6 +447,11 @@ Module Lexer
             End If
 
         End While
+
+        'Add empty line at the end
+        If Not result(result.Count - 1).Type = TokenType.CODE_LINEINDENTATION Then
+            result.Add(New Token(TokenType.CODE_LINEINDENTATION, file, 0, 0, 0, 0))
+        End If
 
         'Finish mega debug
         If MegaDebug Then

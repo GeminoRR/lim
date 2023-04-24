@@ -18,7 +18,7 @@ Class SourceFile
     Public DeclareVariables As New List(Of DeclareVariableNode)
     Public Functions As New List(Of FunctionNode)
     Public Classes As New List(Of ClassNode)
-    Public AddSourceDirectlys As New List(Of AddSourceDirectlyNode)
+    Public AddSourceDirectlys As New List(Of AddSourceDirectlyStatementNode)
 
     'Constructor
     Public Sub New(ByVal filepath As String)
@@ -51,7 +51,7 @@ Class SourceFile
         End Try
 
         'Token
-        Dim tokens As List(Of Token) = LexerParse(lines, Me)
+        Dim tokens As List(Of Token) = Lexer.LexLines(lines, Me)
 
         'Empty file
         If Not tokens.Count > 1 Then
@@ -78,7 +78,7 @@ Class SourceFile
             tokens.RemoveAt(0)
 
             'Import
-            If tokens(1).Type = TokenType.CONSTANT_STRING Then
+            If tokens(1).Type = TokenType.CT_STRING Then
 
                 'Import file
                 ImportFile(tokens(1).Value)
@@ -107,7 +107,8 @@ Class SourceFile
         End While
 
         'AST (Abstract Syntax Tree)
-        AST.Parse(tokens, Me)
+        Dim Parser As New AST()
+        Parser.ParseFile(tokens, Me)
 
     End Sub
 
@@ -131,9 +132,9 @@ Class SourceFile
 
     End Sub
 
-    'Compile (for node)
-    Public Overrides Function Compile(content As List(Of String)) As String
-        Return ""
-    End Function
+    'Content
+    Public Overrides Sub Compile(content As List(Of String))
+        Throw New NotImplementedException()
+    End Sub
 
 End Class

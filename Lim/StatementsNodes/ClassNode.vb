@@ -5,7 +5,7 @@
 ' Represents the declaration of a class
 '
 Class ClassNode
-    Inherits ScopeNode
+    Inherits Node
 
     '===============================
     '========== VARIABLES ==========
@@ -17,7 +17,9 @@ Class ClassNode
 
     Public DeclareVariables As New List(Of DeclareVariableNode)
     Public Methods As New List(Of FunctionNode)
-    Public AddSourcesDirectly As New List(Of AddSourceDirectlyNode)
+    Public Relations As New List(Of RelationNode)
+    Public AddSourcesDirectly As New List(Of AddSourceDirectlyStatementNode)
+    Private ClassID As Integer
 
     '=================================
     '========== CONSTRUCTOR ==========
@@ -31,6 +33,8 @@ Class ClassNode
         Me.ClassName = ClassName
         Me.Export = Export
         Me.Primary = Primary
+        ClassCounter += 1
+        ClassID = ClassCounter
 
     End Sub
 
@@ -61,14 +65,14 @@ Class ClassNode
 
     End Function
 
-    '=============================
-    '========== COMPILE ==========
-    '=============================
-    Public Overrides Function Compile(ByVal content As List(Of String)) As String
-
-        'Return
-        Return ""
-
-    End Function
+    '===========================
+    '========== EQUAL ==========
+    '===========================
+    Shared Operator =(ByVal a As ClassNode, ByVal b As ClassNode)
+        Return a.ClassID = b.ClassID
+    End Operator
+    Shared Operator <>(ByVal a As ClassNode, ByVal b As ClassNode)
+        Return Not a.ClassID = b.ClassID
+    End Operator
 
 End Class
