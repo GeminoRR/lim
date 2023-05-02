@@ -27,7 +27,6 @@ Class Type
         Me.ParentNode = Me.ParentClass.ParentNode
         Me.PassedArguments = PassedArguments
         Me.CompiledName = GetTypeCompiledName()
-
         For Each Method As FunctionNode In ParentClass.Methods
             Dim ClonedMethod As FunctionNode = Method.Clone()
             ClonedMethod.ParentNode = Me
@@ -118,7 +117,7 @@ Class Type
             ASD.Compile(TypeDefContent)
         Next
         For Each DeclareVariable As DeclareVariableNode In Me.ParentClass.DeclareVariables
-            Me.Variables.Add(DeclareVariable.CompileFor(TypeDefContent, AllocateContent))
+            Me.Variables.Add(DeclareVariable.CompileFor(TypeDefContent, AllocateContent, True))
         Next
 
         'Typedef for fun

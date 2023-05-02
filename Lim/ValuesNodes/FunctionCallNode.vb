@@ -13,6 +13,44 @@ Class FunctionCallNode
     Public TargetFunction As ValueNode
     Public PassedArguments As New List(Of ValueNode)
 
+    '==============================================
+    '========== DIRECT TARGETED FUNCTION ==========
+    '==============================================
+    Private Sub UpdateDirectTargetedFunction()
+
+        'Already searched
+        If AlreadySearch Then
+            Exit Sub
+        End If
+        AlreadySearch = True
+
+        'Variables
+        DirectTargetedFunction = Nothing
+        DirectTargetedInstance = Nothing
+
+        'Call on a variable
+        If TypeOf TargetFunction Is VariableNode Then
+
+            'Get function
+            DirectTargetedFunction = DirectCast(TargetFunction, VariableNode).GetTarget(True)
+
+        ElseIf TypeOf TargetFunction Is ChildNode Then
+
+            'Get function
+            DirectTargetedFunction = DirectCast(TargetFunction, ChildNode).TargetedFunction()
+
+            'Get instance
+            If DirectTargetedFunction IsNot Nothing Then
+                DirectTargetedInstance = DirectCast(TargetFunction, ChildNode).Obj
+            End If
+
+        End If
+
+    End Sub
+    Private DirectTargetedFunction As FunctionNode
+    Private DirectTargetedInstance As ValueNode
+    Private AlreadySearch As Boolean = False
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
@@ -47,50 +85,116 @@ Class FunctionCallNode
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
 
-        'Type
-        If Not Me.TargetFunction.ReturnType.ParentClass = STD_funClass Then
-            ThrowNodeTypeException("FCNC00", "A function was expected here, but the type is """ & Me.TargetFunction.ReturnType.ToString() & """.", Me.TargetFunction)
-        End If
+        'Update
+        UpdateDirectTargetedFunction()
 
-        'Get function
-        Dim TempFun As String = GetVariableCompiledName()
-        content.Add(Me.TargetFunction.ReturnType.CompiledName & " * " & TempFun & " = " & Me.TargetFunction.Compile(content) & ";")
+        If DirectTargetedFunction Is Nothing Then
 
-        'Arguments count
-        If Me.PassedArguments.Count < (Me.TargetFunction.ReturnType.PassedArguments.Count - 1) Then
-            Dim missing As Integer = (Me.TargetFunction.ReturnType.PassedArguments.Count - 1) - Me.PassedArguments.Count
-            If missing = 1 Then
-                ThrowNodeSyntaxException("FCNC01", "1 argument is missing.", Me)
+            'Type
+            If Not Me.TargetFunction.ReturnType.ParentClass = STDClass_fun Then
+                ThrowNodeTypeException("FCNC00", "A function was expected here, but the type is """ & Me.TargetFunction.ReturnType.ToString() & """.", Me.TargetFunction)
+            End If
+
+            'Get function
+            Dim TempFun As String = GetVariableCompiledName()
+            content.Add(Me.TargetFunction.ReturnType.CompiledName & " * " & TempFun & " = " & Me.TargetFunction.Compile(content) & ";")
+
+            'Arguments count
+            If Me.PassedArguments.Count < (Me.TargetFunction.ReturnType.PassedArguments.Count - 1) Then
+                Dim missing As Integer = (Me.TargetFunction.ReturnType.PassedArguments.Count - 1) - Me.PassedArguments.Count
+                If missing = 1 Then
+                    ThrowNodeSyntaxException("FCNC01", "1 argument is missing.", Me)
+                Else
+                    ThrowNodeSyntaxException("FCNC01", missing.ToString() & " arguments are missing.", Me)
+                End If
+            End If
+            If Me.PassedArguments.Count > (Me.TargetFunction.ReturnType.PassedArguments.Count - 1) Then
+                Dim missing As Integer = Me.PassedArguments.Count - (Me.TargetFunction.ReturnType.PassedArguments.Count - 1)
+                If missing = 1 Then
+                    ThrowNodeSyntaxException("FCNC02", "1 argument in excess.", Me)
+                Else
+                    ThrowNodeSyntaxException("FCNC02", missing.ToString() & " arguments in excess.", Me)
+                End If
+            End If
+
+            'Get arguments
+            Dim arguments As String = ""
+            For i As Integer = 1 To Me.TargetFunction.ReturnType.PassedArguments.Count - 1
+
+                Dim CurrentArgumentModelType As Type = TargetFunction.ReturnType.PassedArguments(i)
+                Dim CurrentArgument As ValueNode = Me.PassedArguments(i - 1)
+
+                If Not CurrentArgumentModelType = CurrentArgument.ReturnType Then
+                    ThrowNodeSyntaxException("FCNC03", " The argument is of type """ & CurrentArgument.ReturnType.ToString() & """ while the function was expecting an argument of type """ & CurrentArgumentModelType.ToString() & """.", CurrentArgument)
+                End If
+
+                arguments &= ", (" & CurrentArgument.Compile(content) & ")"
+
+            Next
+
+            'Function call
+            Return TempFun & "->target(" & TempFun & "->object" & arguments & ")"
+
+        Else
+
+            'Compile function
+            DirectTargetedFunction.Compile(Nothing)
+
+            'Arguments count
+            If Me.PassedArguments.Count < DirectTargetedFunction.MinArguments Then
+                Dim missing As Integer = DirectTargetedFunction.MinArguments - Me.PassedArguments.Count
+                If missing = 1 Then
+                    ThrowNodeSyntaxException("FCNC04", "1 argument is missing.", Me)
+                Else
+                    ThrowNodeSyntaxException("FCNC04", missing.ToString() & " arguments are missing.", Me)
+                End If
+            End If
+            If Me.PassedArguments.Count > DirectTargetedFunction.MaxArguments Then
+                Dim missing As Integer = Me.PassedArguments.Count - DirectTargetedFunction.MaxArguments
+                If missing = 1 Then
+                    ThrowNodeSyntaxException("FCNC05", "1 argument in excess.", Me)
+                Else
+                    ThrowNodeSyntaxException("FCNC05", missing.ToString() & " arguments in excess.", Me)
+                End If
+            End If
+
+
+            'Arguments
+            Dim Arguments As String
+            If DirectTargetedInstance Is Nothing Then
+                Arguments = "NULL"
             Else
-                ThrowNodeSyntaxException("FCNC01", missing.ToString() & " arguments are missing.", Me)
+                Arguments = DirectTargetedInstance.Compile(content)
             End If
+            For i As Integer = 0 To DirectTargetedFunction.MaxArguments - 1
+
+                If i < Me.PassedArguments.Count Then
+
+                    'Arguments & Model
+                    Dim CurrentArgumentModel As FunctionArgumentNode = DirectTargetedFunction.FunctionArguments(i)
+                    Dim CurrentArgument As ValueNode = Me.PassedArguments(i)
+
+                    'Error with type
+                    If Not CurrentArgumentModel.ArgumentType = CurrentArgument.ReturnType Then
+                        ThrowNodeSyntaxException("FCNC06", " The argument is of type """ & CurrentArgument.ReturnType.ToString() & """ while the function was expecting an argument of type """ & CurrentArgumentModel.ArgumentType.ToString() & """.", CurrentArgument)
+                    End If
+
+                    'Compile
+                    Arguments &= ", (" & CurrentArgument.Compile(content) & ")"
+
+                Else
+
+                    'No passed
+                    Arguments &= ", NULL"
+
+                End If
+
+            Next
+
+            'Function call
+            Return DirectTargetedFunction.CompiledName & "(" & Arguments & ")"
+
         End If
-        If Me.PassedArguments.Count > (Me.TargetFunction.ReturnType.PassedArguments.Count - 1) Then
-            Dim missing As Integer = Me.PassedArguments.Count - (Me.TargetFunction.ReturnType.PassedArguments.Count - 1)
-            If missing = 1 Then
-                ThrowNodeSyntaxException("FCNC02", "1 argument in excess.", Me)
-            Else
-                ThrowNodeSyntaxException("FCNC02", missing.ToString() & " arguments in excess.", Me)
-            End If
-        End If
-
-        'Get arguments
-        Dim arguments As String = ""
-        For i As Integer = 1 To Me.TargetFunction.ReturnType.PassedArguments.Count - 1
-
-            Dim CurrentArgumentModelType As Type = TargetFunction.ReturnType.PassedArguments(i)
-            Dim CurrentArgument As ValueNode = Me.PassedArguments(i - 1)
-
-            If Not CurrentArgumentModelType = CurrentArgument.ReturnType Then
-                ThrowNodeSyntaxException("FCNC03", " The argument is of type """ & CurrentArgument.ReturnType.ToString() & """ while the function was expecting an argument of type """ & CurrentArgumentModelType.ToString() & """.", CurrentArgument)
-            End If
-
-            arguments &= ", (" & CurrentArgument.Compile(content) & ")"
-
-        Next
-
-        'Function call
-        Return TempFun & "->target(" & TempFun & "->object" & arguments & ")"
 
     End Function
 
@@ -106,18 +210,35 @@ Class FunctionCallNode
     '=================================
     Protected Overrides Function NodeReturnType() As Type
 
-        'Type
-        If Not Me.TargetFunction.ReturnType.ParentClass = STD_funClass Then
-            ThrowNodeTypeException("FCNNRT01", "A function was expected here, but the type is """ & Me.TargetFunction.ReturnType.ToString() & """.", Me.TargetFunction)
-        End If
+        'Update
+        UpdateDirectTargetedFunction()
 
-        'No value
-        If Me.TargetFunction.ReturnType.PassedArguments(0) Is Nothing Then
-            ThrowNodeSyntaxException("FCNNRT02", "This function returns no value.", Me)
-        End If
+        If DirectTargetedFunction Is Nothing Then
 
-        'Return
-        Return Me.TargetFunction.ReturnType.PassedArguments(0)
+            'Type
+            If Not Me.TargetFunction.ReturnType.ParentClass = STDClass_fun Then
+                ThrowNodeTypeException("FCNNRT01", "A function was expected here, but the type is """ & Me.TargetFunction.ReturnType.ToString() & """.", Me.TargetFunction)
+            End If
+
+            'No value
+            If Me.TargetFunction.ReturnType.PassedArguments(0) Is Nothing Then
+                ThrowNodeSyntaxException("FCNNRT02", "This function returns no value.", Me)
+            End If
+
+            'Return
+            Return Me.TargetFunction.ReturnType.PassedArguments(0)
+
+        Else
+
+            'No value
+            If DirectTargetedFunction.ReturnType Is Nothing Then
+                ThrowNodeSyntaxException("FCNNRT03", "This function returns no value.", Me)
+            End If
+
+            'Return return type of function
+            Return DirectTargetedFunction.ReturnType
+
+        End If
 
     End Function
 

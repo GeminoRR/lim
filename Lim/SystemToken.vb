@@ -73,6 +73,8 @@ Module TokenEnum
         KW_EXPORT
         KW_PRIMARY
         KW_LET
+        KW_NEW
+        KW_RETURN
 
         'Operators (OP)
         OP_LEFT_PARENTHESIS
@@ -92,6 +94,10 @@ Module TokenEnum
         OP_MINUS
         OP_DIVISION
         OP_MULTIPLICATION
+
+        OP_AND
+        OP_OR
+        OP_NOT
 
     End Enum
 

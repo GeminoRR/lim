@@ -10,15 +10,20 @@ Class FunctionNode
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public ReturnTypeNode As TypeNode
+    Public ReadOnly ReturnTypeNode As TypeNode
     Public ReadOnly FunctionName As String
-    Public FunctionArguments As New List(Of FunctionArgumentNode)
-    Public Export As Boolean
+    Public ReadOnly FunctionArguments As New List(Of FunctionArgumentNode)
+    Public ReadOnly Export As Boolean
     Public Codes As New List(Of StatementNode)
     Public ReadOnly CompiledName As String
     Public ReadOnly CustomHeader As String = ""
+    Public ReadOnly MinArguments As Integer
+    Public ReadOnly MaxArguments As Integer
 
-    Public ReadOnly Property ReturnType As Type
+    '=================================
+    '========== RETURN TYPE ==========
+    '=================================
+    Public Property ReturnType As Type
         Get
             If _ReturnType Is Nothing Then
                 If ReturnTypeNode Is Nothing Then
@@ -26,13 +31,33 @@ Class FunctionNode
                 Else
                     _ReturnType = ReturnTypeNode.AssociateType
                 End If
+                Compile(Nothing)
             End If
             Return _ReturnType
         End Get
+        Set(value As Type)
+
+            'No explicit type
+            If _ReturnType Is Nothing Then
+                _ReturnType = value
+            End If
+
+            'Check if newtype is the same as the older
+            If Not value = _ReturnType Then
+                ThrowNodeTypeException("FNRT01", "The instructions of this function do not agree on the type of the value to be returned.", Me)
+            End If
+
+            'Set
+            _ReturnType = value
+
+        End Set
     End Property
     Private _ReturnType As Type
 
-    Public ReadOnly Property FunctionType As Type
+    '===================================
+    '========== FUNCTION TYPE ==========
+    '===================================
+    Public ReadOnly Property MinimumFunctionType As Type
         Get
 
             'Already find it
@@ -45,22 +70,104 @@ Class FunctionNode
 
             'Create the type arguments
             Dim FunTypeArguments As New List(Of Type) From {Me.ReturnType}
-            For Each arg As FunctionArgumentNode In Me.FunctionArguments
-                FunTypeArguments.Add(arg.ArgumentType)
+            For i As Integer = 0 To Me.MinArguments - 1
+                FunTypeArguments.Add(Me.FunctionArguments(i).ArgumentType)
             Next
 
             'Create the type of the function
-            _FunctionType = GetTypeFromClassAndArgs(Me, STD_funClass, FunTypeArguments)
+            _FunctionType = GetTypeFromClassAndArgs(Me, STDClass_fun, FunTypeArguments)
             Return _FunctionType
 
         End Get
     End Property
     Private _FunctionType As Type = Nothing
 
+    '==============================================
+    '========== COMPILE MINIMUM FUNCTION ==========
+    '==============================================
+    Public ReadOnly Property MinimumFunctionCompiledName As String
+        Get
+
+            'Already find it
+            If _MminimumFunctionCompiledName IsNot Nothing Then
+                Return _MminimumFunctionCompiledName
+            End If
+
+            'Compile transition function (for optional arguments)
+            Dim TargetValue As String = Me.CompiledName
+            If Me.MaxArguments > MinArguments Then
+
+                'Is a method
+                Dim ParentType As Type = Nothing
+                If TypeOf Me.ParentNode Is Type Then
+                    ParentType = DirectCast(Me.ParentNode, Type)
+                End If
+
+                'HEADER - Return type
+                Dim Header As String
+                If Me.ReturnType Is Nothing Then
+                    Header = "void * "
+                Else
+                    Header = Me.ReturnType.CompiledName & " * "
+                End If
+
+                'HEADER - Function name
+                TargetValue = "MinimumArgCountOf_" & Me.CompiledName
+                Header &= TargetValue
+
+                'HEADER - Arguments & Content
+                Dim CallArguments As String = "undefined_self"
+                Dim Arguments As String = "void * undefined_self"
+                For i As Integer = 0 To MaxArguments - 1
+                    If i >= MinArguments Then
+
+                        'Optionnal argument
+                        CallArguments &= ", NULL"
+
+                    Else
+
+                        'Mandatory argument
+                        Dim ArgCompiledName As String = GetVariableCompiledName()
+                        Arguments &= ", " & Me.FunctionArguments(i).ArgumentType.CompiledName & " * " & ArgCompiledName
+                        CallArguments &= ", " & ArgCompiledName
+
+                    End If
+
+                Next
+                Header &= "(" & Arguments & ")"
+
+                'Add header to prototypes
+                If ParentType Is Nothing Then
+                    Compiler.Compiled_FunctionsPrototypes.Add("/* " & Me.FunctionName & " (without optional argument) */ " & Header & ";")
+                Else
+                    Compiler.Compiled_FunctionsPrototypes.Add("/* " & ParentType.ToString() & " -> " & Me.FunctionName & " (without optional argument) */ " & Header & ";")
+                End If
+
+                'Compile function
+                Compiler.Compiled_Functions.Add("")
+                If ParentType Is Nothing Then
+                    Compiler.Compiled_Functions.Add("// " & Me.FunctionName & " (without optional argument)")
+                Else
+                    Compiler.Compiled_Functions.Add("// " & ParentType.ToString() & " -> " & Me.FunctionName & " (without optional argument)")
+                End If
+                Compiler.Compiled_Functions.Add(Header & "{")
+                Compiler.Compiled_Functions.Add(vbTab & Me.CompiledName & "(" & CallArguments & ");")
+                Compiler.Compiled_Functions.Add("}")
+
+            End If
+
+            'Return
+            _MminimumFunctionCompiledName = TargetValue
+            Return _MminimumFunctionCompiledName
+
+        End Get
+    End Property
+    Private _MminimumFunctionCompiledName As String = Nothing
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal FunctionName As String, ByVal Export As Boolean)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal FunctionName As String, ByVal Export As Boolean, ByVal Arguments As List(Of FunctionArgumentNode), ByVal ReturnType As TypeNode)
 
         'Inherits
         MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
@@ -68,10 +175,23 @@ Class FunctionNode
         'Properties
         Me.FunctionName = FunctionName
         Me.Export = Export
+        Me.ReturnTypeNode = ReturnType
+        If Me.ReturnTypeNode IsNot Nothing Then
+            Me.ReturnTypeNode.ParentNode = Me
+        End If
+        Me.FunctionArguments = Arguments
+        Me.MaxArguments = Me.FunctionArguments.Count
+        Me.MinArguments = 0
+        For Each arg As FunctionArgumentNode In Me.FunctionArguments
+            arg.ParentNode = Me
+            If arg.ArgumentDefaultValue Is Nothing Then
+                Me.MinArguments += 1
+            End If
+        Next
         Me.CompiledName = GetFunctionCompiledName()
 
     End Sub
-    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal CustomHeader As String)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal CustomHeader As String, ByVal ReturnType As TypeNode)
 
         'Inherits
         MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
@@ -81,6 +201,10 @@ Class FunctionNode
         Me.FunctionArguments = New List(Of FunctionArgumentNode)
         Me.CustomHeader = CustomHeader
         Me.Export = False
+        Me.ReturnTypeNode = ReturnType
+        If Me.ReturnTypeNode IsNot Nothing Then
+            Me.ReturnTypeNode.ParentNode = Me
+        End If
         Me.CompiledName = GetFunctionCompiledName()
 
     End Sub
@@ -139,26 +263,55 @@ Class FunctionNode
             ParentType = DirectCast(Me.ParentNode, Type)
         End If
 
-        'HEADER - Return type
-        Dim Header As String
-        If Me.ReturnType Is Nothing Then
-            Header = "void * "
-        Else
-            Header = Me.ReturnType.CompiledName & " * "
-        End If
+        ' Argument
+        ' Code (for return type)
+        ' Return type
+        ' Header
+        ' Core
 
-        'Custom header
+        'Argument
+        Dim Header As String
+        Dim FunctionLines As New List(Of String)
         If CustomHeader = "" Then
 
             'HEADER - Function name
-            Header &= Me.CompiledName
+            Header = Me.CompiledName
+
+            'Optionnal arguments comment
+            If Not MinArguments = MaxArguments Then
+
+                'Comment
+                FunctionLines.Add("")
+                FunctionLines.Add("// Value of optional arguments")
+
+            End If
 
             'HEADER - Arguments
-            Dim Arguments As String = "void * undefined_self"
+            Dim Arguments As String = If(ParentType IsNot Nothing And FunctionName = "new", "", "void * undefined_self")
             For Each arg As FunctionArgumentNode In Me.FunctionArguments
+
+                'Add argument to header
                 Dim ArgumentVariable As New Variable(arg.ArgumentName, arg.ArgumentType)
                 Me.Variables.Add(ArgumentVariable)
                 Arguments &= ", " & arg.ArgumentType.CompiledName & " * " & ArgumentVariable.CompiledName
+
+                'Default value for optional argument
+                If arg.ArgumentDefaultValue IsNot Nothing Then
+
+                    If Not arg.ArgumentDefaultValue.IsConstant Then
+                        ThrowNodeTypeException("FNC01", "The default value of an argument must be a constant.", Me)
+                    End If
+
+                    Dim IfContent As New List(Of String)
+                    FunctionLines.Add("if (" & ArgumentVariable.CompiledName & " == NULL){")
+                    IfContent.Add(ArgumentVariable.CompiledName & " = " & arg.ArgumentDefaultValue.Compile(IfContent) & ";")
+                    For Each line As String In IfContent
+                        FunctionLines.Add(vbTab & line)
+                    Next
+                    FunctionLines.Add("}")
+
+                End If
+
             Next
             If Arguments.StartsWith(", ") Then
                 Arguments = Arguments.Substring(2)
@@ -167,11 +320,65 @@ Class FunctionNode
 
         Else
 
-            'HEADER - Custom header
-            Header &= Me.CustomHeader
+            'Custom header
+            Header = CustomHeader
 
         End If
 
+        'Compile all code
+        For Each line As StatementNode In Me.Codes
+            line.Compile(FunctionLines)
+        Next
+
+        'HEADER - Special function
+        Dim CompiledReturnType As String = ""
+        If ParentType IsNot Nothing Then
+
+            Select Case FunctionName
+
+                Case "new" 'Constructor
+                    If Me.ReturnType IsNot Nothing Then
+                        ThrowNodeSyntaxException("FNC02", "The constructor of a class cannot return a value.", Me.ReturnTypeNode)
+                    End If
+                    FunctionLines.Add("")
+                    FunctionLines.Add("// Allocate memory")
+                    FunctionLines.Add(ParentType.CompiledName & " * self = " & ParentType.CompiledName & "_allocate();")
+                    CompiledReturnType = ParentType.CompiledName & " * "
+
+                Case "str"
+                    If Not Me.ReturnType = STD_str Then
+                        If Me.ReturnType Is Nothing Then
+                            ThrowNodeSyntaxException("FNC04", "The ""str"" method must necessarily return a character string, but here it returns nothing.", Me)
+                        End If
+                        ThrowNodeSyntaxException("FNC03", "The ""str"" method must return a character string, but here it returns a value of type (" & Me.ReturnType.ToString() & ").", Me.ReturnTypeNode)
+                    End If
+                    CompiledReturnType = Me.ReturnType.CompiledName & " * "
+
+                Case "clone"
+                    If Not Me.ReturnType = ParentType Then
+                        If Me.ReturnType Is Nothing Then
+                            ThrowNodeSyntaxException("FNC05", "The ""clone"" method must return an instance of the class in which it is defined.", Me, "The method must return a value of type " & ParentType.ToString() & "instead of nothing.")
+                        Else
+                            ThrowNodeSyntaxException("FNC05", "The ""clone"" method must return an instance of the class in which it is defined.", Me, "The method must return a value of type " & ParentType.ToString() & "instead of " & Me.ReturnType.ToString() & ".")
+                        End If
+                    End If
+                    If Not FunctionArguments.Count = 0 Then
+                        ThrowNodeSyntaxException("FNC05", "The ""clone"" method cannot have parameters.", Me)
+                    End If
+
+            End Select
+
+        End If
+
+        'HEADER - Return Type
+        If CompiledReturnType = "" Then
+            If Me.ReturnType Is Nothing Then
+                CompiledReturnType = "void * "
+            Else
+                CompiledReturnType = Me.ReturnType.CompiledName & " * "
+            End If
+        End If
+        Header = CompiledReturnType & Header
 
         'Add header to prototypes
         If ParentType Is Nothing Then
@@ -184,28 +391,27 @@ Class FunctionNode
             Compiler.Compiled_FunctionsPrototypes.Add("/* " & ParentType.ToString() & " -> " & Me.FunctionName & "*/ " & Header & ";")
         End If
 
-        'Content
-        Dim FunctionLines As New List(Of String)
-        For Each line As StatementNode In Me.Codes
-            line.Compile(FunctionLines)
-        Next
-
         'Add header
         Compiler.Compiled_Functions.Add("")
         If Me.CustomHeader = "" Then
-            Compiler.Compiled_Functions.Add("//" & Me.FunctionName)
+            If ParentType Is Nothing Then
+                Compiler.Compiled_Functions.Add("//" & Me.FunctionName)
+            Else
+                Compiler.Compiled_Functions.Add("//" & ParentType.ToString() & " -> " & Me.FunctionName)
+            End If
         Else
             Compiler.Compiled_Functions.Add("//Custom Function <" & Me.ParentFile.filename & "> line " & (Me.PositionStartY + 1).ToString())
         End If
         Compiler.Compiled_Functions.Add(Header & "{")
 
         'Method
-        If ParentType IsNot Nothing Then
+        If ParentType IsNot Nothing And Not FunctionName = "new" Then
             Compiler.Compiled_Functions.Add(vbTab & "")
             Compiler.Compiled_Functions.Add(vbTab & "//Null Object pointer")
             Compiler.Compiled_Functions.Add(vbTab & "if (undefined_self == NULL){")
-            Compiler.Compiled_Functions.Add(vbTab & vbTab & "ThrowRuntimeError(""The \""" & Me.FunctionName & "\"" method of the \""" & ParentType.ParentClass.ClassName & "\"" class was used on a null object."")")
+            Compiler.Compiled_Functions.Add(vbTab & vbTab & "ThrowRuntimeError(""The \""" & Me.FunctionName & "\"" method of the \""" & ParentType.ParentClass.ClassName & "\"" class was used on a null object."");")
             Compiler.Compiled_Functions.Add(vbTab & "}")
+            Compiler.Compiled_Functions.Add(vbTab & "")
             Compiler.Compiled_Functions.Add(vbTab & "//Cast struct")
             Compiler.Compiled_Functions.Add(vbTab & ParentType.CompiledName & " * self = (" & ParentType.CompiledName & "*)undefined_self;")
         End If
@@ -214,6 +420,17 @@ Class FunctionNode
         For Each line As String In FunctionLines
             Compiler.Compiled_Functions.Add(vbTab & line)
         Next
+
+        'Return
+        If ParentType IsNot Nothing And FunctionName = "new" Then
+            Compiler.Compiled_Functions.Add(vbTab & "")
+            Compiler.Compiled_Functions.Add(vbTab & "//Return self")
+            Compiler.Compiled_Functions.Add(vbTab & "return self;")
+        Else
+            Compiler.Compiled_Functions.Add(vbTab & "")
+            Compiler.Compiled_Functions.Add(vbTab & "//Return NULL")
+            Compiler.Compiled_Functions.Add(vbTab & "return NULL;")
+        End If
 
         'End
         Compiler.Compiled_Functions.Add(vbTab)

@@ -1,12 +1,16 @@
 func main
-	bob("Hello world !")
-	let t = bob
-	t("sus")
-	callback(bob, "un")
-	callback(t, "deux")
+	let username = gets("Username : ")
+	puts("Your name is")
+	puts(username)
+	username = "tttt"
+	puts("Your name is")
+	puts(username)
 
-func callback(f:fun<str>, name:str)
-	f(name)
+	getSize() = 45
+	test[12]
 
-func bob(message:str)
-	puts(message)
+class list_of_int
+
+	relation [](target:list, index:int):ref:int
+		let test = 12
+		return @test

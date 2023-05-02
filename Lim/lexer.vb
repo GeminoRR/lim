@@ -112,18 +112,29 @@ Module Lexer
             If Digits.Contains(currentChar) Then
 
                 Dim numberString As String = ""
+                Dim PositionEndY As Integer
+                Dim PositionEndX As Integer
+                Dim ContainerDot As Boolean = False
 
                 While (Digits & ".").Contains(currentChar)
+                    If currentChar = "." Then
+                        If ContainerDot Then
+                            Exit While
+                        End If
+                        ContainerDot = True
+                    End If
                     numberString &= currentChar
+                    PositionEndY = currentCharLine
+                    PositionEndX = currentCharColumn
                     advance()
                 End While
 
-                If numberString.Contains(".") Then
+                If ContainerDot Then
                     'Float
                     Try
                         result.Add(New Token(TokenType.CT_FLOAT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Convert.ToDouble(numberString.Replace(".", ","))))
                     Catch ex As Exception
-                        ThrowCoordinatesSyntaxLimException("LLP01", "Could not convert number to float.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
+                        ThrowCoordinatesSyntaxLimException("LLP01", "Could not convert number to float.", file, PositionStartY, PositionStartX, PositionEndY, PositionEndX)
                     End Try
 
                 Else
@@ -131,7 +142,7 @@ Module Lexer
                     Try
                         result.Add(New Token(TokenType.CT_INTEGER, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Convert.ToInt64(numberString)))
                     Catch ex As Exception
-                        ThrowCoordinatesSyntaxLimException("LLP02", "Could not convert number to integer.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
+                        ThrowCoordinatesSyntaxLimException("LLP02", "Could not convert number to integer.", file, PositionStartY, PositionStartX, PositionEndY, PositionEndX)
                     End Try
 
                 End If
@@ -177,29 +188,39 @@ Module Lexer
                 Select Case Keyword
 
                     Case "true"
-                        result.Add(New Token(TokenType.CT_TRUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CT_TRUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "false"
-                        result.Add(New Token(TokenType.CT_FALSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CT_FALSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "null"
-                        result.Add(New Token(TokenType.CT_NULL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CT_NULL, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case "import"
-                        result.Add(New Token(TokenType.KW_IMPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_IMPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "class"
-                        result.Add(New Token(TokenType.KW_CLASS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_CLASS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "func"
-                        result.Add(New Token(TokenType.KW_FUNC, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_FUNC, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "export"
-                        result.Add(New Token(TokenType.KW_EXPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_EXPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "primary"
-                        result.Add(New Token(TokenType.KW_PRIMARY, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_PRIMARY, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "relation"
-                        result.Add(New Token(TokenType.KW_RELATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_RELATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "let"
-                        result.Add(New Token(TokenType.KW_LET, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.KW_LET, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "new"
+                        result.Add(New Token(TokenType.KW_NEW, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "and"
+                        result.Add(New Token(TokenType.OP_AND, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "or"
+                        result.Add(New Token(TokenType.OP_OR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "not"
+                        result.Add(New Token(TokenType.OP_NOT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "return"
+                        result.Add(New Token(TokenType.KW_RETURN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case Else
-                        result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Keyword))
+                        result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                 End Select
 

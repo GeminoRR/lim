@@ -35,7 +35,7 @@ Class AddSourceDirectlyNode
     '==============================
     Public Overrides Function ToString() As String
         Dim ReturnType_STR As String = ""
-        If Me.ReturnType Is Nothing Then
+        If Me.ReturnTypeNode IsNot Nothing Then
             ReturnType_STR = ":" & Me.ReturnTypeNode.ToString()
         End If
         Return "$""" & Me.OriginalValue & """" & ReturnType_STR

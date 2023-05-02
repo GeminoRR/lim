@@ -342,7 +342,50 @@ Class AST
     '========= NEW NODE =========
     '============================
     Private Function GetNew() As ValueNode
+
+        If CurrentToken.Type = TokenType.KW_NEW Then
+
+            'Get type
+            Dim tok As Token = CurrentToken
+            advance()
+            Dim TargetType As TypeNode = GetTypeNode()
+            Dim EndPosY As Integer = TargetType.PositionEndY
+            Dim EndPosX As Integer = TargetType.PositionEndX
+
+            'Get arguments
+            Dim PassedArguments As New List(Of ValueNode)
+            If CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS Then
+                advance()
+                If Not CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
+                    While True
+
+                        'Get value
+                        PassedArguments.Add(GetTopValue())
+
+                        'Continue loop
+                        If CurrentToken.Type = TokenType.OP_COMMA Then
+                            advance()
+                            Continue While
+                        ElseIf CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
+                            Exit While
+                        Else
+                            ThrowCoordinatesSyntaxLimException("ASTGN01", "A comma or closing parenthesis was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                        End If
+
+                    End While
+                End If
+                EndPosY = CurrentToken.PositionEndY
+                EndPosX = CurrentToken.PositionEndY
+                advance()
+            End If
+
+            'Return node
+            Return New NewNode(tok.PositionStartY, tok.PositionStartX, EndPosY, EndPosX, TargetType, PassedArguments)
+
+        End If
+
         Return GetFunctionCall()
+
     End Function
 
     '====================================
@@ -357,7 +400,7 @@ Class AST
     '===================================
     Private Function GetUnaryOperation() As ValueNode
 
-        If CurrentToken.Type = TokenType.OP_PLUS Or CurrentToken.Type = TokenType.OP_MINUS Then
+        If CurrentToken.Type = TokenType.OP_MINUS Then
             Dim Tok As Token = CurrentToken
             advance()
             Dim Target As Node = GetBracketSelector()
@@ -372,28 +415,76 @@ Class AST
     '========= TERM =========
     '========================
     Private Function GetTerm() As ValueNode
-        Return GetUnaryOperation()
+
+        Dim Left As ValueNode = GetUnaryOperation()
+        While {TokenType.OP_MULTIPLICATION, TokenType.OP_DIVISION}.Contains(CurrentToken.Type)
+
+            Dim Op As Token = CurrentToken
+            advance()
+            Dim Right As ValueNode = GetUnaryOperation()
+            Left = New BinaryOperationNode(Left.PositionStartY, Left.PositionStartX, Right.PositionEndY, Right.PositionEndX, Left, Right, Op)
+
+        End While
+
+        Return Left
+
     End Function
 
     '========================
     '========= EXPR =========
     '========================
     Private Function GetExpr() As ValueNode
-        Return GetTerm()
+
+        Dim Left As ValueNode = GetTerm()
+        While {TokenType.OP_PLUS, TokenType.OP_MINUS}.Contains(CurrentToken.Type)
+
+            Dim Op As Token = CurrentToken
+            advance()
+            Dim Right As ValueNode = GetTerm()
+            Left = New BinaryOperationNode(Left.PositionStartY, Left.PositionStartX, Right.PositionEndY, Right.PositionEndX, Left, Right, Op)
+
+        End While
+
+        Return Left
+
     End Function
 
     '==============================
     '========= COMPARISON =========
     '==============================
     Private Function GetComparison() As ValueNode
-        Return GetExpr()
+
+        Dim Left As ValueNode = GetExpr()
+        While {TokenType.OP_EQUAL, TokenType.OP_LESSTHAN, TokenType.OP_LESSTHANEQUAL, TokenType.OP_MORETHAN, TokenType.OP_MORETHANEQUAL}.Contains(CurrentToken.Type)
+
+            Dim Op As Token = CurrentToken
+            advance()
+            Dim Right As ValueNode = GetExpr()
+            Left = New ComparisonNode(Left.PositionStartY, Left.PositionStartX, Right.PositionEndY, Right.PositionEndX, Left, Right, Op)
+
+        End While
+
+        Return Left
+
     End Function
 
     '=====================================
     '========= BOOLEAN OPERATION =========
     '=====================================
     Private Function GetBooleanOperation() As ValueNode
-        Return GetComparison()
+
+        Dim Left As ValueNode = GetComparison()
+        While {TokenType.OP_AND, TokenType.OP_OR, TokenType.OP_NOT}.Contains(CurrentToken.Type)
+
+            Dim Op As Token = CurrentToken
+            advance()
+            Dim Right As ValueNode = GetComparison()
+            Left = New BooleanOperationNode(Left.PositionStartY, Left.PositionStartX, Right.PositionEndY, Right.PositionEndX, Left, Right, Op)
+
+        End While
+
+        Return Left
+
     End Function
 
     '==================================
@@ -455,6 +546,10 @@ Class AST
 
             End If
 
+            'Position
+            Dim EndPosY As Integer = 0
+            Dim EndPosX As Integer = 0
+
             'Type
             Dim ExplicitType As TypeNode = Nothing
             If CurrentToken.Type = TokenType.CODE_COLON Then
@@ -462,6 +557,8 @@ Class AST
                 'Get type
                 advance()
                 ExplicitType = GetTypeNode()
+                EndPosY = ExplicitType.PositionEndY
+                EndPosX = ExplicitType.PositionEndX
 
             End If
 
@@ -472,6 +569,8 @@ Class AST
                 'Get value
                 advance()
                 ExplicitValue = GetTopValue()
+                EndPosY = ExplicitValue.PositionEndY
+                EndPosX = ExplicitValue.PositionEndX
 
             End If
 
@@ -481,21 +580,52 @@ Class AST
             End If
 
             'Create node
-            Return New DeclareVariableNode(tok.PositionStartY, tok.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, VariableName, CustomName, ExplicitType, ExplicitValue, Export)
+            Return New DeclareVariableNode(tok.PositionStartY, tok.PositionStartX, EndPosY, EndPosX, VariableName, CustomName, ExplicitType, ExplicitValue, Export)
+
+        End If
+
+        'Return
+        If CurrentToken.Type = TokenType.KW_RETURN Then
+
+            'Save position
+            Dim StartY As Integer = CurrentToken.PositionStartY
+            Dim StartX As Integer = CurrentToken.PositionStartX
+            Dim EndY As Integer = CurrentToken.PositionEndY
+            Dim EndX As Integer = CurrentToken.PositionEndX
+            advance()
+
+            'Get value
+            Dim Value As ValueNode = Nothing
+            If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                Value = GetTopValue()
+                EndY = Value.PositionEndY
+                EndX = Value.PositionEndX
+            End If
+
+            'Create node
+            Return New ReturnNode(StartY, StartX, EndY, EndX, Value)
 
         End If
 
         'Deep call
-        Dim Value As Node = GetTopValue()
+        Dim LineValueNode As Node = GetTopValue()
+
+        'SetVariable
+        If TypeOf LineValueNode Is ComparisonNode Then
+            Dim CastedComparison As ComparisonNode = DirectCast(LineValueNode, ComparisonNode)
+            If CastedComparison.Op = RelationOperator.EQUAL And (TypeOf CastedComparison.Left Is VariableNode Or TypeOf CastedComparison.Left Is ChildNode Or TypeOf CastedComparison.Left Is BracketSelectorNode) Then
+                Return New SetVariableNode(CastedComparison)
+            End If
+        End If
 
         'Function call
-        If TypeOf Value Is FunctionCallNode Then
-            Return New FunctionCallStatementNode(Value)
+        If TypeOf LineValueNode Is FunctionCallNode Then
+            Return New FunctionCallStatementNode(LineValueNode)
         End If
 
         'Add source directly
-        If TypeOf Value Is AddSourceDirectlyNode Then
-            Return New AddSourceDirectlyStatementNode(Value)
+        If TypeOf LineValueNode Is AddSourceDirectlyNode Then
+            Return New AddSourceDirectlyStatementNode(LineValueNode)
         End If
 
         'Else
@@ -525,6 +655,8 @@ Class AST
             recede(SavedIndex + 1)
             Return GetLine()
         End If
+        Dim PositionStartY As Integer = CurrentToken.PositionStartY
+        Dim PositionStartX As Integer = CurrentToken.PositionStartX
         advance()
 
         'Check indentation level
@@ -532,26 +664,59 @@ Class AST
             ThrowCoordinatesSyntaxLimException("ASTGR02", "A relation is necessarily part of a class, so the definition line is necessarily indented by 1. However, the indentation level is " & CurrentScopeIndentation.ToString() & " here.", ParentFile, IndentationToken.PositionStartY, IndentationToken.PositionStartX, IndentationToken.PositionEndY, IndentationToken.PositionEndX)
         End If
 
-        'Function Name
-        If Not CurrentToken.Type = TokenType.CODE_TERM Then
-            ThrowCoordinatesSyntaxLimException("ASTGR03", "The function name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+        'Relation operator
+        Dim RelationOperator As RelationOperator = Nothing
+        If CurrentToken.Type = TokenType.OP_PLUS Then
+            RelationOperator = RelationOperator.PLUS
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_MINUS Then
+            RelationOperator = RelationOperator.MINUS
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_MULTIPLICATION Then
+            RelationOperator = RelationOperator.MULTIPLICATION
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_DIVISION Then
+            RelationOperator = RelationOperator.DIVISION
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_EQUAL Then
+            RelationOperator = RelationOperator.EQUAL
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_LESSTHAN Then
+            RelationOperator = RelationOperator.LESSTHAN
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_LESSTHANEQUAL Then
+            RelationOperator = RelationOperator.LESSTHANEQUAL
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_MORETHAN Then
+            RelationOperator = RelationOperator.MORETHAN
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_MORETHANEQUAL Then
+            RelationOperator = RelationOperator.MORETHANEQUAL
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_LEFT_BRACKET Then
+            advance()
+            If Not CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
+                ThrowCoordinatesSyntaxLimException("ASTGR03", "The ""]"" character was expected here", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            RelationOperator = RelationOperator.INDEX
+            advance()
+        Else
+            ThrowCoordinatesSyntaxLimException("ASTGR04", "The relation operator was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         End If
-        Dim ResultNode As New RelationNode(Tokens(TokenIndex).PositionStartY, Tokens(TokenIndex).PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken)
-        advance()
 
         'Arguments
+        Dim Arguments As New List(Of FunctionArgumentNode)
         If CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS Then
 
             'No arguments
             advance()
-            Dim OptionnalArguments As Boolean = False
             If Not CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
 
                 While True
 
                     'Get argument name
                     If Not CurrentToken.Type = TokenType.CODE_TERM Then
-                        ThrowCoordinatesSyntaxLimException("ASTGR04", "Argument name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                        ThrowCoordinatesSyntaxLimException("ASTGR05", "Argument name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
                     End If
                     Dim ArgumentNameToken As Token = CurrentToken
                     advance()
@@ -565,11 +730,11 @@ Class AST
 
                     'Optionnel
                     If CurrentToken.Type = TokenType.OP_EQUAL Then
-                        ThrowCoordinatesSyntaxLimException("ASTGR05", "The arguments of a relation cannot be optional.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                        ThrowCoordinatesSyntaxLimException("ASTGR06", "The arguments of a relation cannot be optional.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
                     End If
 
                     'Add argument
-                    ResultNode.RelationArguments.Add(New FunctionArgumentNode(ArgumentNameToken.PositionStartY, ArgumentNameToken.PositionStartX, ArgumentType.PositionEndY, ArgumentType.PositionEndX, ArgumentNameToken.Value, ArgumentType, Nothing))
+                    Arguments.Add(New FunctionArgumentNode(ArgumentNameToken.PositionStartY, ArgumentNameToken.PositionStartX, ArgumentType.PositionEndY, ArgumentType.PositionEndX, ArgumentNameToken.Value, ArgumentType, Nothing))
 
                     'Continue
                     If CurrentToken.Type = TokenType.OP_COMMA Then
@@ -578,7 +743,7 @@ Class AST
                     ElseIf CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
                         Exit While
                     Else
-                        ThrowCoordinatesSyntaxLimException("ASTGR06", "A comma or closing parenthesis was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                        ThrowCoordinatesSyntaxLimException("ASTGR07", "A comma or closing parenthesis was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
                     End If
 
                 End While
@@ -588,12 +753,73 @@ Class AST
 
         End If
 
+        'Create node
+        Dim ResultNode As New RelationNode(PositionStartY, PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, RelationOperator, Arguments)
+
+        'Verify operator & arguments & relation type
+        Select Case RelationOperator
+
+            Case RelationOperator.PLUS
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR08", "The ""+"" operator must take two arguments because its relation is of type: (a + b)", ResultNode)
+                End If
+
+            Case RelationOperator.MINUS
+                If Not (Arguments.Count = 2 Or Arguments.Count = 1) Then
+                    ThrowNodeSyntaxException("ASTGR09", "The ""-"" operator must take one or two arguments because its relations are of the type: (a + b) or (-a)", ResultNode)
+                End If
+
+            Case RelationOperator.MULTIPLICATION
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR10", "The ""*"" operator must take two arguments because its relation is of type: (a * b)", ResultNode)
+                End If
+
+            Case RelationOperator.DIVISION
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR11", "The ""/"" operator must take two arguments because its relation is of type: (a / b)", ResultNode)
+                End If
+
+            Case RelationOperator.EQUAL
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR12", "The ""="" operator must take two arguments because its relation is of type: (a = b)", ResultNode)
+                End If
+
+            Case RelationOperator.LESSTHAN
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR13", "The ""<"" operator must take two arguments because its relation is of type: (a < b)", ResultNode)
+                End If
+
+            Case RelationOperator.LESSTHANEQUAL
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR14", "The ""<="" operator must take two arguments because its relation is of type: (a <= b)", ResultNode)
+                End If
+
+            Case RelationOperator.MORETHAN
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR15", "The "">"" operator must take two arguments because its relation is of type: (a > b)", ResultNode)
+                End If
+
+            Case RelationOperator.MORETHANEQUAL
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR16", "The "">="" operator must take two arguments because its relation is of type: (a >= b)", ResultNode)
+                End If
+
+            Case RelationOperator.INDEX
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR17", "The ""[]"" operator must take two arguments because its relation is of type: ( a[b] )", ResultNode)
+                End If
+
+            Case Else
+                Throw New NotImplementedException()
+
+        End Select
+
         'Return type
         If CurrentToken.Type = TokenType.CODE_COLON Then
             advance()
-            Dim FunctionReturnType As TypeNode = GetTypeNode()
-            FunctionReturnType.ParentNode = ResultNode
-            ResultNode.ReturnTypeNode = FunctionReturnType
+            Dim ReturnTypeNode As TypeNode = GetTypeNode()
+            ReturnTypeNode.ParentNode = ResultNode
+            ResultNode.ReturnTypeNode = ReturnTypeNode
         End If
 
         'Content
@@ -601,7 +827,7 @@ Class AST
 
             'NewLine
             If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
-                ThrowCoordinatesSyntaxLimException("ASTGR07", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                ThrowCoordinatesSyntaxLimException("ASTGR18", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
             Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
             If LineIndentation <= CurrentScopeIndentation Then
@@ -613,6 +839,8 @@ Class AST
             Dim LineResult As Node = GetLine()
             LineResult.ParentNode = ResultNode
             ResultNode.Codes.Add(LineResult)
+            ResultNode.PositionEndY = LineResult.PositionEndY
+            ResultNode.PositionEndX = LineResult.PositionEndX
 
         End While
 
@@ -638,6 +866,8 @@ Class AST
         advance()
 
         'Export
+        Dim PositionStartY As Integer = CurrentToken.PositionStartY
+        Dim PositionStartX As Integer = CurrentToken.PositionStartX
         Dim export As Boolean = False
         If CurrentToken.Type = TokenType.KW_EXPORT Then
             export = True
@@ -646,8 +876,8 @@ Class AST
 
         'Is a function
         If Not CurrentToken.Type = TokenType.KW_FUNC Then
-            recede(SavedIndex + 1)
-            Return GetLine()
+            recede(SavedIndex)
+            Return GetRelation()
         End If
         advance()
 
@@ -657,33 +887,42 @@ Class AST
         End If
 
         'Function Name
-        Dim ResultNode As FunctionNode
+        Dim FunctionName As String = Nothing
+        Dim CustomHeader As String = Nothing
         If CurrentToken.Type = TokenType.CODE_DOLLAR Then
 
             advance()
             If Not CurrentToken.Type = TokenType.CT_STRING Then
                 ThrowCoordinatesSyntaxLimException("ASTGF09", "A string was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
+            If export Then
+                ThrowCoordinatesSyntaxLimException("ASTGF12", "A custom function is by definition accessible throughout the project. It is therefore useless to use the keyword ""export""", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
             If CurrentToken.Value = "" Then
                 ThrowCoordinatesSyntaxLimException("ASTGF11", "A function name and any parameters must be specified here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
-            ResultNode = New FunctionNode(Tokens(TokenIndex).PositionStartY, Tokens(TokenIndex).PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value)
+            CustomHeader = CurrentToken.Value
             advance()
             If CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS Then
                 ThrowCoordinatesSyntaxLimException("ASTGF10", "No parameters can be specified for such a function.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
+
+        ElseIf CurrentToken.Type = TokenType.KW_NEW Then
+            FunctionName = "new"
+            advance()
 
         Else
 
             If Not CurrentToken.Type = TokenType.CODE_TERM Then
                 ThrowCoordinatesSyntaxLimException("ASTGF03", "The function name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
-            ResultNode = New FunctionNode(Tokens(TokenIndex).PositionStartY, Tokens(TokenIndex).PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value, export)
+            FunctionName = CurrentToken.Value
             advance()
 
         End If
 
         'Arguments
+        Dim Arguments As New List(Of FunctionArgumentNode)
         If CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS Then
 
             'No arguments
@@ -732,9 +971,7 @@ Class AST
                     End If
 
                     'Add argument
-                    Dim ResultArgument As New FunctionArgumentNode(ArgumentNameToken.PositionStartY, ArgumentNameToken.PositionStartX, ArgumentPositionEndY, ArgumentPositionEndX, ArgumentNameToken.Value, ArgumentType, ArgumentValue)
-                    ResultArgument.ParentNode = ResultNode
-                    ResultNode.FunctionArguments.Add(ResultArgument)
+                    Arguments.Add(New FunctionArgumentNode(ArgumentNameToken.PositionStartY, ArgumentNameToken.PositionStartX, ArgumentPositionEndY, ArgumentPositionEndX, ArgumentNameToken.Value, ArgumentType, ArgumentValue))
 
                     'Continue
                     If CurrentToken.Type = TokenType.OP_COMMA Then
@@ -754,11 +991,18 @@ Class AST
         End If
 
         'Return type
+        Dim ReturnType As TypeNode = Nothing
         If CurrentToken.Type = TokenType.CODE_COLON Then
             advance()
-            Dim FunctionReturnType As TypeNode = GetTypeNode()
-            FunctionReturnType.ParentNode = ResultNode
-            ResultNode.ReturnTypeNode = FunctionReturnType
+            ReturnType = GetTypeNode()
+        End If
+
+        'Create node
+        Dim ResultNode As FunctionNode
+        If CustomHeader = Nothing Then
+            ResultNode = New FunctionNode(PositionStartY, PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, FunctionName, export, Arguments, ReturnType)
+        Else
+            ResultNode = New FunctionNode(PositionStartY, PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CustomHeader, ReturnType)
         End If
 
         'Content
@@ -803,6 +1047,8 @@ Class AST
         advance()
 
         'Export
+        Dim PositionStartY As Integer = CurrentToken.PositionStartY
+        Dim PositionStartX As Integer = CurrentToken.PositionStartX
         Dim export As Boolean = False
         If CurrentToken.Type = TokenType.KW_EXPORT Then
             export = True
@@ -832,24 +1078,24 @@ Class AST
         If Not CurrentToken.Type = TokenType.CODE_TERM Then
             ThrowCoordinatesSyntaxLimException("ASTGC08", "The class name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         End If
-        Dim ResultNode As New ClassNode(Tokens(TokenIndex).PositionStartY, Tokens(TokenIndex).PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value, export, primary)
+        Dim ResultNode As New ClassNode(PositionStartY, PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value, export, primary)
         If {"int", "float", "str", "bool", "any", "fun"}.Contains(CurrentToken.Value) Then
             If Not ParentFile.filepath = executableDirectory & "/libs/std.lim" Then
                 ThrowCoordinatesSyntaxLimException("ASTGC03", "The class """ & CurrentToken.Value & """ is already defined.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
             Select Case CurrentToken.Value
                 Case "int"
-                    Compiler.STD_int = New Type(ResultNode, New List(Of Type), False)
+                    Compiler.STDClass_int = ResultNode
                 Case "float"
-                    Compiler.STD_float = New Type(ResultNode, New List(Of Type), False)
+                    Compiler.STDClass_float = ResultNode
                 Case "str"
-                    Compiler.STD_str = New Type(ResultNode, New List(Of Type), False)
+                    Compiler.STDClass_str = ResultNode
                 Case "bool"
-                    Compiler.STD_bool = New Type(ResultNode, New List(Of Type), False)
+                    Compiler.STDClass_bool = ResultNode
                 Case "any"
-                    Compiler.STD_any = New Type(ResultNode, New List(Of Type), False)
+                    Compiler.STDClass_any = ResultNode
                 Case "fun"
-                    Compiler.STD_funClass = ResultNode
+                    Compiler.STDClass_fun = ResultNode
             End Select
         End If
         advance()
@@ -888,6 +1134,7 @@ Class AST
         End If
 
         'Content
+        Dim HasCloneMethod As Boolean = False
         While True
 
             'NewLine
@@ -906,6 +1153,11 @@ Class AST
             LineResult.ParentNode = ResultNode
             If TypeOf LineResult Is FunctionNode Then
                 ResultNode.Methods.Add(LineResult)
+                If (Not HasCloneMethod) And DirectCast(LineResult, FunctionNode).FunctionName = "clone" Then
+                    HasCloneMethod = True
+                End If
+            ElseIf TypeOf LineResult Is RelationNode Then
+                ResultNode.Relations.Add(LineResult)
             ElseIf TypeOf LineResult Is DeclareVariableNode Then
                 ResultNode.DeclareVariables.Add(LineResult)
             ElseIf TypeOf LineResult Is AddSourceDirectlyStatementNode Then
@@ -916,6 +1168,11 @@ Class AST
 
 
         End While
+
+        'Primary & not clone
+        If primary And Not HasCloneMethod Then
+            ThrowCoordinatesSyntaxLimException("ASTGC09", "A class defined as ""primary"" must have a clone method.", ParentFile, ResultNode.PositionStartY, ResultNode.PositionStartX, ResultNode.PositionEndY, ResultNode.PositionEndX)
+        End If
 
         'Return
         Return ResultNode

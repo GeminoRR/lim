@@ -1,28 +1,33 @@
-﻿'========================================
-'========== NUMERIC VALUE NODE ==========
-'========================================
+﻿'=======================================
+'========== BOOLEAN OPERATION ==========
+'=======================================
 '
-' Represents a numeric value
-' (Integer / Floating Point)
+' Represents a boolean operation
 '
-Class NumericValueNode
+Class BooleanOperationNode
     Inherits ValueNode
 
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public Value As Token
+    Public Left As ValueNode
+    Public Right As ValueNode
+    Dim Op As Token
 
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal Value As Token)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal Left As ValueNode, ByVal Right As ValueNode, ByVal Op As Token)
 
         'Inherits
         MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
 
         'Properties
-        Me.Value = Value
+        Me.Left = Left
+        Me.Left.ParentNode = Me
+        Me.Right = Right
+        Me.Right.ParentNode = Me
+        Me.Op = Op
 
     End Sub
 
@@ -30,40 +35,28 @@ Class NumericValueNode
     '========== TO STRING ==========
     '===============================
     Public Overrides Function ToString() As String
-        Return Value.ToString()
+        Return "(" & Left.ToString() & ") " & Op.ToString() & " (" & Right.ToString() & ")"
     End Function
 
     '=============================
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
-
-        If Value.Type = TokenType.CT_INTEGER Then
-            Return "new_int((int)" & Value.Value.ToString() & ")"
-        Else
-            Return "new_float((double)" & Value.Value.ToString().Replace(",", ".") & ")"
-        End If
-
+        Throw New NotImplementedException()
     End Function
 
     '=================================
     '========== IS CONSTANT ==========
     '=================================
     Protected Overrides Function CheckIsConstant() As Boolean
-        Return True
+        Return Me.Left.IsConstant And Me.Right.IsConstant
     End Function
 
     '=================================
     '========== RETURN TYPE ==========
     '=================================
     Protected Overrides Function NodeReturnType() As Type
-
-        If Value.Type = TokenType.CT_INTEGER Then
-            Return STD_int
-        Else
-            Return STD_float
-        End If
-
+        Return STD_bool
     End Function
 
 End Class

@@ -51,7 +51,7 @@ Class BooleanNode
     '========== RETURN TYPE ==========
     '=================================
     Protected Overrides Function NodeReturnType() As Type
-        Throw New NotImplementedException()
+        Return STD_bool
     End Function
 
 End Class

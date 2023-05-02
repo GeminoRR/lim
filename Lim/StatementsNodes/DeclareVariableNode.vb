@@ -127,7 +127,7 @@ Class DeclareVariableNode
     '=============================
     '========== COMPILE ==========
     '=============================
-    Public Function CompileFor(ByVal Create As List(Of String), ByVal Init As List(Of String)) As Variable
+    Public Function CompileFor(ByVal Create As List(Of String), ByVal Init As List(Of String), Optional InitWithSelf As Boolean = False) As Variable
 
         'Create variable
         Dim var As Variable
@@ -148,7 +148,11 @@ Class DeclareVariableNode
 
         'Compile
         Create.Add(Me.VariableType.CompiledName & " * " & var.CompiledName & ";")
-        Init.Add(var.CompiledName & " = " & DefaultValue & ";")
+        If InitWithSelf Then
+            Init.Add("self->" & var.CompiledName & " = " & DefaultValue & ";")
+        Else
+            Init.Add(var.CompiledName & " = " & DefaultValue & ";")
+        End If
 
         'Return
         Return var

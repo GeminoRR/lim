@@ -32,12 +32,17 @@ Module Compiler
     Public DefinedTypes As New List(Of Type)
     Public ClassCounter As Integer = 0
 
-    Public STD_int As Type
-    Public STD_float As Type
-    Public STD_str As Type
-    Public STD_bool As Type
-    Public STD_any As Type
-    Public STD_funClass As ClassNode
+    Public STDClass_int As ClassNode = Nothing
+    Public STD_int As Type = Nothing
+    Public STDClass_float As ClassNode = Nothing
+    Public STD_float As Type = Nothing
+    Public STDClass_str As ClassNode = Nothing
+    Public STD_str As Type = Nothing
+    Public STDClass_bool As ClassNode = Nothing
+    Public STD_bool As Type = Nothing
+    Public STDClass_any As ClassNode = Nothing
+    Public STD_any As Type = Nothing
+    Public STDClass_fun As ClassNode = Nothing
 
     '==================================
     '========== GET TEMPLATE ==========
@@ -117,34 +122,41 @@ Module Compiler
         End If
 
         'Get Primary types
-        If STD_int Is Nothing Then
+        If STDClass_int Is Nothing Then
             ThrowSimpleLimException("CC05", "Class missing", "Could not find class ""int"". Check the integrity of the ""std.lim"" library.")
         End If
-        STD_int.Compile(Nothing)
+        STD_int = New Type(STDClass_int, New List(Of Type), False)
 
-        If STD_float Is Nothing Then
+        If STDClass_float Is Nothing Then
             ThrowSimpleLimException("CC06", "Class missing", "Could not find class ""float"". Check the integrity of the ""std.lim"" library.")
         End If
-        STD_float.Compile(Nothing)
+        STD_float = New Type(STDClass_float, New List(Of Type), False)
 
-        If STD_str Is Nothing Then
+        If STDClass_str Is Nothing Then
             ThrowSimpleLimException("CC07", "Class missing", "Could not find class ""str"". Check the integrity of the ""std.lim"" library.")
         End If
-        STD_str.Compile(Nothing)
+        STD_str = New Type(STDClass_str, New List(Of Type), False)
 
-        If STD_bool Is Nothing Then
+        If STDClass_bool Is Nothing Then
             ThrowSimpleLimException("CC08", "Class missing", "Could not find class ""bool"". Check the integrity of the ""std.lim"" library.")
         End If
-        STD_bool.Compile(Nothing)
+        STD_bool = New Type(STDClass_bool, New List(Of Type), False)
 
-        If STD_any Is Nothing Then
+        If STDClass_any Is Nothing Then
             ThrowSimpleLimException("CC09", "Class missing", "Could not find class ""any"". Check the integrity of the ""std.lim"" library.")
         End If
-        STD_any.Compile(Nothing)
+        STD_any = New Type(STDClass_any, New List(Of Type), False)
 
-        If STD_funClass Is Nothing Then
+        If STDClass_fun Is Nothing Then
             ThrowSimpleLimException("CC10", "Class missing", "Could not find class ""fun"". Check the integrity of the ""std.lim"" library.")
         End If
+
+        'Compile primary types
+        STD_int.Compile(Nothing)
+        STD_float.Compile(Nothing)
+        STD_str.Compile(Nothing)
+        STD_bool.Compile(Nothing)
+        STD_any.Compile(Nothing)
 
 
         'Compile main
@@ -286,7 +298,10 @@ Module Compiler
             End If
 
             'Argument count
-            If (Not Arguments.Count = AlreadyDefinedType.PassedArguments.Count) And (Not AlreadyDefinedType.ParentClass.ClassName = "fun") Then
+            If (Not Arguments.Count = AlreadyDefinedType.PassedArguments.Count) Then
+                If AlreadyDefinedType.ParentClass.ClassName = "fun" Then
+                    Continue For
+                End If
                 ThrowNodeTypeException("CGTFCAA01", "The number of arguments given does not correspond to the number of arguments requested by the class.", CallerNode)
             End If
 
