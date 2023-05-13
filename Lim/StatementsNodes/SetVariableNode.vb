@@ -56,20 +56,54 @@ Class SetVariableNode
     '=============================
     Public Overrides Sub Compile(Content As List(Of String))
 
-        'Check type compatibility
-        If Not Target.ReturnType = NewValue.ReturnType Then
-            ThrowNodeTypeException("SVNC01", "The type of the value (" & NewValue.ReturnType.ToString() & ") does not match that of the variable (" & Target.ReturnType.ToString() & ").", Me.NewValue)
-        End If
-
         'Compile
         Content.Add("")
         If TypeOf Target Is VariableNode Then
 
+            'Check type compatibility
+            If Not Target.ReturnType = NewValue.ReturnType Then
+                ThrowNodeTypeException("SVNC01", "The type of the value (" & NewValue.ReturnType.ToString() & ") does not match that of the variable (" & Target.ReturnType.ToString() & ").", Me.NewValue)
+            End If
+
+            'Compile
             Content.Add(DirectCast(Target, VariableNode).CompileRef(Content) & " = (" & NewValue.Compile(Content) & ");")
 
         ElseIf TypeOf Target Is ChildNode Then
 
+            'Check type compatibility
+            If Not Target.ReturnType = NewValue.ReturnType Then
+                ThrowNodeTypeException("SVNC01", "The type of the value (" & NewValue.ReturnType.ToString() & ") does not match that of the variable (" & Target.ReturnType.ToString() & ").", Me.NewValue)
+            End If
+
+            'Compile
             Content.Add(DirectCast(Target, ChildNode).CompileRef(Content) & " = (" & NewValue.Compile(Content) & ");")
+
+        ElseIf TypeOf Target Is BracketSelectorNode Then
+
+            'Get relation
+            Dim CastedTarget As BracketSelectorNode = DirectCast(Target, BracketSelectorNode)
+            For Each Relation As RelationNode In CastedTarget.Target.ReturnType.Relations
+                If Relation.RelationOperator = RelationOperator.INDEX_SET Then
+
+                    'Check arguments
+                    If Not (Relation.RelationArguments(1).ArgumentType = CastedTarget.Index.ReturnType And Relation.RelationArguments(2).ArgumentType = NewValue.ReturnType) Then
+                        Continue For
+                    End If
+
+                    'Compile method
+                    Relation.Compile(Nothing)
+
+                    'Compile
+                    Content.Add(Relation.CompiledName & "((" & CastedTarget.Target.Compile(Content) & "), (" & CastedTarget.Index.Compile(Content) & "), (" & NewValue.Compile(Content) & "));")
+
+                    'Exit
+                    Exit Sub
+
+                End If
+            Next
+
+            'Not find
+            ThrowNodeTypeException("SVNC03", "No relation found for this operation", Me)
 
         Else
 

@@ -43,6 +43,7 @@ Module Compiler
     Public STDClass_any As ClassNode = Nothing
     Public STD_any As Type = Nothing
     Public STDClass_fun As ClassNode = Nothing
+    Public STDClass_list As ClassNode = Nothing
 
     '==================================
     '========== GET TEMPLATE ==========
@@ -149,6 +150,10 @@ Module Compiler
 
         If STDClass_fun Is Nothing Then
             ThrowSimpleLimException("CC10", "Class missing", "Could not find class ""fun"". Check the integrity of the ""std.lim"" library.")
+        End If
+
+        If STDClass_list Is Nothing Then
+            ThrowSimpleLimException("CC11", "Class missing", "Could not find class ""list"". Check the integrity of the ""std.lim"" library.")
         End If
 
         'Compile primary types

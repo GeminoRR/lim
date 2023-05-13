@@ -161,10 +161,14 @@ Class RelationNode
         Next
 
         'HEADER - Return Type
-        If Me.ReturnType Is Nothing Then
-            ThrowNodeTypeException("RNC02", "A relation must absolutely return a value, which is not the case here.", Me)
+        If Me.RelationOperator = RelationOperator.INDEX_SET Then
+            Header = "void * " & Header
+        Else
+            If Me.ReturnType Is Nothing Then
+                ThrowNodeTypeException("RNC02", "This relation must absolutely return a value, which is not the case here.", Me)
+            End If
+            Header = Me.ReturnType.CompiledName & " * " & Header
         End If
-        Header = Me.ReturnType.CompiledName & " * " & Header
 
         'Add header to prototypes
         Compiler.Compiled_FunctionsPrototypes.Add("/* " & DirectCast(Me.ParentNode, Type).ParentClass.ClassName & " -> Relation " & Me.RelationOperator.ToString() & " */ " & Header & ";")
@@ -201,6 +205,8 @@ Enum RelationOperator
     MULTIPLICATION
     DIVISION
 
+    UNARY_MINUS
+
     EQUAL
     LESSTHAN
     LESSTHANEQUAL
@@ -208,5 +214,6 @@ Enum RelationOperator
     MORETHANEQUAL
 
     INDEX
+    INDEX_SET
 
 End Enum

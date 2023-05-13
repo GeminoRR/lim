@@ -10,9 +10,8 @@ Class BracketSelectorNode
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public Left As ValueNode
-    Public Right As ValueNode
-    Dim Op As RelationOperator
+    Public Target As ValueNode
+    Public Index As ValueNode
     Private TargetedRelation As RelationNode = Nothing
 
     '===============================
@@ -21,8 +20,8 @@ Class BracketSelectorNode
     Protected Overrides Function Duplicate() As Node
 
         Dim Cloned As BracketSelectorNode = Me.MemberwiseClone()
-        Cloned.Left = Cloned.Left.Clone(Cloned)
-        Cloned.Right = Cloned.Right.Clone(Cloned)
+        Cloned.Target = Cloned.Target.Clone(Cloned)
+        Cloned.Index = Cloned.Index.Clone(Cloned)
         Cloned.TargetedRelation = Nothing
         Return Cloned
 
@@ -31,34 +30,16 @@ Class BracketSelectorNode
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal Left As ValueNode, ByVal Right As ValueNode, ByVal Op As Token)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal Target As ValueNode, ByVal Index As ValueNode)
 
         'Inherits
         MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
 
         'Properties
-        Me.Left = Left
-        Me.Left.ParentNode = Me
-        Me.Right = Right
-        Me.Right.ParentNode = Me
-        Select Case Op.Type
-
-            Case TokenType.OP_PLUS
-                Me.Op = RelationOperator.PLUS
-
-            Case TokenType.OP_MINUS
-                Me.Op = RelationOperator.MINUS
-
-            Case TokenType.OP_MULTIPLICATION
-                Me.Op = RelationOperator.MULTIPLICATION
-
-            Case TokenType.OP_DIVISION
-                Me.Op = RelationOperator.DIVISION
-
-            Case Else
-                Throw New NotImplementedException()
-
-        End Select
+        Me.Target = Target
+        Me.Target.ParentNode = Me
+        Me.Index = Index
+        Me.Index.ParentNode = Me
 
     End Sub
 
@@ -66,7 +47,7 @@ Class BracketSelectorNode
     '========== TO STRING ==========
     '===============================
     Public Overrides Function ToString() As String
-        Return "(" & Left.ToString() & ") " & Op.ToString() & " (" & Right.ToString() & ")"
+        Return "(" & Target.ToString() & ")[" & Index.ToString() & "]"
     End Function
 
     '==================================
@@ -80,15 +61,15 @@ Class BracketSelectorNode
         End If
 
         'Find
-        For Each Relation As RelationNode In Left.ReturnType.Relations
-            If Relation.RelationOperator = Me.Op And Relation.RelationArguments(1).ArgumentType = Right.ReturnType Then
+        For Each Relation As RelationNode In Target.ReturnType.Relations
+            If Relation.RelationOperator = RelationOperator.INDEX And Relation.RelationArguments(1).ArgumentType = Index.ReturnType Then
                 TargetedRelation = Relation
                 Exit Sub
             End If
         Next
 
         'Not find
-        ThrowNodeTypeException("BONGR", "No relation found for this operation", Me)
+        ThrowNodeTypeException("BSNGR01", "No relation found for this operation", Me)
 
     End Sub
 
@@ -101,7 +82,7 @@ Class BracketSelectorNode
         GetRelation()
 
         'Return return type of relation
-        Return TargetedRelation.CompiledName & "((" & Left.Compile(content) & "), (" & Right.Compile(content) & "))"
+        Return TargetedRelation.CompiledName & "((" & Target.Compile(content) & "), (" & Index.Compile(content) & "))"
 
     End Function
 

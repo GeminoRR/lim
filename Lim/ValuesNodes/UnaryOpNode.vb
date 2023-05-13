@@ -12,7 +12,8 @@ Class UnaryOpNode
     '========== VARIABLES ==========
     '===============================
     Public Op As Token
-    Public Target As Node
+    Public Target As ValueNode
+    Private TargetedRelation As RelationNode = Nothing
 
     '===============================
     '========== DUPLICATE ==========
@@ -21,6 +22,7 @@ Class UnaryOpNode
 
         Dim Cloned As UnaryOpNode = Me.MemberwiseClone()
         Cloned.Target = Cloned.Target.Clone(Cloned)
+        Cloned.TargetedRelation = Nothing
         Return Cloned
 
     End Function
@@ -51,7 +53,13 @@ Class UnaryOpNode
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
-        Throw New NotImplementedException()
+
+        'Get relation
+        GetRelation()
+
+        'Compile
+        Return TargetedRelation.CompiledName & "(" & Target.Compile(content) & ")"
+
     End Function
 
     '=================================
@@ -65,7 +73,36 @@ Class UnaryOpNode
     '========== RETURN TYPE ==========
     '=================================
     Protected Overrides Function NodeReturnType() As Type
-        Throw New NotImplementedException()
+
+        'Get relation
+        GetRelation()
+
+        'Return type
+        Return TargetedRelation.ReturnType
+
     End Function
+
+    '==================================
+    '========== GET RELATION ==========
+    '==================================
+    Private Sub GetRelation()
+
+        'Already check
+        If TargetedRelation IsNot Nothing Then
+            Exit Sub
+        End If
+
+        'Find
+        For Each Relation As RelationNode In Target.ReturnType.Relations
+            If Relation.RelationOperator = RelationOperator.UNARY_MINUS Then
+                TargetedRelation = Relation
+                Exit Sub
+            End If
+        Next
+
+        'Not find
+        ThrowNodeTypeException("UONGR01", "No relation found for this operation", Me)
+
+    End Sub
 
 End Class

@@ -249,6 +249,26 @@ Class AST
             advance()
             Return node
 
+        ElseIf tok.Type = TokenType.OP_LEFT_BRACKET Then
+            advance()
+            If CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
+                ThrowCoordinatesSyntaxLimException("ASTGF06", "An empty list cannot be declared this way because its type cannot be inferred.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            Dim Values As New List(Of ValueNode)
+            While True
+                Values.Add(GetTopValue())
+                If CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
+                    Exit While
+                ElseIf CurrentToken.Type = TokenType.OP_COMMA Then
+                    advance()
+                Else
+                    ThrowCoordinatesSyntaxLimException("ASTGF05", "A comma or a closing bracket was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+            End While
+            Dim Result As New ListNode(tok.PositionStartY, tok.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Values)
+            advance()
+            Return Result
+
         ElseIf tok.Type = TokenType.CODE_LINEINDENTATION Then
             ThrowCoordinatesSyntaxLimException("ASTGF04", "The previous line is not complete.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
 
@@ -388,7 +408,21 @@ Class AST
     '========= BRACKET SELECTOR =========
     '====================================
     Private Function GetBracketSelector() As ValueNode
-        Return GetNew()
+
+        Dim Left As ValueNode = GetNew()
+        While CurrentToken.Type = TokenType.OP_LEFT_BRACKET
+
+            advance()
+            Dim Index As ValueNode = GetTopValue()
+            If Not CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
+                ThrowCoordinatesSyntaxLimException("ASTGBS01", "A closing bracket was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            Left = New BracketSelectorNode(Left.PositionStartY, Left.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Left, Index)
+            advance()
+
+        End While
+        Return Left
+
     End Function
 
     '===================================
@@ -400,7 +434,7 @@ Class AST
             Dim Tok As Token = CurrentToken
             advance()
             Dim Target As Node = GetBracketSelector()
-            Return New UnaryOpNode(CurrentToken.PositionStartY, CurrentToken.PositionStartX, Target.PositionEndY, Target.PositionEndX, Tok, Target)
+            Return New UnaryOpNode(Tok.PositionStartY, Tok.PositionStartX, Target.PositionEndY, Target.PositionEndX, Tok, Target)
         Else
             Return GetBracketSelector()
         End If
@@ -761,7 +795,12 @@ Class AST
                 End If
 
             Case RelationOperator.MINUS
-                If Not (Arguments.Count = 2 Or Arguments.Count = 1) Then
+                If Arguments.Count = 1 Then
+                    ResultNode.RelationOperator = RelationOperator.UNARY_MINUS
+                    RelationOperator = RelationOperator.UNARY_MINUS
+                    Exit Select
+                End If
+                If Not Arguments.Count = 2 Then
                     ThrowNodeSyntaxException("ASTGR09", "The ""-"" operator must take one or two arguments because its relations are of the type: (a + b) or (-a)", ResultNode)
                 End If
 
@@ -801,8 +840,13 @@ Class AST
                 End If
 
             Case RelationOperator.INDEX
+                If Arguments.Count = 3 Then
+                    ResultNode.RelationOperator = RelationOperator.INDEX_SET
+                    RelationOperator = RelationOperator.INDEX_SET
+                    Exit Select
+                End If
                 If Not Arguments.Count = 2 Then
-                    ThrowNodeSyntaxException("ASTGR17", "The ""[]"" operator must take two arguments because its relation is of type: ( a[b] )", ResultNode)
+                    ThrowNodeSyntaxException("ASTGR17", "The ""[]"" operator must take two or three arguments because its relations are of type: ( a[b] ) or ( a[b] = c )", ResultNode)
                 End If
 
             Case Else
@@ -1075,7 +1119,7 @@ Class AST
             ThrowCoordinatesSyntaxLimException("ASTGC08", "The class name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         End If
         Dim ResultNode As New ClassNode(PositionStartY, PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value, export, primary)
-        If {"int", "float", "str", "bool", "any", "fun"}.Contains(CurrentToken.Value) Then
+        If {"int", "float", "str", "bool", "any", "fun", "list"}.Contains(CurrentToken.Value) Then
             If Not ParentFile.filepath = executableDirectory & "/libs/std.lim" Then
                 ThrowCoordinatesSyntaxLimException("ASTGC03", "The class """ & CurrentToken.Value & """ is already defined.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
             End If
@@ -1092,6 +1136,8 @@ Class AST
                     Compiler.STDClass_any = ResultNode
                 Case "fun"
                     Compiler.STDClass_fun = ResultNode
+                Case "list"
+                    Compiler.STDClass_list = ResultNode
             End Select
         End If
         advance()

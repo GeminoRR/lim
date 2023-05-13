@@ -1,7 +1,10 @@
 func main
-	let test = new list<int>
-	test.add(randint(0, 10))
-	test.add(randint(0, 10))
-	test.add(randint(0, 10))
-	test.add(randint(0, 10))
-	puts(test.str())
+	let city = ["Paris", "London", "New York"]
+	puts(city[0])
+	puts(city[1])
+	puts(city[-1])
+
+	puts(city.str())
+	city[0] = "Brest"
+	city[-1] = "Brest (aussi)"
+	puts(city.str())
