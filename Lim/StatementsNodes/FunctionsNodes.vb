@@ -10,15 +10,37 @@ Class FunctionNode
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public ReadOnly ReturnTypeNode As TypeNode
-    Public ReadOnly FunctionName As String
-    Public ReadOnly FunctionArguments As New List(Of FunctionArgumentNode)
-    Public ReadOnly Export As Boolean
+    Public ReturnTypeNode As TypeNode
+    Public FunctionName As String
+    Public FunctionArguments As New List(Of FunctionArgumentNode)
+    Public Export As Boolean
     Public Codes As New List(Of StatementNode)
-    Public ReadOnly CompiledName As String
-    Public ReadOnly CustomHeader As String = ""
-    Public ReadOnly MinArguments As Integer
-    Public ReadOnly MaxArguments As Integer
+    Public CompiledName As String
+    Public CustomHeader As String = ""
+    Public MinArguments As Integer
+    Public MaxArguments As Integer
+
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As FunctionNode = Me.MemberwiseClone()
+        If Cloned.ReturnTypeNode IsNot Nothing Then
+            Cloned.ReturnTypeNode = Cloned.ReturnTypeNode.Clone(Cloned)
+        End If
+        Cloned.CompiledName = GetRelationCompiledName()
+        Cloned._ReturnType = Nothing
+        Cloned.Compiled = False
+        For i As Integer = 0 To Cloned.FunctionArguments.Count - 1
+            Cloned.FunctionArguments(i) = Cloned.FunctionArguments(i).Clone(Cloned)
+        Next
+        For i As Integer = 0 To Cloned.Codes.Count - 1
+            Cloned.Codes(i) = Cloned.Codes(i).Clone(Cloned)
+        Next
+        Return Cloned
+
+    End Function
 
     '=================================
     '========== RETURN TYPE ==========
@@ -340,9 +362,9 @@ Class FunctionNode
                     If Me.ReturnType IsNot Nothing Then
                         ThrowNodeSyntaxException("FNC02", "The constructor of a class cannot return a value.", Me.ReturnTypeNode)
                     End If
-                    FunctionLines.Add("")
-                    FunctionLines.Add("// Allocate memory")
-                    FunctionLines.Add(ParentType.CompiledName & " * self = " & ParentType.CompiledName & "_allocate();")
+                    FunctionLines.Insert(0, ParentType.CompiledName & " * self = " & ParentType.CompiledName & "_allocate();")
+                    FunctionLines.Insert(0, "// Allocate memory")
+                    FunctionLines.Insert(0, "")
                     CompiledReturnType = ParentType.CompiledName & " * "
 
                 Case "str"
@@ -438,13 +460,6 @@ Class FunctionNode
 
     End Sub
 
-    '===========================
-    '========== CLONE ==========
-    '===========================
-    Public Function Clone() As FunctionNode
-        Return Me.MemberwiseClone()
-    End Function
-
 End Class
 
 '============================================
@@ -493,7 +508,24 @@ Class FunctionArgumentNode
             Return _ArgumentType
         End Get
     End Property
-    Private _ArgumentType As Type
+    Private _ArgumentType As Type = Nothing
+
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As FunctionArgumentNode = Me.MemberwiseClone()
+        If Cloned.ArgumentTypeNode IsNot Nothing Then
+            Cloned.ArgumentTypeNode = Cloned.ArgumentTypeNode.Clone(Cloned)
+        End If
+        If Cloned.ArgumentDefaultValue IsNot Nothing Then
+            Cloned.ArgumentDefaultValue = Cloned.ArgumentDefaultValue.Clone(Cloned)
+        End If
+        Cloned._ArgumentType = Nothing
+        Return Cloned
+
+    End Function
 
     '=================================
     '========== CONSTRUCTOR ==========

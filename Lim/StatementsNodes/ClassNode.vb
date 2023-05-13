@@ -21,6 +21,15 @@ Class ClassNode
     Public AddSourcesDirectly As New List(Of AddSourceDirectlyStatementNode)
     Private ClassID As Integer
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Throw New NotImplementedException()
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

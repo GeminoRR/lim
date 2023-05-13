@@ -67,11 +67,6 @@ Class AST
             'Value
             ReturnValue = GetTopValue()
 
-            'Error
-            If TypeOf ReturnValue Is AddSourceDirectlyNode Then
-                ThrowCoordinatesSyntaxLimException("ASTPV02", "An ""AddSourceDirectly"" node cannot be located here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
-            End If
-
         End If
 
         'Error
@@ -185,6 +180,7 @@ Class AST
             If CurrentToken.Type = TokenType.OP_LESSTHAN Then
                 advance()
                 SecondArgument = GetTypeNode()
+                SecondArgument.ParentNode = ResultNode
                 If Not CurrentToken.Type = TokenType.OP_MORETHAN Then
                     ThrowCoordinatesSyntaxLimException("ASTGT03", "A greater than sign is missing here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
                 End If

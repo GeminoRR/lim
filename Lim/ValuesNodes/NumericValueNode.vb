@@ -13,6 +13,16 @@ Class NumericValueNode
     '===============================
     Public Value As Token
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As NumericValueNode = Me.MemberwiseClone()
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

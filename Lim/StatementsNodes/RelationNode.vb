@@ -14,7 +14,7 @@ Class RelationNode
     Public RelationOperator As RelationOperator
     Public RelationArguments As New List(Of FunctionArgumentNode)
     Public Codes As New List(Of Node)
-    Public ReadOnly CompiledName As String
+    Public CompiledName As String
     Public Property ReturnType As Type
         Get
             If _ReturnType Is Nothing Then
@@ -45,6 +45,28 @@ Class RelationNode
         End Set
     End Property
     Private _ReturnType As Type
+
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As RelationNode = Me.MemberwiseClone()
+        If Cloned.ReturnTypeNode IsNot Nothing Then
+            Cloned.ReturnTypeNode = Cloned.ReturnTypeNode.Clone(Cloned)
+        End If
+        Cloned.CompiledName = GetRelationCompiledName()
+        Cloned._ReturnType = Nothing
+        Cloned.Compiled = False
+        For i As Integer = 0 To Cloned.RelationArguments.Count - 1
+            Cloned.RelationArguments(i) = Cloned.RelationArguments(i).Clone(Cloned)
+        Next
+        For i As Integer = 0 To Cloned.Codes.Count - 1
+            Cloned.Codes(i) = Cloned.Codes(i).Clone(Cloned)
+        Next
+        Return Cloned
+
+    End Function
 
     '=================================
     '========== CONSTRUCTOR ==========
@@ -149,7 +171,7 @@ Class RelationNode
 
         'Add header
         Compiler.Compiled_Functions.Add("")
-        Compiler.Compiled_FunctionsPrototypes.Add("// " & DirectCast(Me.ParentNode, Type).ParentClass.ClassName & " -> Relation " & Me.RelationOperator.ToString())
+        Compiler.Compiled_Functions.Add("// " & DirectCast(Me.ParentNode, Type).ParentClass.ClassName & " -> Relation " & Me.RelationOperator.ToString())
         Compiler.Compiled_Functions.Add(Header & "{")
 
         'Add content
@@ -166,13 +188,6 @@ Class RelationNode
         Compiler.Compiled_Functions.Add(vbTab)
         Compiler.Compiled_Functions.Add("}")
     End Sub
-
-    '===========================
-    '========== CLONE ==========
-    '===========================
-    Public Function Clone() As RelationNode
-        Return Me.MemberwiseClone()
-    End Function
 
 End Class
 

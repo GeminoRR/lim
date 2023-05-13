@@ -73,6 +73,29 @@ Class TypeNode
         Get
             If _AssociateClassNode Is Nothing Then
 
+                'Generic Type
+                If PassedArguments.Count = 0 Then
+                    Dim ParentNode As Node = Me
+                    While ParentNode.ParentNode IsNot Nothing
+
+                        ParentNode = ParentNode.ParentNode
+                        If Not TypeOf ParentNode Is Type Then
+                            Continue While
+                        End If
+
+                        Dim ParentType As Type = DirectCast(ParentNode, Type)
+                        For i As Integer = 0 To ParentType.ParentClass.Arguments.Count - 1
+                            If ParentType.ParentClass.Arguments(i) = ClassName Then
+                                _AssociateClassNode = ParentType.PassedArguments(i).ParentClass
+                                Return _AssociateClassNode
+                            End If
+                        Next
+
+                        Exit While
+
+                    End While
+                End If
+
                 'Search in class of current file
                 For Each ClassNode As ClassNode In Me.ParentFile.Classes
                     If ClassNode.ClassName = Me.ClassName Then
@@ -99,6 +122,21 @@ Class TypeNode
         End Get
     End Property
     Private _AssociateClassNode As ClassNode = Nothing
+
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As TypeNode = Me.MemberwiseClone()
+        For i As Integer = 0 To Cloned.PassedArguments.Count - 1
+            Cloned.PassedArguments(i) = Cloned.PassedArguments(i).Clone(Cloned)
+        Next
+        Cloned._AssociateClassNode = Nothing
+        Cloned._AssociateType = Nothing
+        Return Cloned
+
+    End Function
 
     '=================================
     '========== CONSTRUCTOR ==========

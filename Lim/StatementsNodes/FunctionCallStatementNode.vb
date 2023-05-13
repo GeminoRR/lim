@@ -12,6 +12,17 @@ Class FunctionCallStatementNode
     '===============================
     Public CallNode As FunctionCallNode
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As FunctionCallStatementNode = Me.MemberwiseClone()
+        Cloned.CallNode = Cloned.CallNode.Clone(Cloned)
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

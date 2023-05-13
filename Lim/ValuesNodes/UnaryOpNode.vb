@@ -14,6 +14,17 @@ Class UnaryOpNode
     Public Op As Token
     Public Target As Node
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As UnaryOpNode = Me.MemberwiseClone()
+        Cloned.Target = Cloned.Target.Clone(Cloned)
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

@@ -13,6 +13,20 @@ Class NewNode
     Public TargetType As TypeNode
     Public PassedArguments As List(Of ValueNode)
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As NewNode = Me.MemberwiseClone()
+        Cloned.TargetType = Cloned.TargetType.Clone(Cloned)
+        For i As Integer = 0 To Cloned.PassedArguments.Count - 1
+            Cloned.PassedArguments(i) = Cloned.PassedArguments(i).Clone(Cloned)
+        Next
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

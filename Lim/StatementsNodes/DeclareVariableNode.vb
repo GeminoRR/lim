@@ -47,7 +47,22 @@ Class DeclareVariableNode
         End Get
     End Property
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
 
+        Dim Cloned As DeclareVariableNode = Me.MemberwiseClone()
+        If Cloned.ExplicitType IsNot Nothing Then
+            Cloned.ExplicitType = Cloned.ExplicitType.Clone(Cloned)
+        End If
+        If Cloned.ExplicitValue IsNot Nothing Then
+            Cloned.ExplicitValue = Cloned.ExplicitValue.Clone(Cloned)
+        End If
+        Cloned._VariableType = Nothing
+        Return Cloned
+
+    End Function
 
     '=================================
     '========== CONSTRUCTOR ==========

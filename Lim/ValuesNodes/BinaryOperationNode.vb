@@ -15,6 +15,19 @@ Class BinaryOperationNode
     Dim Op As RelationOperator
     Private TargetedRelation As RelationNode = Nothing
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As BinaryOperationNode = Me.MemberwiseClone()
+        Cloned.Left = Cloned.Left.Clone(Cloned)
+        Cloned.Right = Cloned.Right.Clone(Cloned)
+        Cloned.TargetedRelation = Nothing
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

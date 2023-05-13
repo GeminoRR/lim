@@ -14,6 +14,17 @@ Class VariableNode
     Private Var As Variable = Nothing
     Private PreText As String = ""
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As VariableNode = Me.MemberwiseClone()
+        Cloned.Var = Nothing
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
@@ -34,13 +45,26 @@ Class VariableNode
         Return VariableName
     End Function
 
+    '=================================
+    '========== COMPILE REF ==========
+    '=================================
+    Public Function CompileRef(content As List(Of String)) As String
+
+        'Get variable
+        GetTarget(content)
+
+        'Doesn't check primary type
+        Return PreText & Var.CompiledName
+
+    End Function
+
     '=============================
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
 
         'Get variable
-        GetTarget()
+        GetTarget(content)
 
         'Is a primary type
         If Var.ValueType.ParentClass.Primary Then
@@ -70,22 +94,19 @@ Class VariableNode
     '=================================
     Protected Overrides Function NodeReturnType() As Type
 
-        'Get variable
-        GetTarget()
-
         'Return type
-        Return Var.ValueType
+        Return GetTarget()
 
     End Function
 
     '======================================
     '========== REFRESH VARIABLE ==========
     '======================================
-    Public Function GetTarget(Optional ByVal SearchFunction As Boolean = False) As FunctionNode
+    Public Function GetTarget(Optional ByVal content As List(Of String) = Nothing) As Object
 
-        'No need
-        If Var IsNot Nothing And Not SearchFunction Then
-            Return Nothing
+        'Var already found
+        If Var IsNot Nothing Then
+            Return Var.ValueType
         End If
 
         'Check variables from this file
@@ -107,9 +128,28 @@ Class VariableNode
                     If TypeOf UpperNode Is Type Then
                         PreText = "self->"
                     End If
-                    Return Nothing
+                    Return Var.ValueType
                 End If
             Next
+
+            'Loop in each method
+            If TypeOf UpperNode Is Type Then
+                For Each method As FunctionNode In DirectCast(UpperNode, Type).Methods
+                    If method.FunctionName = Me.VariableName Then
+                        If content IsNot Nothing Then
+                            Var = New Variable(method.FunctionName, method.MinimumFunctionType, True, GetFunctionCompiledName(), method.Export)
+                            Me.ParentScope.Variables.Add(Var)
+                            content.Add(method.MinimumFunctionType.CompiledName & " * " & Var.CompiledName & ";")
+                            content.Add(Var.CompiledName & " = " & method.MinimumFunctionType.CompiledName & "_allocate();")
+                            content.Add(Var.CompiledName & "->target = " & method.MinimumFunctionCompiledName & ";")
+                            content.Add(Var.CompiledName & "->object = self;")
+                            Return Nothing
+                        Else
+                            Return method.MinimumFunctionType
+                        End If
+                    End If
+                Next
+            End If
 
         End While
 
@@ -118,7 +158,7 @@ Class VariableNode
             For Each ScopeVar As Variable In ImportedFile.Variables
                 If ScopeVar.Export And ScopeVar.VariableName = Me.VariableName Then
                     Var = ScopeVar
-                    Return Nothing
+                    Return Var.ValueType
                 End If
             Next
         Next
@@ -127,7 +167,7 @@ Class VariableNode
         For Each ScopeVar As DeclareVariableNode In Me.ParentFile.DeclareVariables
             If ScopeVar.VariableName = Me.VariableName Then
                 Var = ScopeVar.CompileFor(Compiled_Variables, Compiled_Inits)
-                Return Nothing
+                Return Var.ValueType
             End If
         Next
 
@@ -136,7 +176,7 @@ Class VariableNode
             For Each ScopeVar As DeclareVariableNode In ImportedFile.DeclareVariables
                 If ScopeVar.Export And ScopeVar.VariableName = Me.VariableName Then
                     Var = ScopeVar.CompileFor(Compiled_Variables, Compiled_Inits)
-                    Return Nothing
+                    Return Var.ValueType
                 End If
             Next
         Next
@@ -144,12 +184,8 @@ Class VariableNode
         'Check functions from this file
         For Each fun As FunctionNode In Me.ParentFile.Functions
             If fun.FunctionName = Me.VariableName Then
-                If SearchFunction Then
-                    Return fun
-                Else
-                    Var = FunctionToVariable(fun)
-                End If
-                Return Nothing
+                Var = FunctionToGlobalVariable(fun)
+                Return Var.ValueType
             End If
         Next
 
@@ -157,20 +193,13 @@ Class VariableNode
         For Each ImportedFile As SourceFile In Me.ParentFile.ImportedFiles
             For Each fun As FunctionNode In ImportedFile.Functions
                 If fun.Export And fun.FunctionName = Me.VariableName Then
-                    If SearchFunction Then
-                        Return fun
-                    Else
-                        Var = FunctionToVariable(fun)
-                    End If
-                    Return Nothing
+                    Var = FunctionToGlobalVariable(fun)
+                    Return Var.ValueType
                 End If
             Next
         Next
 
         'Not find
-        If SearchFunction Then
-            Return Nothing
-        End If
         ThrowNodeNamingException("CGV01", "Unable to find variable """ & Me.VariableName & """", Me)
         Return Nothing
 
@@ -179,7 +208,7 @@ Class VariableNode
     '=================================================
     '========== FUNCTION TO GLOBAL VARIABLE ==========
     '=================================================
-    Private Function FunctionToVariable(ByVal fun As FunctionNode) As Variable
+    Private Function FunctionToGlobalVariable(ByVal fun As FunctionNode) As Variable
 
         'Create the variable
         Dim NewVar As New Variable(fun.FunctionName, fun.MinimumFunctionType, True, "VariableOfFunction_" & fun.MinimumFunctionCompiledName, fun.Export)
@@ -194,6 +223,55 @@ Class VariableNode
 
         'Return
         Return NewVar
+
+    End Function
+
+    '==================================
+    '========== GET FUNCTION ==========
+    '==================================
+    Public Function GetFunction() As FunctionNode
+
+        'Check variables from this file
+        Dim UpperNode As Node = Me
+        While UpperNode.ParentNode IsNot Nothing
+
+            'Get uppernode
+            UpperNode = UpperNode.ParentNode
+
+            'No a scope
+            If Not TypeOf UpperNode Is ScopeNode Then
+                Continue While
+            End If
+
+            'Loop in each method
+            If TypeOf UpperNode Is Type Then
+                For Each method As FunctionNode In DirectCast(UpperNode, Type).Methods
+                    If method.FunctionName = Me.VariableName Then
+                        Return method
+                    End If
+                Next
+            End If
+
+        End While
+
+        'Check functions from this file
+        For Each fun As FunctionNode In Me.ParentFile.Functions
+            If fun.FunctionName = Me.VariableName Then
+                Return fun
+            End If
+        Next
+
+        'Check Functions from imported files
+        For Each ImportedFile As SourceFile In Me.ParentFile.ImportedFiles
+            For Each fun As FunctionNode In ImportedFile.Functions
+                If fun.Export And fun.FunctionName = Me.VariableName Then
+                    Return fun
+                End If
+            Next
+        Next
+
+        'Not find
+        Return Nothing
 
     End Function
 

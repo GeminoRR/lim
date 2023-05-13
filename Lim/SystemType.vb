@@ -15,6 +15,8 @@ Class Type
     Public ReadOnly PassedArguments As List(Of Type)
     Public ReadOnly Methods As New List(Of FunctionNode)
     Public ReadOnly Relations As New List(Of RelationNode)
+    Public ReadOnly AddSourcesDirectly As New List(Of AddSourceDirectlyStatementNode)
+    Public ReadOnly DeclareVariables As New List(Of DeclareVariableNode)
 
     '=================================
     '========== CONSTRUCTOR ==========
@@ -27,6 +29,16 @@ Class Type
         Me.ParentNode = Me.ParentClass.ParentNode
         Me.PassedArguments = PassedArguments
         Me.CompiledName = GetTypeCompiledName()
+        For Each ASD As AddSourceDirectlyStatementNode In ParentClass.AddSourcesDirectly
+            Dim ClonedASD As AddSourceDirectlyStatementNode = ASD.Clone()
+            ClonedASD.ParentNode = Me
+            Me.AddSourcesDirectly.Add(ClonedASD)
+        Next
+        For Each DeclareVariable As DeclareVariableNode In ParentClass.DeclareVariables
+            Dim CLonedDeclareVariable As DeclareVariableNode = DeclareVariable.Clone()
+            CLonedDeclareVariable.ParentNode = Me
+            Me.DeclareVariables.Add(CLonedDeclareVariable)
+        Next
         For Each Method As FunctionNode In ParentClass.Methods
             Dim ClonedMethod As FunctionNode = Method.Clone()
             ClonedMethod.ParentNode = Me
@@ -45,6 +57,15 @@ Class Type
         End If
 
     End Sub
+
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Throw New NotImplementedException()
+
+    End Function
 
     '===============================
     '========== TO STRING ==========
@@ -108,19 +129,23 @@ Class Type
         AllocateContent.Add("if (self == NULL){")
         AllocateContent.Add(vbTab & "ThrowRuntimeError(""Not enough memory."");")
         AllocateContent.Add("}")
-        AllocateContent.Add("")
-        AllocateContent.Add("//Initialize default values of properties")
+
+        'Propertie comment
+        If Me.DeclareVariables.Count > 0 Then
+            AllocateContent.Add("")
+            AllocateContent.Add("//Initialize default values of properties")
+        End If
 
         'Typedef
         Dim TypeDefContent As New List(Of String)
-        For Each ASD As AddSourceDirectlyStatementNode In Me.ParentClass.AddSourcesDirectly
+        For Each ASD As AddSourceDirectlyStatementNode In Me.AddSourcesDirectly
             ASD.Compile(TypeDefContent)
         Next
-        For Each DeclareVariable As DeclareVariableNode In Me.ParentClass.DeclareVariables
+        For Each DeclareVariable As DeclareVariableNode In Me.DeclareVariables
             Me.Variables.Add(DeclareVariable.CompileFor(TypeDefContent, AllocateContent, True))
         Next
 
-        'Typedef for fun
+        'Typedef for funr
         If Me.ParentClass.ClassName = "fun" Then
 
             'Arguments
@@ -144,6 +169,11 @@ Class Type
 
         End If
 
+        'Return
+        AllocateContent.Add("")
+        AllocateContent.Add("//Return")
+        AllocateContent.Add("return self;")
+
         'Compile typedef
         Compiled_Types.Add("")
         Compiled_Types.Add("")
@@ -165,7 +195,6 @@ Class Type
         Next
         Compiled_Types.Add("")
         Compiled_Types.Add("}")
-
 
     End Sub
 

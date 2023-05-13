@@ -1,16 +1,7 @@
 func main
-	let username = gets("Username : ")
-	puts("Your name is")
-	puts(username)
-	username = "tttt"
-	puts("Your name is")
-	puts(username)
-
-	getSize() = 45
-	test[12]
-
-class list_of_int
-
-	relation [](target:list, index:int):ref:int
-		let test = 12
-		return @test
+	let test = new list<int>
+	test.add(randint(0, 10))
+	test.add(randint(0, 10))
+	test.add(randint(0, 10))
+	test.add(randint(0, 10))
+	puts(test.str())

@@ -13,6 +13,19 @@ Class AddSourceDirectlyNode
     Public OriginalValue As String
     Private ReturnTypeNode As TypeNode
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As AddSourceDirectlyNode = Me.MemberwiseClone()
+        If Cloned.ReturnTypeNode IsNot Nothing Then
+            Cloned.ReturnTypeNode = Cloned.ReturnTypeNode.Clone(Cloned)
+        End If
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

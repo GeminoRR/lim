@@ -14,6 +14,18 @@ Class BooleanOperationNode
     Public Right As ValueNode
     Dim Op As Token
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As BooleanOperationNode = Me.MemberwiseClone()
+        Cloned.Left = Cloned.Left.Clone(Cloned)
+        Cloned.Right = Cloned.Right.Clone(Cloned)
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

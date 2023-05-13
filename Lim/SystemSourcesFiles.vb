@@ -20,6 +20,11 @@ Class SourceFile
     Public Classes As New List(Of ClassNode)
     Public AddSourceDirectlys As New List(Of AddSourceDirectlyStatementNode)
 
+    'Clone
+    Protected Overrides Function Duplicate() As Node
+        Throw New NotImplementedException()
+    End Function
+
     'Constructor
     Public Sub New(ByVal filepath As String)
 

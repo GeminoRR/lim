@@ -12,6 +12,16 @@ Class StringNode
     '===============================
     Public Value As String
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As StringNode = Me.MemberwiseClone()
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

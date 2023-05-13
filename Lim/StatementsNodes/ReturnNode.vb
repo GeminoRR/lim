@@ -12,6 +12,17 @@ Class ReturnNode
     '===============================
     Private Value As ValueNode
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As ReturnNode = Me.MemberwiseClone()
+        Cloned.Value = Cloned.Value.Clone(Cloned)
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================

@@ -13,6 +13,16 @@ Class BooleanNode
     '===============================
     Public Value As Boolean
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As BooleanNode = Me.MemberwiseClone()
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
@@ -37,7 +47,11 @@ Class BooleanNode
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
-        Throw New NotImplementedException()
+        If Me.Value Then
+            Return "new_bool(true)"
+        Else
+            Return "new_bool(false)"
+        End If
     End Function
 
     '=================================

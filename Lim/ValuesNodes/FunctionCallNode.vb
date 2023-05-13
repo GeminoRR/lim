@@ -13,6 +13,20 @@ Class FunctionCallNode
     Public TargetFunction As ValueNode
     Public PassedArguments As New List(Of ValueNode)
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As FunctionCallNode = Me.MemberwiseClone()
+        Cloned.TargetFunction = Cloned.TargetFunction.Clone(Cloned)
+        For i As Integer = 0 To Cloned.PassedArguments.Count - 1
+            Cloned.PassedArguments(i) = Cloned.PassedArguments(i).Clone(Cloned)
+        Next
+        Return Cloned
+
+    End Function
+
     '==============================================
     '========== DIRECT TARGETED FUNCTION ==========
     '==============================================
@@ -32,7 +46,14 @@ Class FunctionCallNode
         If TypeOf TargetFunction Is VariableNode Then
 
             'Get function
-            DirectTargetedFunction = DirectCast(TargetFunction, VariableNode).GetTarget(True)
+            DirectTargetedFunction = DirectCast(TargetFunction, VariableNode).GetFunction()
+
+            'Parent is a class
+            If DirectTargetedFunction IsNot Nothing Then
+                If TypeOf DirectTargetedFunction.ParentNode Is Type Then
+                    DirectTargetedInstance = "self"
+                End If
+            End If
 
         ElseIf TypeOf TargetFunction Is ChildNode Then
 
@@ -48,7 +69,7 @@ Class FunctionCallNode
 
     End Sub
     Private DirectTargetedFunction As FunctionNode
-    Private DirectTargetedInstance As ValueNode
+    Private DirectTargetedInstance As Object
     Private AlreadySearch As Boolean = False
 
     '=================================
@@ -164,7 +185,11 @@ Class FunctionCallNode
             If DirectTargetedInstance Is Nothing Then
                 Arguments = "NULL"
             Else
-                Arguments = DirectTargetedInstance.Compile(content)
+                If TypeOf DirectTargetedInstance Is ValueNode Then
+                    Arguments = DirectTargetedInstance.Compile(content)
+                Else
+                    Arguments = DirectTargetedInstance.ToString()
+                End If
             End If
             For i As Integer = 0 To DirectTargetedFunction.MaxArguments - 1
 

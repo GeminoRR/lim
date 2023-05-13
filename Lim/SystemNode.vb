@@ -55,6 +55,39 @@ MustInherit Class Node
         Return "()"
     End Function
 
+    '===========================
+    '========== CLONE ==========
+    '===========================
+    Public Function Clone(Optional ParentNode As Node = Nothing) As Node
+        If ParentNode Is Nothing Then
+            Return Duplicate()
+        Else
+            Dim Cloned As Node = Duplicate()
+            Cloned.ParentNode = ParentNode
+            Return Cloned
+        End If
+    End Function
+    Protected MustOverride Function Duplicate() As Node
+
+    '==================================
+    '========== PARENT SCOPE ==========
+    '==================================
+    Public ReadOnly Property ParentScope As ScopeNode
+        Get
+            Dim Parent As Node = Me
+            While Parent.ParentNode IsNot Nothing
+
+                Parent = Parent.ParentNode
+
+                If TypeOf Parent Is ScopeNode Then
+                    Return DirectCast(Parent, ScopeNode)
+                End If
+
+            End While
+            Return Nothing
+        End Get
+    End Property
+
 End Class
 
 
@@ -79,26 +112,6 @@ MustInherit Class StatementNode
     '========== COMPILE ==========
     '=============================
     Public MustOverride Sub Compile(ByVal content As List(Of String))
-
-    '==================================
-    '========== PARENT SCOPE ==========
-    '==================================
-    Public ReadOnly Property ParentScope As ScopeNode
-        Get
-            Dim Parent As Node = Me
-            While Parent.ParentNode IsNot Nothing
-
-                Parent = Parent.ParentNode
-
-                If TypeOf Parent Is ScopeNode Then
-                    Return DirectCast(Parent, ScopeNode)
-                End If
-
-            End While
-            Return Nothing
-        End Get
-    End Property
-
 
 End Class
 

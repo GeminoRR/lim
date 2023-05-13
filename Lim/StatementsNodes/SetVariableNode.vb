@@ -16,6 +16,18 @@ Class SetVariableNode
     Private Target As ValueNode
     Private NewValue As ValueNode
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As SetVariableNode = Me.MemberwiseClone()
+        Cloned.Target = Cloned.Target.Clone(Cloned)
+        Cloned.NewValue = Cloned.NewValue.Clone(Cloned)
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
@@ -51,9 +63,19 @@ Class SetVariableNode
 
         'Compile
         Content.Add("")
-        Dim TempVar As String = GetVariableCompiledName()
-        Content.Add(Target.ReturnType.CompiledName & " ** =  (" & Target.Compile(Content) & ");")
-        Content.Add("(" & Target.Compile(Content) & ") = (" & NewValue.Compile(Content) & ");")
+        If TypeOf Target Is VariableNode Then
+
+            Content.Add(DirectCast(Target, VariableNode).CompileRef(Content) & " = (" & NewValue.Compile(Content) & ");")
+
+        ElseIf TypeOf Target Is ChildNode Then
+
+            Content.Add(DirectCast(Target, ChildNode).CompileRef(Content) & " = (" & NewValue.Compile(Content) & ");")
+
+        Else
+
+            ThrowNodeSyntaxException("SVNC02", "Cannot assign a value to this.", Target)
+
+        End If
 
     End Sub
 

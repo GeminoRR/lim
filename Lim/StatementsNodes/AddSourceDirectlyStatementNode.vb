@@ -12,6 +12,17 @@ Class AddSourceDirectlyStatementNode
     '===============================
     Private AsdNode As AddSourceDirectlyNode
 
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As AddSourceDirectlyStatementNode = Me.MemberwiseClone()
+        Cloned.AsdNode = Cloned.AsdNode.Clone(Cloned)
+        Return Cloned
+
+    End Function
+
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
