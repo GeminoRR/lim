@@ -1,10 +1,3 @@
 func main
-	let city = ["Paris", "London", "New York"]
-	puts(city[0])
-	puts(city[1])
-	puts(city[-1])
-
-	puts(city.str())
-	city[0] = "Brest"
-	city[-1] = "Brest (aussi)"
-	puts(city.str())
+	for i to 5
+		puts(i.str())

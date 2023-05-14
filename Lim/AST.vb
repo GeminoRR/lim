@@ -126,7 +126,7 @@ Class AST
         If Not CurrentToken.Type = TokenType.CODE_TERM Then
             ThrowCoordinatesSyntaxLimException("ASTGT01", "A type name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         End If
-        Dim ResultNode As New TypeNode(CurrentToken.PositionStartX, CurrentToken.PositionStartY, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value)
+        Dim ResultNode As New TypeNode(CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, CurrentToken.Value)
         advance()
 
         'Arguments
@@ -274,7 +274,7 @@ Class AST
 
         End If
 
-        ThrowCoordinatesSyntaxLimException("ASTGF01", "A value was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+        ThrowCoordinatesSyntaxLimException("ASTGFA01", "A value was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         Return Nothing
 
     End Function
@@ -527,7 +527,7 @@ Class AST
     '=============================
     '=========  GET LINE =========
     '=============================
-    Private Function GetLine() As StatementNode
+    Private Function GetLine(ByVal CurrentLineIndentation As Integer) As StatementNode
 
         'Tok
         Dim tok As Token = CurrentToken
@@ -637,6 +637,297 @@ Class AST
 
         End If
 
+        'For & Foreach
+        If CurrentToken.Type = TokenType.KW_FOR Then
+
+            'Save position
+            Dim StartY As Integer = CurrentToken.PositionStartY
+            Dim StartX As Integer = CurrentToken.PositionStartX
+            advance()
+
+            'Get variable
+            If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                ThrowCoordinatesSyntaxLimException("ASTGL05", "The name of the variable representing the iterator was expected here.", ParentFile, tok.PositionStartY, tok.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            Dim VariableName As String = CurrentToken.Value
+            advance()
+
+            'Type
+            Dim ExplicitType As TypeNode = Nothing
+            If CurrentToken.Type = TokenType.CODE_COLON Then
+                advance()
+                ExplicitType = GetTypeNode()
+            End If
+
+            'For each
+            If CurrentToken.Type = TokenType.OP_IN Then
+
+                'Get target
+                advance()
+                Dim Target As ValueNode = GetTopValue()
+
+                'Create node
+                Dim ResultNode As New ForeachNode(StartY, StartX, Target.PositionEndY, Target.PositionEndX, VariableName, ExplicitType, Target)
+
+                'Content
+                While True
+
+                    'NewLine
+                    If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                        ThrowCoordinatesSyntaxLimException("ASTGL06", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                    End If
+                    Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                    If LineIndentation <= CurrentLineIndentation Then
+                        Exit While
+                    End If
+
+                    'Get content
+                    advance()
+                    Dim LineResult As Node = GetLine(LineIndentation)
+                    LineResult.ParentNode = ResultNode
+                    ResultNode.Codes.Add(LineResult)
+
+                End While
+
+                'Return
+                Return ResultNode
+
+            ElseIf CurrentToken.Type = TokenType.KW_FROM Then
+
+                'Get from
+                advance()
+                Dim FromValue As ValueNode = GetTopValue()
+
+                'Get to
+                If Not CurrentToken.Type = TokenType.KW_TO Then
+                    ThrowCoordinatesSyntaxLimException("ASTGL08", "The keyword ""to"" was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+                advance()
+                Dim ToValue As ValueNode = GetTopValue()
+
+                'Create node
+                Dim ResultNode As New ForNode(StartY, StartX, ToValue.PositionEndY, ToValue.PositionEndX, VariableName, ExplicitType, FromValue, ToValue)
+
+                'Content
+                While True
+
+                    'NewLine
+                    If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                        ThrowCoordinatesSyntaxLimException("ASTGL07", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                    End If
+                    Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                    If LineIndentation <= CurrentLineIndentation Then
+                        Exit While
+                    End If
+
+                    'Get content
+                    advance()
+                    Dim LineResult As Node = GetLine(LineIndentation)
+                    LineResult.ParentNode = ResultNode
+                    ResultNode.Codes.Add(LineResult)
+
+                End While
+
+                'Return
+                Return ResultNode
+
+
+            ElseIf CurrentToken.Type = TokenType.KW_TO Then
+
+                'Get to
+                advance()
+                Dim ToValue As ValueNode = GetTopValue()
+
+                'Create node
+                Dim ResultNode As New ForNode(StartY, StartX, ToValue.PositionEndY, ToValue.PositionEndX, VariableName, ExplicitType, Nothing, ToValue)
+
+                'Content
+                While True
+
+                    'NewLine
+                    If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                        ThrowCoordinatesSyntaxLimException("ASTGL09", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                    End If
+                    Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                    If LineIndentation <= CurrentLineIndentation Then
+                        Exit While
+                    End If
+
+                    'Get content
+                    advance()
+                    Dim LineResult As Node = GetLine(LineIndentation)
+                    LineResult.ParentNode = ResultNode
+                    ResultNode.Codes.Add(LineResult)
+
+                End While
+
+                'Return
+                Return ResultNode
+
+            Else
+                ThrowCoordinatesSyntaxLimException("ASTGL06", "The keywords ""from"" or ""in"" were expected here.", ParentFile, tok.PositionStartY, tok.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+
+        End If
+
+        'While
+        If CurrentToken.Type = TokenType.KW_WHILE Then
+
+            'Get condition
+            advance()
+            Dim Condition As ValueNode = GetTopValue()
+
+            'Create node
+            Dim ResultNode As New WhileNode(tok.PositionStartY, tok.PositionStartX, Condition.PositionEndY, Condition.PositionEndX, Condition)
+
+            'Content
+            While True
+
+                'NewLine
+                If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                    ThrowCoordinatesSyntaxLimException("ASTGL10", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+                Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                If LineIndentation <= CurrentLineIndentation Then
+                    Exit While
+                End If
+
+                'Get content
+                advance()
+                Dim LineResult As Node = GetLine(LineIndentation)
+                LineResult.ParentNode = ResultNode
+                ResultNode.Codes.Add(LineResult)
+
+            End While
+
+            'Return
+            Return ResultNode
+
+        End If
+
+        'If statement
+        If CurrentToken.Type = TokenType.KW_IF Then
+
+            'Create node
+            Dim ResultNode As New IfNode(tok.PositionStartY, tok.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+
+            'Get condition
+            advance()
+            ResultNode.MainCondition = GetTopValue()
+            ResultNode.MainCondition.ParentNode = ResultNode
+
+            'Content
+            While True
+
+                'NewLine
+                If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                    ThrowCoordinatesSyntaxLimException("ASTGL11", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+                Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                If LineIndentation <= CurrentLineIndentation Then
+                    Exit While
+                End If
+
+                'Get content
+                advance()
+                Dim LineResult As Node = GetLine(LineIndentation)
+                LineResult.ParentNode = ResultNode
+                ResultNode.MainCodes.Add(LineResult)
+
+            End While
+
+            'Else if
+            Dim elseif_statement As New List(Of Tuple(Of ValueNode, List(Of StatementNode)))
+            While CurrentToken.Type = TokenType.CODE_LINEINDENTATION
+
+                'Advance
+                advance()
+
+                'Keyword
+                If Not CurrentToken.Type = TokenType.KW_ELSEIF Then
+                    recede(TokenIndex - 1)
+                    Exit While
+                End If
+                advance()
+
+                'Get condition
+                Dim elseif_condition As ValueNode = GetTopValue()
+                elseif_condition.ParentNode = ResultNode
+
+                'Get if lines
+                Dim elseif_lines As New List(Of StatementNode)
+
+                'Content
+                While True
+
+                    'NewLine
+                    If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                        ThrowCoordinatesSyntaxLimException("ASTGL12", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                    End If
+                    Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                    If LineIndentation <= CurrentLineIndentation Then
+                        Exit While
+                    End If
+
+                    'Get content
+                    advance()
+                    Dim LineResult As Node = GetLine(LineIndentation)
+                    LineResult.ParentNode = ResultNode
+                    ResultNode.MainCodes.Add(LineResult)
+
+                End While
+
+                'Add
+                elseif_statement.Add((elseif_condition, elseif_lines).ToTuple())
+
+            End While
+            ResultNode.ElseIfs = elseif_statement
+
+            'Else
+            Dim recedeIndex As Integer = TokenIndex
+            If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                ThrowCoordinatesSyntaxLimException("ASTGL13", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            advance()
+
+            'Else
+            Dim else_statement As New List(Of StatementNode)
+            If CurrentToken.Type = TokenType.KW_ELSE Then
+
+                'Advance
+                advance()
+
+                'Content
+                While True
+
+                    'NewLine
+                    If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
+                        ThrowCoordinatesSyntaxLimException("ASTGL14", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                    End If
+                    Dim LineIndentation As Integer = DirectCast(CurrentToken.Value, Integer)
+                    If LineIndentation <= CurrentLineIndentation Then
+                        Exit While
+                    End If
+
+                    'Get content
+                    advance()
+                    Dim LineResult As Node = GetLine(LineIndentation)
+                    LineResult.ParentNode = ResultNode
+                    ResultNode.ElseCodes.Add(LineResult)
+
+                End While
+
+            Else
+
+                recede(recedeIndex)
+
+            End If
+
+            'Return
+            Return ResultNode
+
+        End If
+
         'Deep call
         Dim LineValueNode As Node = GetTopValue()
 
@@ -683,7 +974,7 @@ Class AST
         'Is a relation
         If Not CurrentToken.Type = TokenType.KW_RELATION Then
             recede(SavedIndex + 1)
-            Return GetLine()
+            Return GetLine(CurrentScopeIndentation)
         End If
         Dim PositionStartY As Integer = CurrentToken.PositionStartY
         Dim PositionStartX As Integer = CurrentToken.PositionStartX
@@ -730,6 +1021,19 @@ Class AST
             End If
             RelationOperator = RelationOperator.INDEX
             advance()
+        ElseIf CurrentToken.Type = TokenType.CODE_TERM Then
+            If CurrentToken.Value = "for_from" Then
+                RelationOperator = RelationOperator.FOR_FROM
+                advance()
+            ElseIf CurrentToken.Value = "for_to" Then
+                RelationOperator = RelationOperator.FOR_TO
+                advance()
+            ElseIf CurrentToken.Value = "for_iteration" Then
+                RelationOperator = RelationOperator.FOR_ITERATION
+                advance()
+            Else
+                ThrowCoordinatesSyntaxLimException("ASTGR19", "Unknown relation name.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
         Else
             ThrowCoordinatesSyntaxLimException("ASTGR04", "The relation operator was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         End If
@@ -849,6 +1153,21 @@ Class AST
                     ThrowNodeSyntaxException("ASTGR17", "The ""[]"" operator must take two or three arguments because its relations are of type: ( a[b] ) or ( a[b] = c )", ResultNode)
                 End If
 
+            Case RelationOperator.FOR_FROM
+                If Not Arguments.Count = 1 Then
+                    ThrowNodeSyntaxException("ASTGR20", "The ""for_from"" relation must take one arguments.", ResultNode)
+                End If
+
+            Case RelationOperator.FOR_TO
+                If Not Arguments.Count = 1 Then
+                    ThrowNodeSyntaxException("ASTGR21", "The ""for_to"" relation must take one arguments.", ResultNode)
+                End If
+
+            Case RelationOperator.FOR_ITERATION
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR22", "The ""for_iteration"" relation must take one arguments.", ResultNode)
+                End If
+
             Case Else
                 Throw New NotImplementedException()
 
@@ -876,7 +1195,7 @@ Class AST
 
             'Get content
             advance()
-            Dim LineResult As Node = GetLine()
+            Dim LineResult As Node = GetLine(LineIndentation)
             LineResult.ParentNode = ResultNode
             ResultNode.Codes.Add(LineResult)
             ResultNode.PositionEndY = LineResult.PositionEndY
@@ -1059,7 +1378,7 @@ Class AST
 
             'Get content
             advance()
-            Dim LineResult As Node = GetLine()
+            Dim LineResult As Node = GetLine(LineIndentation)
             LineResult.ParentNode = ResultNode
             ResultNode.Codes.Add(LineResult)
 

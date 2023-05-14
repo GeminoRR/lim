@@ -75,6 +75,13 @@ Module TokenEnum
         KW_LET
         KW_NEW
         KW_RETURN
+        KW_FOR
+        KW_FROM
+        KW_TO
+        KW_WHILE
+        KW_IF
+        KW_ELSEIF
+        KW_ELSE
 
         'Operators (OP)
         OP_LEFT_PARENTHESIS
@@ -89,6 +96,7 @@ Module TokenEnum
         OP_LESSTHANEQUAL
         OP_MORETHAN
         OP_MORETHANEQUAL
+        OP_IN
 
         OP_PLUS
         OP_MINUS

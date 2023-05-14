@@ -182,6 +182,7 @@ Module Lexer
                     advance()
 
                 End While
+                Dim TrueKeyword As String = Keyword
                 Keyword = Keyword.ToLower()
 
                 'Constant / Keyword
@@ -218,9 +219,25 @@ Module Lexer
                         result.Add(New Token(TokenType.OP_NOT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "return"
                         result.Add(New Token(TokenType.KW_RETURN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "for"
+                        result.Add(New Token(TokenType.KW_FOR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "from"
+                        result.Add(New Token(TokenType.KW_FROM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "to"
+                        result.Add(New Token(TokenType.KW_TO, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "in"
+                        result.Add(New Token(TokenType.OP_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "while"
+                        result.Add(New Token(TokenType.KW_WHILE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "if"
+                        result.Add(New Token(TokenType.KW_IF, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "elseif"
+                        result.Add(New Token(TokenType.KW_ELSEIF, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "else"
+                        result.Add(New Token(TokenType.KW_ELSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case Else
-                        result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                        result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, TrueKeyword))
 
                 End Select
 

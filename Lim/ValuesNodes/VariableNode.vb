@@ -111,29 +111,40 @@ Class VariableNode
 
         'Check variables from this file
         Dim UpperNode As Node = Me
+        Dim IsInRelation As Boolean = False
         While UpperNode.ParentNode IsNot Nothing
 
             'Get uppernode
             UpperNode = UpperNode.ParentNode
+
+            'Is relation
+            If TypeOf UpperNode Is RelationNode Then
+                IsInRelation = True
+            End If
 
             'No a scope
             If Not TypeOf UpperNode Is ScopeNode Then
                 Continue While
             End If
 
-            'Loop in each variable
+            'Loop idn each variable
             For Each ScopeVar As Variable In DirectCast(UpperNode, ScopeNode).Variables
                 If ScopeVar.VariableName = Me.VariableName Then
-                    Var = ScopeVar
                     If TypeOf UpperNode Is Type Then
-                        PreText = "self->"
+                        If Not IsInRelation Then
+                            Var = ScopeVar
+                            PreText = "self->"
+                            Return Var.ValueType
+                        End If
+                    Else
+                        Var = ScopeVar
+                        Return Var.ValueType
                     End If
-                    Return Var.ValueType
                 End If
             Next
 
             'Loop in each method
-            If TypeOf UpperNode Is Type Then
+            If TypeOf UpperNode Is Type And Not IsInRelation Then
                 For Each method As FunctionNode In DirectCast(UpperNode, Type).Methods
                     If method.FunctionName = Me.VariableName Then
                         If content IsNot Nothing Then
@@ -237,6 +248,11 @@ Class VariableNode
 
             'Get uppernode
             UpperNode = UpperNode.ParentNode
+
+            'Is in relation
+            If TypeOf UpperNode Is RelationNode Then
+                Exit While
+            End If
 
             'No a scope
             If Not TypeOf UpperNode Is ScopeNode Then

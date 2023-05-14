@@ -81,9 +81,11 @@ Class BinaryOperationNode
 
         'Find
         For Each Relation As RelationNode In Left.ReturnType.Relations
-            If Relation.RelationOperator = Me.Op And Relation.RelationArguments(1).ArgumentType = Right.ReturnType Then
-                TargetedRelation = Relation
-                Exit Sub
+            If Relation.RelationOperator = Me.Op Then
+                If Relation.RelationArguments(1).ArgumentType = Right.ReturnType Then
+                    TargetedRelation = Relation
+                    Exit Sub
+                End If
             End If
         Next
 

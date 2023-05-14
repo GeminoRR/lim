@@ -216,4 +216,8 @@ Enum RelationOperator
     INDEX
     INDEX_SET
 
+    FOR_FROM
+    FOR_TO
+    FOR_ITERATION
+
 End Enum

@@ -12,7 +12,7 @@ Module SystemConsole
     '========== VARIABLES ==========
     '===============================
     Private files As New List(Of String)
-    Private flags As New List(Of String)
+    Public flags As New List(Of String)
     Public ShowDebug As Boolean
     Public MegaDebug As Boolean
 
@@ -48,11 +48,33 @@ Module SystemConsole
 
     Public Sub EndApplication()
 
-#If DEBUG Then
+        'Keep
+        If Not HasFlag("k", "keep") Then
+            Try
+                For Each filepath As String In Directory.GetFiles(AppData & "/src")
+                    File.Delete(filepath)
+                Next
+                For Each folder As String In Directory.GetDirectories(AppData & "/src")
+                    If Not folder.Replace("\", "/") = AppData & "/src/gc" Then
+                        Directory.Delete(folder, True)
+                    End If
+                Next
+                For Each filepath As String In Directory.GetFiles(AppData & "/bin")
+                    File.Delete(filepath)
+                Next
+                For Each folder As String In Directory.GetDirectories(AppData & "/bin")
+                    Directory.Delete(folder, True)
+                Next
+            Catch ex As Exception
+            End Try
+        End If
+
         'To see the result when debugging
+#If DEBUG Then
         Console.ReadKey()
 #End If
 
+        'Close
         End
 
     End Sub
@@ -115,13 +137,51 @@ Module SystemConsole
         'Compile
         If files.Count = 1 Then
 
-            'Compile & Run
-            compile(files(0))
+            'Get current dir
+            Dim CurrentDir As String = Path.GetFullPath(files(0)).Replace("\", "/")
+            If CurrentDir.Contains("/") Then
+                CurrentDir = CurrentDir.Substring(0, CurrentDir.LastIndexOf("/"))
+            End If
+
+            'Compile & Run file
+            Dim P As New Process()
+            Try
+                P.StartInfo.FileName = Compiler.compile(files(0))
+            Catch ex As Exception
+                Console.ForegroundColor = ConsoleColor.DarkRed
+                Console.WriteLine("Compilation failed!")
+                Console.ResetColor()
+                EndApplication()
+            End Try
+            P.StartInfo.WorkingDirectory = CurrentDir
+            P.Start()
+            While Not P.HasExited
+                Threading.Thread.Sleep(1)
+            End While
+            Threading.Thread.Sleep(1)
+            EndApplication()
 
         Else
 
-            'Compile
+            'Fix
+            If Not files(1).EndsWith(".exe") Then
+                files(1) = files(1) & ".exe"
+            End If
 
+            'Compile
+            Try
+                File.Move(Compiler.compile(files(0)), files(1), True)
+            Catch ex As Exception
+                Console.ForegroundColor = ConsoleColor.DarkRed
+                Console.WriteLine("Compilation failed!")
+                Console.ResetColor()
+                EndApplication()
+            End Try
+
+            'Finished
+            Console.ForegroundColor = ConsoleColor.DarkGreen
+            Console.WriteLine("Compilation successful!")
+            Console.ResetColor()
 
         End If
 
@@ -140,31 +200,42 @@ Module SystemConsole
     '===============================
     '========== SHOW HELP ==========
     '===============================
-    Public Sub ShowHelp()
+    Public Sub showHelp()
 
+        'Usage
         Console.ForegroundColor = ConsoleColor.DarkGreen
-        Console.WriteLine("Usage :")
+        Console.WriteLine("USAGE:")
         Console.ResetColor()
-        Console.WriteLine(vbTab & "lim <source> [flags]")
-        Console.WriteLine(vbTab & vbTab & "Compiles and executes directly on the console the code of the file <source>.")
+        Console.WriteLine(vbTab & "lim <input_file>")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine(vbTab & vbTab & "Run the application in the console directly.")
+        Console.ResetColor()
         Console.WriteLine("")
-        Console.WriteLine(vbTab & "lim <source> <output> [flags]")
-        Console.WriteLine(vbTab & vbTab & "Compiles the <sources> file to the <output> executable.")
-        Console.WriteLine(vbTab & vbTab & "Warning, if a file already exists at the location <output> it will be overwritten.")
+        Console.WriteLine(vbTab & "lim <input_file> <output_file> [-arguments]")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine(vbTab & vbTab & "Compile to an executable.")
 
-        Console.WriteLine("")
-        Console.WriteLine("")
+        'Arguments
         Console.ForegroundColor = ConsoleColor.DarkGreen
-        Console.WriteLine("Flags :")
+        Console.WriteLine("")
+        Console.WriteLine("ARGUMENTS:")
         Console.ResetColor()
-        Console.WriteLine(vbTab & "-v" & vbTab & "--version")
-        Console.WriteLine(vbTab & vbTab & vbTab & "Open the version menu")
-        Console.WriteLine(vbTab & "-h" & vbTab & "--help")
-        Console.WriteLine(vbTab & vbTab & vbTab & "Open the help menu")
-        Console.WriteLine(vbTab & "-d" & vbTab & "--debug")
-        Console.WriteLine(vbTab & vbTab & vbTab & "Displays the compilation steps.")
+        Console.WriteLine(vbTab & "<input_file>" & vbTab & "Path of the .lim file to compile")
+        Console.WriteLine(vbTab & "<output_file>" & vbTab & "Path of the future executable file. (This will be created by the compiler)")
+        Console.WriteLine(vbTab & "[-arguments]" & vbTab & "Optional. Argument list.")
+        Console.WriteLine(vbTab & vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show debug logs")
+        Console.WriteLine(vbTab & vbTab & "-i" & vbTab & "--icon" & vbTab & vbTab & "Select the executable icon.")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine(vbTab & vbTab & vbTab & vbTab & vbTab & "Exemple : -i""hello.ico""")
+        Console.ResetColor()
+        Console.WriteLine(vbTab & vbTab & "-k" & vbTab & "--keep" & vbTab & vbTab & "Does not delete temporary files.")
+        Console.WriteLine(vbTab & vbTab & "-h" & vbTab & "--help" & vbTab & vbTab & "Show the help menu.")
+        Console.WriteLine(vbTab & vbTab & "-v" & vbTab & "--version" & vbTab & vbTab & "Shows the current version of lim.")
 
-
+        Console.WriteLine("")
+        Console.ForegroundColor = ConsoleColor.DarkGray
+        Console.WriteLine("*Lim is in beta. Many bugs are to be deplored*")
+        Console.ResetColor()
 
     End Sub
 

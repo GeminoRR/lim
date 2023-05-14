@@ -64,10 +64,15 @@ Module Compiler
     '=============================
     '========== COMPILE ==========
     '=============================
-    Public Sub compile(ByVal inputFile As String)
+    Public Function compile(ByVal inputFile As String) As String
 
         'Reset build environment
         Try
+
+            'bin directory
+            If Not Directory.Exists(AppData & "/bin") Then
+                Directory.CreateDirectory(AppData & "/bin")
+            End If
 
             'src directory
             If Not Directory.Exists(AppData & "/src") Then
@@ -162,7 +167,6 @@ Module Compiler
         STD_str.Compile(Nothing)
         STD_bool.Compile(Nothing)
         STD_any.Compile(Nothing)
-
 
         'Compile main
         MainFunction.Compile(Nothing)
@@ -281,6 +285,103 @@ Module Compiler
 
         End Using
 
+        '=== OLD CODE STOLEN FROM LAST RELEASE ===
+
+        'Icon directory
+        If Directory.Exists(AppData & "/icon") Then
+            Directory.Delete(AppData & "/icon", True)
+        End If
+
+        'Icon
+        Dim resPath As String = """" & executableDirectory & "/my.res"""
+        Dim iconPath As String = Nothing
+        For Each flag As String In flags
+            If flag.StartsWith("-i") Then
+                iconPath = flag.Substring(3)
+            ElseIf flag.StartsWith("--icon") Then
+                iconPath = flag.Substring(7)
+            End If
+        Next
+        If iconPath IsNot Nothing Then
+            Directory.CreateDirectory(AppData & "/icon")
+            If iconPath.StartsWith("""") Then
+                iconPath = iconPath.Substring(1)
+            End If
+            If iconPath.EndsWith("""") Then
+                iconPath = iconPath.Substring(0, iconPath.Length - 1)
+            End If
+            If Not File.Exists(iconPath) Then
+                ThrowSimpleLimException("CC12", "File doesn't exist", iconPath & " doesn't exist")
+            Else
+                File.Copy(iconPath, AppData & "/icon/icon.ico", True)
+            End If
+            File.WriteAllText(AppData & "/icon/temp.rc", "id ICON ""icon.ico""")
+            While Not File.Exists(AppData & "/icon/temp.rc")
+            End While
+            Dim windres As New Process()
+            windres.StartInfo.FileName = executableDirectory & "/mingw64/bin/windres.exe"
+            windres.StartInfo.Arguments = "temp.rc -O coff -o my.res"
+            windres.StartInfo.WorkingDirectory = AppData & "/icon"
+            windres.Start()
+            While Not windres.HasExited
+            End While
+            resPath = "../icon/my.res"
+        End If
+
+        'Get all files
+        Dim FilesRef As String = ""
+        listFile(AppData & "/src", FilesRef)
+
+        'Executalbe
+        Dim gcc As New Process()
+        gcc.StartInfo.FileName = executableDirectory & "/mingw64/bin/gcc.exe"
+        gcc.StartInfo.Arguments = FilesRef & " -o ../bin/prog.exe " & resPath
+        gcc.StartInfo.WorkingDirectory = AppData & "/src"
+        gcc.Start()
+
+        'Wait
+        If ShowDebug Then
+            Console.Write("[")
+        End If
+        While Not gcc.HasExited
+            If ShowDebug Then
+                Console.Write("~")
+            End If
+            Threading.Thread.Sleep(5)
+        End While
+        If ShowDebug Then
+            Console.Write("]" & Environment.NewLine)
+        End If
+
+        'File Compiled
+        If gcc.ExitCode = 0 Then
+
+            Dim publishFiles() As String = Directory.GetFiles(AppData & "/bin")
+            If publishFiles.Count = 1 Then
+                Return publishFiles(0)
+            End If
+        End If
+
+        'Error
+        Console.ForegroundColor = ConsoleColor.DarkRed
+        Console.WriteLine("Compilation failed!")
+        Console.ResetColor()
+        EndApplication()
+        Return Nothing
+
+    End Function
+
+    '===============================
+    '========== LIST FILE ==========
+    '===============================
+    Private Sub listFile(ByVal path As String, ByRef FilesRef As String)
+
+        For Each filepath As String In Directory.GetFiles(path)
+            FilesRef &= " """ & filepath.Replace("\", "/") & """"
+        Next
+        For Each folder As String In Directory.GetDirectories(path)
+            listFile(folder, FilesRef)
+        Next
 
     End Sub
 

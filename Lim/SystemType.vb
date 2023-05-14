@@ -198,4 +198,36 @@ Class Type
 
     End Sub
 
+    '=================================
+    '========== IS ITERABLE ==========
+    '=================================
+    Public ReadOnly Property Iterators As Tuple(Of RelationNode, RelationNode, RelationNode)
+        Get
+            If _IsIterable Is Nothing Then
+                Dim HasFrom As RelationNode = Nothing
+                Dim HasTo As RelationNode = Nothing
+                Dim HasIteration As RelationNode = Nothing
+                For Each relation As RelationNode In Me.Relations
+                    If relation.RelationOperator = RelationOperator.FOR_FROM Then
+                        HasFrom = relation
+                    ElseIf relation.RelationOperator = RelationOperator.FOR_TO Then
+                        HasTo = relation
+                    ElseIf relation.RelationOperator = RelationOperator.FOR_ITERATION Then
+                        HasIteration = relation
+                    End If
+                Next
+                If HasFrom IsNot Nothing And HasTo IsNot Nothing And HasIteration IsNot Nothing Then
+                    _IsIterable = (HasFrom, HasTo, HasIteration).ToTuple()
+                    HasFrom.Compile(Nothing)
+                    HasTo.Compile(Nothing)
+                    HasIteration.Compile(Nothing)
+                Else
+                    _IsIterable = Nothing
+                End If
+            End If
+            Return _IsIterable
+        End Get
+    End Property
+    Private _IsIterable As Tuple(Of RelationNode, RelationNode, RelationNode) = Nothing
+
 End Class
