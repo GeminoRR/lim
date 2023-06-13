@@ -79,31 +79,9 @@ Module Compiler
                 Directory.CreateDirectory(AppData & "/src")
             End If
 
-            'Gc
-            If Not Directory.Exists(AppData & "/src/gc") Then
-                Directory.CreateDirectory(AppData & "/src/gc")
-            End If
-            'tgh.h
-            If Not File.Exists(AppData & "/src/gc/tgc.h") Then
-                File.Copy(executableDirectory & "/runtime/gc/tgc.h", AppData & "/src/gc/tgc.h", True)
-            End If
-            'tgh.c
-            If Not File.Exists(AppData & "/src/gc/tgc.c") Then
-                File.Copy(executableDirectory & "/runtime/gc/tgc.c", AppData & "/src/gc/tgc.c", True)
-            End If
-
         Catch ex As Exception
             ThrowSimpleLimException("CC01", "Unable to reset build environment", ex.Message)
         End Try
-
-        'Add basic import
-        Compiled_Imports.Add("#include <stdio.h>")
-        Compiled_Imports.Add("#include <stdlib.h>")
-        Compiled_Imports.Add("#include <string.h>")
-        Compiled_Imports.Add("#include <stdbool.h>")
-        Compiled_Imports.Add("#include <time.h>")
-        Compiled_Imports.Add("#include <math.h>")
-        Compiled_Imports.Add("#include ""./gc/tgc.h""")
 
         'Add main file
         MainFile = New SourceFile(inputFile)
@@ -126,6 +104,55 @@ Module Compiler
         If MainFunction.ReturnTypeNode IsNot Nothing Then
             ThrowNodeSyntaxException("CC04", "The entry point cannot return a value.", MainFunction.ReturnTypeNode)
         End If
+
+        'Handle extends
+        For Each file As SourceFile In AllImportedFiles
+            For Each extend As ExtendNode In file.Extends
+
+                'Search
+                Dim TargetedClass As ClassNode = Nothing
+                For Each ClassN As ClassNode In file.Classes
+
+                    If ClassN.ClassName = extend.ExtendTarget Then
+                        TargetedClass = ClassN
+                        Exit For
+                    End If
+                Next
+                If TargetedClass Is Nothing Then
+                    For Each importedF As SourceFile In file.ImportedFiles
+                        If TargetedClass IsNot Nothing Then
+                            Exit For
+                        End If
+                        For Each ClassN As ClassNode In importedF.Classes
+                            If ClassN.ClassName = extend.ExtendTarget Then
+                                TargetedClass = ClassN
+                                Exit For
+                            End If
+                        Next
+                    Next
+                End If
+
+                'Result
+                If TargetedClass Is Nothing Then
+                    ThrowNodeNamingException("CC12", "Unable to find class """ & extend.ExtendTarget & """. Check that it has been correctly defined / imported.", extend)
+                End If
+                If Not TargetedClass.ParentFile.filepath = extend.ParentFile.filepath Then
+                    TargetedClass.ParentFile.ImportFile(extend.ParentFile.filepath)
+                End If
+                If TypeOf extend.Content Is FunctionNode Then
+                    Dim Clone As FunctionNode = extend.Content.Clone()
+                    Clone.ParentNode = TargetedClass
+                    TargetedClass.Methods.Add(Clone)
+                ElseIf TypeOf extend.Content Is RelationNode Then
+                    Dim Clone As RelationNode = extend.Content.Clone()
+                    Clone.ParentNode = TargetedClass
+                    TargetedClass.Relations.Add(Clone)
+                Else
+                    Throw New NotImplementedException()
+                End If
+
+            Next
+        Next
 
         'Get Primary types
         If STDClass_int Is Nothing Then
@@ -182,6 +209,22 @@ Module Compiler
                     Fun.Compile(Nothing)
                 End If
             Next
+        Next
+
+        'No console
+        If SystemConsole.HideConsole Then
+            If Not Compiled_Imports.Contains("#include <SDL.h>") Then
+                Compiled_Imports.Add("#include <SDL.h>")
+            End If
+        End If
+
+        'Use SDL ?
+        Dim UseSDL As Boolean = False
+        For Each importedLib As String In Compiled_Imports
+            If importedLib = "#include <SDL.h>" Then
+                UseSDL = True
+                Exit For
+            End If
         Next
 
         'Generate final file
@@ -271,6 +314,13 @@ Module Compiler
             SW.WriteLine(vbTab & "//Start the garbage collector")
             SW.WriteLine(vbTab & "tgc_start(&gc, &argc);")
             SW.WriteLine(vbTab & "")
+            If UseSDL Then
+                SW.WriteLine(vbTab & "//Initialize SDL")
+                SW.WriteLine(vbTab & "if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0){")
+                SW.WriteLine(vbTab & "  ThrowRuntimeError(""SDL:  %s"", SDL_GetError());")
+                SW.WriteLine(vbTab & "}")
+                SW.WriteLine(vbTab & "")
+            End If
             SW.WriteLine(vbTab & "//Initialize global variable values")
             For Each line As String In Compiled_Inits
                 SW.WriteLine(vbTab & line)
@@ -296,9 +346,9 @@ Module Compiler
         Dim resPath As String = """" & executableDirectory & "/my.res"""
         Dim iconPath As String = Nothing
         For Each flag As String In flags
-            If flag.StartsWith("-i") Then
+            If flag.StartsWith("-i=") Then
                 iconPath = flag.Substring(3)
-            ElseIf flag.StartsWith("--icon") Then
+            ElseIf flag.StartsWith("--icon=") Then
                 iconPath = flag.Substring(7)
             End If
         Next
@@ -335,31 +385,75 @@ Module Compiler
         'Executalbe
         Dim gcc As New Process()
         gcc.StartInfo.FileName = executableDirectory & "/mingw64/bin/gcc.exe"
-        gcc.StartInfo.Arguments = FilesRef & " -o ../bin/prog.exe " & resPath
+        Dim CompileCommand As String = FilesRef & " -o ../bin/prog.exe " & resPath
+        If UseSDL Then
+            CompileCommand &= " -I""" & executableDirectory & "/SDL/include"" -L""" & executableDirectory & "/SDL/lib"" -lmingw32 -lSDL2main -lSDL2"
+        End If
+        If SystemConsole.HideConsole Then
+            CompileCommand &= " -mwindows"
+        End If
+        gcc.StartInfo.Arguments = CompileCommand
         gcc.StartInfo.WorkingDirectory = AppData & "/src"
+        gcc.StartInfo.ErrorDialog = False
         gcc.Start()
 
         'Wait
+        Dim CursorPos As ValueTuple(Of Integer, Integer) = Nothing
+        Dim EndCursorPos As ValueTuple(Of Integer, Integer) = Nothing
         If ShowDebug Then
-            Console.Write("[")
+            Console.Write("Compiling C to Bin [")
+            CursorPos = Console.GetCursorPosition()
+            Console.Write("-]" & Environment.NewLine)
+            EndCursorPos = Console.GetCursorPosition()
         End If
+        Dim LoadingState = 0
         While Not gcc.HasExited
             If ShowDebug Then
-                Console.Write("~")
+                Console.SetCursorPosition(CursorPos.Item1, CursorPos.Item2)
+                LoadingState += 1
+                Select Case LoadingState
+                    Case 1
+                        Console.Write("-")
+                    Case 2
+                        Console.Write("\")
+                    Case 3
+                        Console.Write("|")
+                    Case 4
+                        Console.Write("/")
+                    Case Else
+                        LoadingState = 0
+                End Select
             End If
-            Threading.Thread.Sleep(5)
+            Threading.Thread.Sleep(10)
         End While
-        If ShowDebug Then
-            Console.Write("]" & Environment.NewLine)
+        Console.SetCursorPosition(EndCursorPos.Item1, EndCursorPos.Item2)
+
+        'Move SDL dll
+        If UseSDL Then
+#If DEBUG Then
+            File.Copy(executableDirectory & "/SDL/bin/SDL2.dll", AppData & "/bin/SDL2.dll", True)
+#Else
+            Try
+                File.Copy(executableDirectory & "/SDL/bin/SDL2.dll", AppData & "/bin/SDL2.dll", True)
+            Catch ex As Exception
+                Console.ForegroundColor = ConsoleColor.DarkRed
+                Console.WriteLine("Compilation failed!")
+                Console.ResetColor()
+                EndApplication()
+            End Try
+#End If
+
         End If
 
         'File Compiled
         If gcc.ExitCode = 0 Then
 
-            Dim publishFiles() As String = Directory.GetFiles(AppData & "/bin")
-            If publishFiles.Count = 1 Then
-                Return publishFiles(0)
-            End If
+            For Each file As String In Directory.GetFiles(AppData & "/bin")
+                If file.EndsWith(".exe") Then
+                    Return file
+                End If
+            Next
+
         End If
 
         'Error

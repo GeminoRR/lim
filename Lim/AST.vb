@@ -108,6 +108,8 @@ Class AST
                 ParentFile.DeclareVariables.Add(Result)
             ElseIf TypeOf Result Is AddSourceDirectlyStatementNode Then
                 ParentFile.AddSourceDirectlys.Add(Result)
+            ElseIf TypeOf Result Is ExtendNode Then
+                ParentFile.Extends.Add(Result)
             Else
                 ThrowNodeSyntaxException("ASTP01", "This type of node has nothing to do here.", Result, "Check line indentation")
             End If
@@ -348,6 +350,22 @@ Class AST
             advance()
             Value = NewValue
 
+            'Child of
+            While CurrentToken.Type = TokenType.CODE_POINT
+
+                'Error
+                advance()
+                If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                    ThrowCoordinatesSyntaxLimException("ASTGFC02", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+
+                'Create node
+                Value = New ChildNode(Value.PositionStartY, Value.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Value, CurrentToken.Value)
+                advance()
+
+            End While
+
+
         End While
 
         Return Value
@@ -532,6 +550,55 @@ Class AST
         'Tok
         Dim tok As Token = CurrentToken
 
+        'Platform
+        While CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS
+
+            'Save
+            Dim recedeIndex As Integer = TokenIndex
+
+            'Get value
+            advance()
+            If CurrentToken.Type = TokenType.CODE_DOLLAR Then
+
+                advance()
+                If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                    ThrowCoordinatesSyntaxLimException("ASTGL15", "A platform name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+                Dim TargetedPlatform As Platform = Nothing
+                Select Case DirectCast(CurrentToken.Value, String).ToLower()
+
+                    Case "linux"
+                        TargetedPlatform = Platform.Linux
+
+                    Case "windows"
+                        TargetedPlatform = Platform.Win
+
+                    Case "noconsole"
+                        TargetedPlatform = Platform.NoConsole
+
+                    Case "console"
+                        TargetedPlatform = Platform.Console
+
+                    Case Else
+                        ThrowCoordinatesSyntaxLimException("ASTGL16", "Unrecognized platform name.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+
+                End Select
+                advance()
+                If Not CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
+                    ThrowCoordinatesSyntaxLimException("ASTGL17", "A closing parenthesis was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+                advance()
+                Dim Value As StatementNode = GetLine(CurrentLineIndentation)
+                Return New PlatformDependentStatement(tok.PositionStartY, tok.PositionStartX, TargetedPlatform, Value)
+
+            Else
+
+                TokenIndex = recedeIndex
+
+            End If
+
+        End While
+
         'Declare variable
         If CurrentToken.Type = TokenType.KW_LET Then
 
@@ -542,6 +609,10 @@ Class AST
                 Export = True
                 advance()
             End If
+
+            'Position
+            Dim EndPosY As Integer = CurrentToken.PositionEndY
+            Dim EndPosX As Integer = CurrentToken.PositionEndX
 
             'Get name
             Dim VariableName As String
@@ -576,10 +647,6 @@ Class AST
 
             End If
 
-            'Position
-            Dim EndPosY As Integer = 0
-            Dim EndPosX As Integer = 0
-
             'Type
             Dim ExplicitType As TypeNode = Nothing
             If CurrentToken.Type = TokenType.CODE_COLON Then
@@ -606,7 +673,7 @@ Class AST
 
             'No type and no value
             If ExplicitType Is Nothing And ExplicitValue Is Nothing Then
-                ThrowCoordinatesSyntaxLimException("ASTGL04", "To declare a variable, you must at least explicitly declare its type or a default value.", ParentFile, tok.PositionStartY, tok.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                ThrowCoordinatesSyntaxLimException("ASTGL04", "To declare a variable, you must at least explicitly declare its type or a default value.", ParentFile, tok.PositionStartY, tok.PositionStartX, EndPosY, EndPosX)
             End If
 
             'Create node
@@ -841,6 +908,9 @@ Class AST
             While CurrentToken.Type = TokenType.CODE_LINEINDENTATION
 
                 'Advance
+                If TokenIndex = Tokens.Count - 1 Then
+                    Exit While
+                End If
                 advance()
 
                 'Keyword
@@ -887,6 +957,9 @@ Class AST
             Dim recedeIndex As Integer = TokenIndex
             If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
                 ThrowCoordinatesSyntaxLimException("ASTGL13", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            If TokenIndex = Tokens.Count - 1 Then
+                Return ResultNode
             End If
             advance()
 
@@ -970,6 +1043,17 @@ Class AST
         Dim IndentationToken As Token = CurrentToken
         Dim CurrentScopeIndentation As Integer = DirectCast(IndentationToken.Value, Integer)
         advance()
+
+        'Extend
+        Dim ExtendTarget As String = ""
+        If CurrentToken.Type = TokenType.KW_EXTEND Then
+            advance()
+            If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                ThrowCoordinatesSyntaxLimException("ASTGR23", "The name of a class was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            ExtendTarget = CurrentToken.Value
+            advance()
+        End If
 
         'Is a relation
         If Not CurrentToken.Type = TokenType.KW_RELATION Then
@@ -1204,7 +1288,11 @@ Class AST
         End While
 
         'Return
-        Return ResultNode
+        If ExtendTarget = "" Then
+            Return ResultNode
+        Else
+            Return New ExtendNode(PositionStartY, PositionStartX, ResultNode.PositionEndY, ResultNode.PositionEndX, ExtendTarget, ResultNode)
+        End If
 
     End Function
 
@@ -1223,13 +1311,27 @@ Class AST
         Dim IndentationToken As Token = CurrentToken
         Dim CurrentScopeIndentation As Integer = DirectCast(IndentationToken.Value, Integer)
         advance()
-
-        'Export
         Dim PositionStartY As Integer = CurrentToken.PositionStartY
         Dim PositionStartX As Integer = CurrentToken.PositionStartX
+
+        'Export
         Dim export As Boolean = False
         If CurrentToken.Type = TokenType.KW_EXPORT Then
             export = True
+            advance()
+        End If
+
+        'Extend
+        Dim ExtendTarget As String = ""
+        If CurrentToken.Type = TokenType.KW_EXTEND Then
+            If export Then
+                ThrowCoordinatesSyntaxLimException("ASTGF09", "The ""extend"" block extends a class, so it already has an effect on all source files.", ParentFile, PositionStartY, PositionStartX, Tokens(TokenIndex - 1).PositionEndY, Tokens(TokenIndex - 1).PositionEndX, "Remove the ""export"" keyword")
+            End If
+            advance()
+            If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                ThrowCoordinatesSyntaxLimException("ASTGF10", "The name of a class was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            ExtendTarget = CurrentToken.Value
             advance()
         End If
 
@@ -1385,7 +1487,11 @@ Class AST
         End While
 
         'Return
-        Return ResultNode
+        If ExtendTarget = "" Then
+            Return ResultNode
+        Else
+            Return New ExtendNode(PositionStartY, PositionStartX, ResultNode.PositionEndY, ResultNode.PositionEndX, ExtendTarget, ResultNode)
+        End If
 
     End Function
 
@@ -1496,6 +1602,8 @@ Class AST
 
         'Content
         Dim HasCloneMethod As Boolean = False
+        Dim HasStr As Boolean = False
+        Dim HasRepr As Boolean = False
         While True
 
             'NewLine
@@ -1514,9 +1622,15 @@ Class AST
             LineResult.ParentNode = ResultNode
             If TypeOf LineResult Is FunctionNode Then
                 ResultNode.Methods.Add(LineResult)
-                If (Not HasCloneMethod) And DirectCast(LineResult, FunctionNode).FunctionName = "clone" Then
-                    HasCloneMethod = True
-                End If
+                Dim CastedMethod As FunctionNode = DirectCast(LineResult, FunctionNode)
+                Select Case CastedMethod.FunctionName
+                    Case "clone"
+                        HasCloneMethod = True
+                    Case "str"
+                        HasStr = True
+                    Case "repr"
+                        HasRepr = True
+                End Select
             ElseIf TypeOf LineResult Is RelationNode Then
                 ResultNode.Relations.Add(LineResult)
             ElseIf TypeOf LineResult Is DeclareVariableNode Then
@@ -1524,7 +1638,7 @@ Class AST
             ElseIf TypeOf LineResult Is AddSourceDirectlyStatementNode Then
                 ResultNode.AddSourcesDirectly.Add(LineResult)
             Else
-                ThrowNodeSyntaxException("ASTGC07", "This was not expected here.", LineResult, "Check line indentation.")
+                ThrowCoordinatesSyntaxLimException("ASTGC07", "This was not expected here.", ParentFile, LineResult.PositionStartY, LineResult.PositionStartX, LineResult.PositionEndY, LineResult.PositionEndX, "Check line indentation.")
             End If
 
 
@@ -1535,8 +1649,31 @@ Class AST
             ThrowCoordinatesSyntaxLimException("ASTGC09", "A class defined as ""primary"" must have a clone method.", ParentFile, ResultNode.PositionStartY, ResultNode.PositionStartX, ResultNode.PositionEndY, ResultNode.PositionEndX)
         End If
 
+        'Str
+        If Not HasStr Then
+            ResultNode.Methods.Add(CreateMethod(ResultNode, "str", "str", "return new_str(""<object: " & ResultNode.ClassName & ">"");"))
+        End If
+
+        'Repr
+        If Not HasRepr Then
+            ResultNode.Methods.Add(CreateMethod(ResultNode, "repr", "str", "return {{str()}};"))
+        End If
+
         'Return
         Return ResultNode
+
+    End Function
+
+    Private Function CreateMethod(ByVal Parentclass As ClassNode, ByVal name As String, ByVal returnType As String, ByVal line As String) As FunctionNode
+
+        'Create ASD
+        Dim ASD As New AddSourceDirectlyNode(-1, -1, -1, -1, line)
+        Dim SASD As New AddSourceDirectlyStatementNode(ASD)
+        Dim Method As New FunctionNode(-1, -1, -1, -1, name, False, New List(Of FunctionArgumentNode), New TypeNode(-1, -1, -1, -1, returnType))
+        SASD.ParentNode = Method
+        Method.ParentNode = Parentclass
+        Method.Codes.Add(SASD)
+        Return Method
 
     End Function
 

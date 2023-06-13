@@ -59,10 +59,13 @@ MustInherit Class Node
     '========== CLONE ==========
     '===========================
     Public Function Clone(Optional ParentNode As Node = Nothing) As Node
+        Dim Cloned As Node = Duplicate()
+        If TypeOf Cloned Is ScopeNode Then
+            DirectCast(Cloned, ScopeNode).Variables = New List(Of Variable)
+        End If
         If ParentNode Is Nothing Then
             Return Duplicate()
         Else
-            Dim Cloned As Node = Duplicate()
             Cloned.ParentNode = ParentNode
             Return Cloned
         End If

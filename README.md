@@ -1,20 +1,20 @@
-# The lim programming language
-
-<img style="float: right; margin-left: 30px" src="https://github.com/GeminoRR/Lim/blob/master/Lim/logo_compiler.ico?raw=true">
+# Lim programming language
+![Lim logo](https://github.com/GeminoRR/Lim/blob/master/examples/logo.png?raw=true)
 
 ## Introduction
-This repository contains the source code for the lim compiler. It is a language inspired by the syntax of python but with a strict typing. Its particularity is that it compiles to C then to the executable. So it is possible to use C libraries in Lim.
+👉 this repository contains the code for the Lim compiler. It's a python-inspired language to which a strict type system has been added. Also, lim first compiles to C, then uses GCC to generate the executable. It is thus possible to use C libraries in Lim (like SDL2).
 
-I strongly urge you not to notice my inability to code correctly. More seriously, this project does not aim, for the moment, to be used in production.
+📌 It's a personal project with no other ambition than to give me a good time.
+As such, I strongly advise you not to use lim seriously.
 
-## The particularities of lim
+🚧 Work in progress !
+
+## Lim in a nutshell
 - Statically Typed
-- High-level language with low-level speed
-- Compatible with OOP
-- Indentation-based statements
-- Simple file import system
-- Compile first to C, then to the desired executable (Windows, Linux, MacOS)
-- Allows the use of all C libraries via .limlib files (Inject C code into a Lim file)
+- Compiled
+- Python-like syntax
+- Object-Oriented Programming
+- Write C code in a .lim file
 
 ## Examples
 ### Hello world
@@ -32,7 +32,7 @@ func main
 ```
 
 ### Class
-```python
+```rust
 func main
 	let current_user = new user("Pierre", 16)
 	puts(current_user.str())
@@ -41,37 +41,78 @@ class user
 	
 	let username:str
 	let age:int
-	let hobbies:list<str>
+	let hobbies = new list<str>
 
-	func new(_username:str, _age:int) //Constructor
+	func new(_username:str, _age:int)
 		username = _username
 		age = _age
-		hobbies = new list<str>
 
 	func str
 		return username + " is " + age.str() + "yo"
 ```
+
+### Function pointers
+```swift
+func main
+	operation(5, 2, plustr) //Output: Result is 7
+
+func plustr(a:int, b:int):str
+	return (a + b).str()
+
+func operation(a:int, b:int, action:fun<int, int><str>)
+	let result = action(a, b)
+	puts("Result is " + result)
+```
+
+### Generic Classes
+```rust
+class stack<T>
+	let content = new list<T>
+
+	func push(value:T)
+		content.add(value)
+
+	func remove:T
+		return content.pop(-1)
+
+	func str:str
+		let result = ""
+		let first = true
+		for i in content
+			if first
+				result = i.repr()
+				first = false
+			else
+				result = result + ", " + i.repr()
+		return "<" + result + "]"
+
+func main
+	let s = new stack<str>
+	s.push("hello")
+	s.push("world")
+	puts(s.str()) //Output: <"hello", "world"]
+```
+
+### Image
+```swift
+import image
+
+func main
+	let img = new image(50, 50)
+	for i from 0 to 25
+		let c = new color(randint(0, 255), randint(0, 255), randint(0, 255))
+		img.fillRect(i, i, 50 - 2 * i, 50 - 2 * i, c)
+	img.save("rectangles.png")
+```
+![File system with rectangles.png](https://github.com/GeminoRR/Lim/blob/master/examples/image.png?raw=true)
 
 ### Window Graphics
 ```swift
 import graphics
 
 func main
-	let mainWindow = new window("My window", 500, 500, drawFrame)
-	mainWindow.show()
-
-let rectangleY = 0
-
-func drawFrame(screen:image)
-	//Draw background
-	screen.fillRectangle(0, 0, 500, 500, "#FFFFFF")
-
-	//Draw the rectangle
-	screen.fillRectangle(225, rectangleY, 50, 50, "#27AE60")
-
-	//Move rectange
-	if keyPressed("up")
-		rectangleY = rectangleY - 5
-	elseif keyPressed("down")
-		rectangleY = rectangleY + 5
+	windowInit(200, 200)
+	while true
+		windowUpdate()
 ```
+![Example of an empty window](https://github.com/GeminoRR/Lim/blob/master/examples/graphics.png?raw=true)

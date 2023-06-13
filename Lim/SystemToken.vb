@@ -72,6 +72,7 @@ Module TokenEnum
         KW_RELATION
         KW_EXPORT
         KW_PRIMARY
+        KW_EXTEND
         KW_LET
         KW_NEW
         KW_RETURN

@@ -13,7 +13,7 @@ Class RelationNode
     Public ReturnTypeNode As TypeNode
     Public RelationOperator As RelationOperator
     Public RelationArguments As New List(Of FunctionArgumentNode)
-    Public Codes As New List(Of Node)
+    Public Codes As New List(Of StatementNode)
     Public CompiledName As String
     Public Property ReturnType As Type
         Get
@@ -58,11 +58,13 @@ Class RelationNode
         Cloned.CompiledName = GetRelationCompiledName()
         Cloned._ReturnType = Nothing
         Cloned.Compiled = False
-        For i As Integer = 0 To Cloned.RelationArguments.Count - 1
-            Cloned.RelationArguments(i) = Cloned.RelationArguments(i).Clone(Cloned)
+        Cloned.RelationArguments = New List(Of FunctionArgumentNode)
+        For Each i As FunctionArgumentNode In Me.RelationArguments
+            Cloned.RelationArguments.Add(i.Clone(Cloned))
         Next
-        For i As Integer = 0 To Cloned.Codes.Count - 1
-            Cloned.Codes(i) = Cloned.Codes(i).Clone(Cloned)
+        Cloned.Codes = New List(Of StatementNode)
+        For Each i As StatementNode In Me.Codes
+            Cloned.Codes.Add(i.Clone(Cloned))
         Next
         Return Cloned
 

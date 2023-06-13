@@ -18,8 +18,9 @@ Class ListNode
     Protected Overrides Function Duplicate() As Node
 
         Dim Cloned As ListNode = Me.MemberwiseClone()
-        For i As Integer = 0 To Cloned.Values.Count - 1
-            Cloned.Values(i) = Cloned.Values(i).Clone(Cloned)
+        Cloned.Values = New List(Of ValueNode)
+        For Each i As ValueNode In Me.Values
+            Cloned.Values.Add(i.Clone(Cloned))
         Next
         Return Cloned
 

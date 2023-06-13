@@ -129,8 +129,9 @@ Class TypeNode
     Protected Overrides Function Duplicate() As Node
 
         Dim Cloned As TypeNode = Me.MemberwiseClone()
-        For i As Integer = 0 To Cloned.PassedArguments.Count - 1
-            Cloned.PassedArguments(i) = Cloned.PassedArguments(i).Clone(Cloned)
+        Cloned.PassedArguments = New List(Of TypeNode)
+        For Each i As TypeNode In Me.PassedArguments
+            Cloned.PassedArguments.Add(i.Clone(Cloned))
         Next
         Cloned._AssociateClassNode = Nothing
         Cloned._AssociateType = Nothing
@@ -148,11 +149,6 @@ Class TypeNode
 
         'Properties
         Me.ClassName = ClassName
-
-        'Fix fun
-        If ClassName = "fun" Then
-
-        End If
 
     End Sub
 

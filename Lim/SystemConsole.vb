@@ -15,6 +15,8 @@ Module SystemConsole
     Public flags As New List(Of String)
     Public ShowDebug As Boolean
     Public MegaDebug As Boolean
+    Public CurentPlatform As Platform
+    Public HideConsole As Boolean = False
 
     '==============================
     '========== HAS FLAG ==========
@@ -37,6 +39,7 @@ Module SystemConsole
 
         'App culture
         Threading.Thread.CurrentThread.CurrentUICulture = New System.Globalization.CultureInfo("en")
+        CurentPlatform = Platform.Win
 
         'Start application
         MainApplication(args.ToList())
@@ -133,6 +136,14 @@ Module SystemConsole
         'Debug
         ShowDebug = HasFlag("d", "debug")
         MegaDebug = HasFlag("md", "megadebug")
+        HideConsole = HasFlag("hc", "hideconsole")
+
+        'Compile platform
+        If HasFlag("l", "linux") Then
+            CurentPlatform = Platform.Linux
+        ElseIf HasFlag("w", "windows") Then
+            CurentPlatform = Platform.Win
+        End If
 
         'Compile
         If files.Count = 1 Then
@@ -145,14 +156,22 @@ Module SystemConsole
 
             'Compile & Run file
             Dim P As New Process()
+#If DEBUG Then
+            P.StartInfo.FileName = Compiler.compile(files(0))
+#Else
             Try
                 P.StartInfo.FileName = Compiler.compile(files(0))
             Catch ex As Exception
+                If ShowDebug Then
+                    Console.ForegroundColor = ConsoleColor.DarkGray
+                    Console.WriteLine(ex.Message)
+                End If
                 Console.ForegroundColor = ConsoleColor.DarkRed
                 Console.WriteLine("Compilation failed!")
                 Console.ResetColor()
                 EndApplication()
             End Try
+#End If
             P.StartInfo.WorkingDirectory = CurrentDir
             P.Start()
             While Not P.HasExited
@@ -169,14 +188,31 @@ Module SystemConsole
             End If
 
             'Compile
-            Try
+#If DEBUG Then
+            File.Move(Compiler.compile(files(0)), files(1), True)
+            For Each CompiledFile As String In Directory.GetFiles(AppData & "/bin")
+                CompiledFile = CompiledFile.Replace("\", "/")
+                File.Move(CompiledFile, Directory.GetParent(files(1)).FullName & "/" & CompiledFile.Substring(CompiledFile.LastIndexOf("/") + 1), True)
+            Next
+#Else
+Try
                 File.Move(Compiler.compile(files(0)), files(1), True)
+                For Each CompiledFile As String In Directory.GetFiles(AppData & "/bin")
+                    CompiledFile = CompiledFile.Replace("\", "/")
+                    File.Move(CompiledFile, Directory.GetParent(files(1)).FullName & "/" & CompiledFile.Substring(CompiledFile.LastIndexOf("/") + 1), True)
+                Next
             Catch ex As Exception
+                If ShowDebug Then
+                    Console.ForegroundColor = ConsoleColor.DarkGray
+                    Console.WriteLine(ex.Message)
+                End If
                 Console.ForegroundColor = ConsoleColor.DarkRed
                 Console.WriteLine("Compilation failed!")
                 Console.ResetColor()
                 EndApplication()
             End Try
+#End If
+
 
             'Finished
             Console.ForegroundColor = ConsoleColor.DarkGreen
@@ -226,11 +262,14 @@ Module SystemConsole
         Console.WriteLine(vbTab & vbTab & "-d" & vbTab & "--debug" & vbTab & vbTab & "Show debug logs")
         Console.WriteLine(vbTab & vbTab & "-i" & vbTab & "--icon" & vbTab & vbTab & "Select the executable icon.")
         Console.ForegroundColor = ConsoleColor.DarkGray
-        Console.WriteLine(vbTab & vbTab & vbTab & vbTab & vbTab & "Exemple : -i""hello.ico""")
+        Console.WriteLine(vbTab & vbTab & vbTab & vbTab & vbTab & "Exemple : --icon=hello.ico")
         Console.ResetColor()
         Console.WriteLine(vbTab & vbTab & "-k" & vbTab & "--keep" & vbTab & vbTab & "Does not delete temporary files.")
         Console.WriteLine(vbTab & vbTab & "-h" & vbTab & "--help" & vbTab & vbTab & "Show the help menu.")
-        Console.WriteLine(vbTab & vbTab & "-v" & vbTab & "--version" & vbTab & vbTab & "Shows the current version of lim.")
+        Console.WriteLine(vbTab & vbTab & "-v" & vbTab & "--version" & vbTab & "Shows the current version of lim.")
+        Console.WriteLine(vbTab & vbTab & "-l" & vbTab & "--linux" & vbTab & vbTab & "Compiles an executable that can only be used on GNU/Linux.")
+        Console.WriteLine(vbTab & vbTab & "-w" & vbTab & "--windows" & vbTab & "Compiles an executable that can only be used on Windows.")
+        Console.WriteLine(vbTab & vbTab & "-hc" & vbTab & "--hideconsole" & vbTab & "The final executable will not open a console.")
 
         Console.WriteLine("")
         Console.ForegroundColor = ConsoleColor.DarkGray
@@ -251,3 +290,10 @@ Module SystemConsole
 
 
 End Module
+Enum Platform
+    Win
+    Linux
+
+    NoConsole
+    Console
+End Enum

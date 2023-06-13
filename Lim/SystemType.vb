@@ -24,30 +24,21 @@ Class Type
     Public Sub New(ByVal ParentClass As ClassNode, ByVal PassedArguments As List(Of Type), Optional CompileNow As Boolean = True)
 
         MyBase.New(ParentClass.PositionStartY, ParentClass.PositionStartX, ParentClass.PositionEndY, ParentClass.PositionEndX)
-
         Me.ParentClass = ParentClass
         Me.ParentNode = Me.ParentClass.ParentNode
         Me.PassedArguments = PassedArguments
         Me.CompiledName = GetTypeCompiledName()
         For Each ASD As AddSourceDirectlyStatementNode In ParentClass.AddSourcesDirectly
-            Dim ClonedASD As AddSourceDirectlyStatementNode = ASD.Clone()
-            ClonedASD.ParentNode = Me
-            Me.AddSourcesDirectly.Add(ClonedASD)
+            Me.AddSourcesDirectly.Add(ASD.Clone(Me))
         Next
         For Each DeclareVariable As DeclareVariableNode In ParentClass.DeclareVariables
-            Dim CLonedDeclareVariable As DeclareVariableNode = DeclareVariable.Clone()
-            CLonedDeclareVariable.ParentNode = Me
-            Me.DeclareVariables.Add(CLonedDeclareVariable)
+            Me.DeclareVariables.Add(DeclareVariable.Clone(Me))
         Next
         For Each Method As FunctionNode In ParentClass.Methods
-            Dim ClonedMethod As FunctionNode = Method.Clone()
-            ClonedMethod.ParentNode = Me
-            Me.Methods.Add(ClonedMethod)
+            Me.Methods.Add(Method.Clone(Me))
         Next
         For Each Relation As RelationNode In ParentClass.Relations
-            Dim ClonedRelation As RelationNode = Relation.Clone()
-            ClonedRelation.ParentNode = Me
-            Me.Relations.Add(ClonedRelation)
+            Me.Relations.Add(Relation.Clone(Me))
         Next
 
         Compiler.DefinedTypes.Add(Me)

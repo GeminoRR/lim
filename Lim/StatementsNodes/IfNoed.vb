@@ -24,18 +24,21 @@ Class IfNode
 
         Dim Cloned As IfNode = Me.MemberwiseClone()
         Cloned.MainCondition = Cloned.MainCondition.Clone(Cloned)
-        For i As Integer = 0 To Cloned.MainCodes.Count - 1
-            Cloned.MainCodes(i) = Cloned.MainCodes(i).Clone(Cloned)
+        Cloned.MainCodes = New List(Of StatementNode)
+        For Each i As StatementNode In Me.MainCodes
+            Cloned.MainCodes.Add(i.Clone(Cloned))
         Next
-        For i As Integer = 0 To Cloned.ElseIfs.Count - 1
+        Cloned.ElseIfs = New List(Of Tuple(Of ValueNode, List(Of StatementNode)))
+        For Each i As Tuple(Of ValueNode, List(Of StatementNode)) In Me.ElseIfs
             Dim ClonedList As New List(Of StatementNode)
-            For j As Integer = 0 To Cloned.ElseIfs(i).Item2.Count - 1
-                ClonedList.Add(Cloned.ElseIfs(i).Item2(j).Clone(Cloned))
+            For Each j As StatementNode In i.Item2
+                ClonedList.Add(j.Clone(Me))
             Next
-            Cloned.ElseIfs(i) = (DirectCast(Cloned.ElseIfs(i).Item1.Clone(Cloned), ValueNode), ClonedList).ToTuple()
+            Cloned.ElseIfs.Add((DirectCast(i.Item1.Clone(Cloned), ValueNode), ClonedList).ToTuple())
         Next
-        For i As Integer = 0 To Cloned.ElseCodes.Count - 1
-            Cloned.ElseCodes(i) = Cloned.ElseCodes(i).Clone(Cloned)
+        Cloned.ElseCodes = New List(Of StatementNode)
+        For Each i As StatementNode In Me.ElseCodes
+            Cloned.ElseCodes.Add(i.Clone(Cloned))
         Next
         Return Cloned
 

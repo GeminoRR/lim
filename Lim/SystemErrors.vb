@@ -34,26 +34,28 @@ Module LimExceptions
         Console.WriteLine(name.ToUpper() & ": " & message)
 
         'Get lines
-        For i As Integer = PositionStartY To PositionEndY
+        If Not (PositionEndX = -1 Or PositionEndY = -1 Or PositionStartX = -1 Or PositionStartY = -1) Then
+            For i As Integer = PositionStartY To PositionEndY
 
-            Dim OriginalColor As ConsoleColor = Console.BackgroundColor
-            Console.ResetColor()
-            Console.Write((i + 1).ToString() & vbTab & "|")
-            Console.BackgroundColor = OriginalColor
+                Dim OriginalColor As ConsoleColor = Console.BackgroundColor
+                Console.ResetColor()
+                Console.Write((i + 1).ToString() & vbTab & "|")
+                Console.BackgroundColor = OriginalColor
 
-            For y As Integer = 0 To file.lines(i).Count - 1
+                For y As Integer = 0 To file.lines(i).Count - 1
 
-                If i = PositionStartY And y = PositionStartX Then
-                    Console.BackgroundColor = ConsoleColor.DarkRed
-                End If
-                Console.Write(file.lines(i)(y))
-                If i = PositionEndY And y = PositionEndX Then
-                    Console.ResetColor()
-                End If
+                    If i = PositionStartY And y = PositionStartX Then
+                        Console.BackgroundColor = ConsoleColor.DarkRed
+                    End If
+                    Console.Write(file.lines(i)(y))
+                    If i = PositionEndY And y = PositionEndX Then
+                        Console.ResetColor()
+                    End If
+
+                Next
 
             Next
-
-        Next
+        End If
 
         'Help message
         If Not HelpMessage = Nothing Then
@@ -63,15 +65,17 @@ Module LimExceptions
         End If
 
         'Bottom
-        Dim lineToString As String
-        If PositionStartY = PositionEndY Then
-            lineToString = "line " & (PositionStartY + 1).ToString()
-        Else
-            lineToString = "lines " & (PositionStartY + 1).ToString() & " to " & (PositionEndY + 1).ToString()
+        Dim lineToString As String = ""
+        If Not (PositionEndX = -1 Or PositionEndY = -1 Or PositionStartX = -1 Or PositionStartY = -1) Then
+            If PositionStartY = PositionEndY Then
+                lineToString = " at line " & (PositionStartY + 1).ToString() & ","
+            Else
+                lineToString = " at lines " & (PositionStartY + 1).ToString() & " to " & (PositionEndY + 1).ToString() & ","
+            End If
         End If
         Console.ResetColor()
         Console.ForegroundColor = ConsoleColor.Red
-        Console.WriteLine("<" & file.filename & "> at " & lineToString & ", code " & code)
+        Console.WriteLine("<" & file.filename & ">" & lineToString & " code " & code)
         Console.ResetColor()
 
         'Finish application

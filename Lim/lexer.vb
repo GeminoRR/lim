@@ -156,10 +156,18 @@ Module Lexer
 
                 Dim EndCharacter As Char = currentChar
                 Dim Value As String = ""
+                Dim SpecialChar As Boolean = False
                 advance()
 
-                While Not (currentChar = EndCharacter Or currentChar = Nothing)
-                    Value &= currentChar
+                While Not ((currentChar = EndCharacter And Not SpecialChar) Or currentChar = Nothing)
+                    If currentChar = "\" And Not SpecialChar And EndCharacter = "'" Then
+                        SpecialChar = True
+                    Else
+                        Value &= currentChar
+                        If SpecialChar Then
+                            SpecialChar = False
+                        End If
+                    End If
                     advance()
                 End While
 
@@ -205,28 +213,15 @@ Module Lexer
                         result.Add(New Token(TokenType.KW_EXPORT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "primary"
                         result.Add(New Token(TokenType.KW_PRIMARY, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "extend"
+                        result.Add(New Token(TokenType.KW_EXTEND, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "relation"
                         result.Add(New Token(TokenType.KW_RELATION, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+
                     Case "let"
                         result.Add(New Token(TokenType.KW_LET, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "new"
-                        result.Add(New Token(TokenType.KW_NEW, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "and"
-                        result.Add(New Token(TokenType.OP_AND, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "or"
-                        result.Add(New Token(TokenType.OP_OR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "not"
-                        result.Add(New Token(TokenType.OP_NOT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "return"
                         result.Add(New Token(TokenType.KW_RETURN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "for"
-                        result.Add(New Token(TokenType.KW_FOR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "from"
-                        result.Add(New Token(TokenType.KW_FROM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "to"
-                        result.Add(New Token(TokenType.KW_TO, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "in"
-                        result.Add(New Token(TokenType.OP_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "while"
                         result.Add(New Token(TokenType.KW_WHILE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "if"
@@ -235,6 +230,23 @@ Module Lexer
                         result.Add(New Token(TokenType.KW_ELSEIF, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "else"
                         result.Add(New Token(TokenType.KW_ELSE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "for"
+                        result.Add(New Token(TokenType.KW_FOR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "from"
+                        result.Add(New Token(TokenType.KW_FROM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "to"
+                        result.Add(New Token(TokenType.KW_TO, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+
+                    Case "new"
+                        result.Add(New Token(TokenType.KW_NEW, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "and"
+                        result.Add(New Token(TokenType.OP_AND, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "or"
+                        result.Add(New Token(TokenType.OP_OR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "not"
+                        result.Add(New Token(TokenType.OP_NOT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "in"
+                        result.Add(New Token(TokenType.OP_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case Else
                         result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, TrueKeyword))

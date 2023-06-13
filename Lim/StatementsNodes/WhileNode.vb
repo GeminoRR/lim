@@ -20,8 +20,9 @@ Class WhileNode
 
         Dim Cloned As WhileNode = Me.MemberwiseClone()
         Cloned.Condition = Cloned.Condition.Clone(Cloned)
-        For i As Integer = 0 To Cloned.Codes.Count - 1
-            Cloned.Codes(i) = Cloned.Codes(i).Clone(Cloned)
+        Cloned.Codes = New List(Of StatementNode)
+        For Each i As StatementNode In Me.Codes
+            Cloned.Codes.Add(i.Clone(Cloned))
         Next
         Return Cloned
 

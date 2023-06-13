@@ -201,6 +201,9 @@ Class VariableNode
         Next
 
         'Check Functions from imported files
+        If VariableName = "readfile" Then
+            Debugger.Break()
+        End If
         For Each ImportedFile As SourceFile In Me.ParentFile.ImportedFiles
             For Each fun As FunctionNode In ImportedFile.Functions
                 If fun.Export And fun.FunctionName = Me.VariableName Then

@@ -1,3 +1,25 @@
+class stack<T>
+	let content = new list<T>
+
+	func push(value:T)
+		content.add(value)
+
+	func remove:T
+		//return content.pop(-1)
+
+	func str:str
+		let result = ""
+		let first = true
+		for i in content
+			if first
+				result = i.repr()
+				first = false
+			else
+				result = result + ", " + i.repr()
+		return "<" + result + "]"
+
 func main
-	for i to 5
-		puts(i.str())
+	let s = new stack<str>
+	s.push("hello")
+	s.push("world")
+	puts(s.str())

@@ -20,8 +20,9 @@ Class NewNode
 
         Dim Cloned As NewNode = Me.MemberwiseClone()
         Cloned.TargetType = Cloned.TargetType.Clone(Cloned)
-        For i As Integer = 0 To Cloned.PassedArguments.Count - 1
-            Cloned.PassedArguments(i) = Cloned.PassedArguments(i).Clone(Cloned)
+        Cloned.PassedArguments = New List(Of ValueNode)
+        For Each i As ValueNode In Me.PassedArguments
+            Cloned.PassedArguments.Add(i.Clone(Cloned))
         Next
         Return Cloned
 

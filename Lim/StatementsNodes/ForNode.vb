@@ -29,8 +29,9 @@ Class ForNode
             Cloned.FromValue = Cloned.FromValue.Clone(Cloned)
         End If
         Cloned.ToValue = Cloned.ToValue.Clone(Cloned)
-        For i As Integer = 0 To Cloned.Codes.Count - 1
-            Cloned.Codes(i) = Cloned.Codes(i).Clone(Cloned)
+        Cloned.Codes = New List(Of StatementNode)
+        For i As Integer = 0 To Me.Codes.Count - 1
+            Cloned.Codes.Add(Me.Codes(i).Clone(Cloned))
         Next
         Return Cloned
 

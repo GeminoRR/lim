@@ -32,11 +32,13 @@ Class FunctionNode
         Cloned.CompiledName = GetRelationCompiledName()
         Cloned._ReturnType = Nothing
         Cloned.Compiled = False
-        For i As Integer = 0 To Cloned.FunctionArguments.Count - 1
-            Cloned.FunctionArguments(i) = Cloned.FunctionArguments(i).Clone(Cloned)
+        Cloned.FunctionArguments = New List(Of FunctionArgumentNode)
+        For i As Integer = 0 To Me.FunctionArguments.Count - 1
+            Cloned.FunctionArguments.Add(Me.FunctionArguments(i).Clone(Cloned))
         Next
-        For i As Integer = 0 To Cloned.Codes.Count - 1
-            Cloned.Codes(i) = Cloned.Codes(i).Clone(Cloned)
+        Cloned.Codes = New List(Of StatementNode)
+        For i As Integer = 0 To Me.Codes.Count - 1
+            Cloned.Codes.Add(Me.Codes(i).Clone(Cloned))
         Next
         Return Cloned
 
@@ -270,7 +272,7 @@ Class FunctionNode
     '=============================
     '========== COMPILE ==========
     '=============================
-    Private Compiled As Boolean = False
+    Public Compiled As Boolean = False
     Public Overrides Sub Compile(ByVal Content As List(Of String))
 
         'Compiled
@@ -368,6 +370,9 @@ Class FunctionNode
                     CompiledReturnType = ParentType.CompiledName & " * "
 
                 Case "str"
+                    If Me.FunctionArguments.Count > 0 Then
+                        ThrowNodeSyntaxException("FNC04", "The ""str"" method cannot take any arguments.", Me)
+                    End If
                     If Not Me.ReturnType = STD_str Then
                         If Me.ReturnType Is Nothing Then
                             ThrowNodeSyntaxException("FNC04", "The ""str"" method must necessarily return a character string, but here it returns nothing.", Me)
@@ -376,7 +381,22 @@ Class FunctionNode
                     End If
                     CompiledReturnType = Me.ReturnType.CompiledName & " * "
 
+                Case "repr"
+                    If Me.FunctionArguments.Count > 0 Then
+                        ThrowNodeSyntaxException("FNC04", "The ""repr"" method cannot take any arguments.", Me)
+                    End If
+                    If Not Me.ReturnType = STD_str Then
+                        If Me.ReturnType Is Nothing Then
+                            ThrowNodeSyntaxException("FNC06", "The ""repr"" method must necessarily return a character string, but here it returns nothing.", Me)
+                        End If
+                        ThrowNodeSyntaxException("FNC06", "The ""reprrepr"" method must return a character string, but here it returns a value of type (" & Me.ReturnType.ToString() & ").", Me.ReturnTypeNode)
+                    End If
+                    CompiledReturnType = Me.ReturnType.CompiledName & " * "
+
                 Case "clone"
+                    If Me.FunctionArguments.Count > 0 Then
+                        ThrowNodeSyntaxException("FNC04", "The ""clone"" method cannot take any arguments.", Me)
+                    End If
                     If Not Me.ReturnType = ParentType Then
                         If Me.ReturnType Is Nothing Then
                             ThrowNodeSyntaxException("FNC05", "The ""clone"" method must return an instance of the class in which it is defined.", Me, "The method must return a value of type " & ParentType.ToString() & "instead of nothing.")
