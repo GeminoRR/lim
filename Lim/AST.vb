@@ -502,8 +502,15 @@ Class AST
     '==============================
     Private Function GetComparison() As ValueNode
 
+        If CurrentToken.Type = TokenType.OP_NOT Then
+            Dim Tok As Token = CurrentToken
+            advance()
+            Dim Target As Node = GetComparison()
+            Return New UnaryOpNode(Tok.PositionStartY, Tok.PositionStartX, Target.PositionEndY, Target.PositionEndX, Tok, Target)
+        End If
+
         Dim Left As ValueNode = GetExpr()
-        While {TokenType.OP_EQUAL, TokenType.OP_LESSTHAN, TokenType.OP_LESSTHANEQUAL, TokenType.OP_MORETHAN, TokenType.OP_MORETHANEQUAL}.Contains(CurrentToken.Type)
+        While {TokenType.OP_EQUAL, TokenType.OP_LESSTHAN, TokenType.OP_LESSTHANEQUAL, TokenType.OP_MORETHAN, TokenType.OP_MORETHANEQUAL, TokenType.OP_HAS}.Contains(CurrentToken.Type)
 
             Dim Op As Token = CurrentToken
             advance()
@@ -522,7 +529,7 @@ Class AST
     Private Function GetBooleanOperation() As ValueNode
 
         Dim Left As ValueNode = GetComparison()
-        While {TokenType.OP_AND, TokenType.OP_OR, TokenType.OP_NOT}.Contains(CurrentToken.Type)
+        While {TokenType.OP_AND, TokenType.OP_OR}.Contains(CurrentToken.Type)
 
             Dim Op As Token = CurrentToken
             advance()
@@ -599,18 +606,24 @@ Class AST
 
         End While
 
+        'Export (for declare variable)
+        Dim Export As Boolean = False
+        If CurrentToken.Type = TokenType.KW_EXPORT Then
+            If Not CurrentLineIndentation = 0 Then
+                ThrowCoordinatesSyntaxLimException("ASTGL18", "The ""export"" keyword was unexpected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            Export = True
+            advance()
+            If Not CurrentToken.Type = TokenType.KW_LET Then
+                ThrowCoordinatesSyntaxLimException("ASTGL19", "The ""export"" keyword was unexpected here.", ParentFile, Tokens(TokenIndex - 1).PositionStartY, Tokens(TokenIndex - 1).PositionStartX, Tokens(TokenIndex - 1).PositionEndY, Tokens(TokenIndex - 1).PositionEndX)
+            End If
+        End If
+
         'Declare variable
         If CurrentToken.Type = TokenType.KW_LET Then
 
-            'Export
-            advance()
-            Dim Export As Boolean = False
-            If CurrentToken.Type = TokenType.KW_EXPORT Then
-                Export = True
-                advance()
-            End If
-
             'Position
+            advance()
             Dim EndPosY As Integer = CurrentToken.PositionEndY
             Dim EndPosX As Integer = CurrentToken.PositionEndX
 
@@ -727,7 +740,7 @@ Class AST
             End If
 
             'For each
-            If CurrentToken.Type = TokenType.OP_IN Then
+            If CurrentToken.Type = TokenType.KW_IN Then
 
                 'Get target
                 advance()
@@ -943,7 +956,7 @@ Class AST
                     advance()
                     Dim LineResult As Node = GetLine(LineIndentation)
                     LineResult.ParentNode = ResultNode
-                    ResultNode.MainCodes.Add(LineResult)
+                    elseif_lines.Add(LineResult)
 
                 End While
 
@@ -1098,6 +1111,12 @@ Class AST
         ElseIf CurrentToken.Type = TokenType.OP_MORETHANEQUAL Then
             RelationOperator = RelationOperator.MORETHANEQUAL
             advance()
+        ElseIf CurrentToken.Type = TokenType.OP_HAS Then
+            RelationOperator = RelationOperator.HAS
+            advance()
+        ElseIf CurrentToken.Type = TokenType.OP_NOT Then
+            RelationOperator = RelationOperator.UNARY_NOT
+            advance()
         ElseIf CurrentToken.Type = TokenType.OP_LEFT_BRACKET Then
             advance()
             If Not CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
@@ -1249,7 +1268,17 @@ Class AST
 
             Case RelationOperator.FOR_ITERATION
                 If Not Arguments.Count = 2 Then
-                    ThrowNodeSyntaxException("ASTGR22", "The ""for_iteration"" relation must take one arguments.", ResultNode)
+                    ThrowNodeSyntaxException("ASTGR22", "The ""for_iteration"" relation must take two arguments.", ResultNode)
+                End If
+
+            Case RelationOperator.HAS
+                If Not Arguments.Count = 2 Then
+                    ThrowNodeSyntaxException("ASTGR24", "The ""in"" relation must take two arguments because its relations is of type: ( a in b ).", ResultNode)
+                End If
+
+            Case RelationOperator.UNARY_NOT
+                If Not Arguments.Count = 1 Then
+                    ThrowNodeSyntaxException("ASTGR25", "The ""not"" relation must take one argument because its relations is of type: ( not a ).", ResultNode)
                 End If
 
             Case Else

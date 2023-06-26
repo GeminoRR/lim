@@ -57,7 +57,7 @@ Class NewNode
         If Arguments_STR.StartsWith(", ") Then
             Arguments_STR = "(" & Arguments_STR.Substring(2) & ")"
         End If
-        Return "new" & TargetType.ToString() & Arguments_STR
+        Return "new " & TargetType.ToString() & Arguments_STR
     End Function
 
     '=============================
@@ -88,7 +88,7 @@ Class NewNode
                 End If
 
                 'Arguments
-                Dim Arguments As String = ""
+                Dim Arguments As String = "GV"
                 For i As Integer = 0 To Method.FunctionArguments.Count - 1
 
                     If i < Me.PassedArguments.Count Then
@@ -113,9 +113,6 @@ Class NewNode
                     End If
 
                 Next
-                If Arguments.StartsWith(", ") Then
-                    Arguments = Arguments.Substring(2)
-                End If
 
                 'Compile
                 Method.Compile(Nothing)

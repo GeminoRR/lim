@@ -85,11 +85,11 @@ Class ListNode
 
         'Compile variable
         Dim TempVar As String = GetVariableCompiledName()
-        content.Add(ListType.CompiledName & " * " & TempVar & " = " & Constructor.CompiledName & "();")
+        content.Add(ListType.CompiledName & " * " & TempVar & " = " & Constructor.CompiledName & "(GV);")
 
         'Compile arguments
         For Each value As ValueNode In Me.Values
-            content.Add(Add.CompiledName & "(" & TempVar & ", (" & value.Compile(content) & "));")
+            content.Add(Add.CompiledName & "(GV, " & TempVar & ", (" & value.Compile(content) & "));")
         Next
 
         'Return

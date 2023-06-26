@@ -135,15 +135,16 @@ Class RelationNode
             ThrowNodeTypeException("RNC01", "The first argument of a relation must necessarily be the class of the relation.", RelationArguments(0))
         End If
 
-        ' Argument
-        ' Code (for return type)
-        ' Return type
-        ' Header
-        ' Core
+        ' PLAN
+        '   Argument
+        '   Code (for return type)
+        '   Return type
+        '   Header
+        '   Core
 
         'HEADER - Arguments
         Dim FunctionLines As New List(Of String)
-        Dim Arguments As String = ""
+        Dim Arguments As String = "global_variables * GV"
         For Each arg As FunctionArgumentNode In Me.RelationArguments
 
             'Add argument to header
@@ -152,9 +153,6 @@ Class RelationNode
             Arguments &= ", " & arg.ArgumentType.CompiledName & " * " & ArgumentVariable.CompiledName
 
         Next
-        If Arguments.StartsWith(", ") Then
-            Arguments = Arguments.Substring(2)
-        End If
         Dim Header As String = Me.CompiledName & "(" & Arguments & ")"
 
         'Compile all code
@@ -208,12 +206,14 @@ Enum RelationOperator
     DIVISION
 
     UNARY_MINUS
+    UNARY_NOT
 
     EQUAL
     LESSTHAN
     LESSTHANEQUAL
     MORETHAN
     MORETHANEQUAL
+    HAS
 
     INDEX
     INDEX_SET

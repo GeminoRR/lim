@@ -103,7 +103,7 @@ Class BinaryOperationNode
         GetRelation()
 
         'Return return type of relation
-        Return TargetedRelation.CompiledName & "((" & Left.Compile(content) & "), (" & Right.Compile(content) & "))"
+        Return TargetedRelation.CompiledName & "(GV, (" & Left.Compile(content) & "), (" & Right.Compile(content) & "))"
 
     End Function
 

@@ -155,7 +155,7 @@ Class FunctionCallNode
             Next
 
             'Function call
-            Return TempFun & "->target(" & TempFun & "->object" & arguments & ")"
+            Return TempFun & "->target(GV, " & TempFun & "->object" & arguments & ")"
 
         Else
 
@@ -182,14 +182,14 @@ Class FunctionCallNode
 
 
             'Arguments
-            Dim Arguments As String
+            Dim Arguments As String = "GV, "
             If DirectTargetedInstance Is Nothing Then
-                Arguments = "NULL"
+                Arguments &= "NULL"
             Else
                 If TypeOf DirectTargetedInstance Is ValueNode Then
-                    Arguments = DirectTargetedInstance.Compile(content)
+                    Arguments &= DirectTargetedInstance.Compile(content)
                 Else
-                    Arguments = DirectTargetedInstance.ToString()
+                    Arguments &= DirectTargetedInstance.ToString()
                 End If
             End If
             For i As Integer = 0 To DirectTargetedFunction.MaxArguments - 1

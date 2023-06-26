@@ -58,6 +58,9 @@ Class ComparisonNode
             Case TokenType.OP_MORETHANEQUAL
                 Me.Op = RelationOperator.MORETHANEQUAL
 
+            Case TokenType.OP_HAS
+                Me.Op = RelationOperator.HAS
+
             Case Else
                 Throw New NotImplementedException()
 
@@ -106,7 +109,7 @@ Class ComparisonNode
         GetRelation()
 
         'Return return type of relation
-        Return TargetedRelation.CompiledName & "((" & Left.Compile(content) & "), (" & Right.Compile(content) & "))"
+        Return TargetedRelation.CompiledName & "(GV, (" & Left.Compile(content) & "), (" & Right.Compile(content) & "))"
 
     End Function
 

@@ -255,6 +255,17 @@ Module Compiler
                 SW.WriteLine(line)
             Next
 
+            'Variables
+            SW.WriteLine("")
+            SW.WriteLine("///////////////////////")
+            SW.WriteLine("////// VARIABLES //////")
+            SW.WriteLine("///////////////////////")
+            SW.WriteLine("typedef struct global_variables{")
+            For Each line As String In Compiled_Variables
+                SW.WriteLine(vbTab & line)
+            Next
+            SW.WriteLine("} global_variables;")
+
             'Functions prototypes
             SW.WriteLine("")
             SW.WriteLine("/////////////////////////////////")
@@ -269,17 +280,8 @@ Module Compiler
             SW.WriteLine("/////////////////////////////////")
             SW.WriteLine("////// ADD SOURCE DIRECTLY //////")
             SW.WriteLine("/////////////////////////////////")
-            For Each line As String In Compiled_AddSourceDirectly
-                SW.WriteLine(line)
-            Next
-
-            'Variables
-            SW.WriteLine("")
-            SW.WriteLine("///////////////////////")
-            SW.WriteLine("////// VARIABLES //////")
-            SW.WriteLine("///////////////////////")
             SW.WriteLine("static tgc_t gc;")
-            For Each line As String In Compiled_Variables
+            For Each line As String In Compiled_AddSourceDirectly
                 SW.WriteLine(line)
             Next
 
@@ -322,12 +324,13 @@ Module Compiler
                 SW.WriteLine(vbTab & "")
             End If
             SW.WriteLine(vbTab & "//Initialize global variable values")
+            SW.WriteLine(vbTab & "global_variables * GV = tgc_alloc(&gc, sizeof(global_variables));")
             For Each line As String In Compiled_Inits
                 SW.WriteLine(vbTab & line)
             Next
             SW.WriteLine(vbTab & "")
             SW.WriteLine(vbTab & "//Calls the ""main"" function")
-            SW.WriteLine(vbTab & MainFunction.CompiledName & "(NULL);")
+            SW.WriteLine(vbTab & MainFunction.CompiledName & "(GV, NULL);")
             SW.WriteLine(vbTab & "")
             SW.WriteLine(vbTab & "//Stop the garbage collector")
             SW.WriteLine(vbTab & "tgc_stop(&gc);")
@@ -426,7 +429,9 @@ Module Compiler
             End If
             Threading.Thread.Sleep(10)
         End While
-        Console.SetCursorPosition(EndCursorPos.Item1, EndCursorPos.Item2)
+        If ShowDebug Then
+            Console.SetCursorPosition(EndCursorPos.Item1, EndCursorPos.Item2)
+        End If
 
         'Move SDL dll
         If UseSDL Then

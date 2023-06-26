@@ -53,6 +53,11 @@ Class VariableNode
         'Get variable
         GetTarget(content)
 
+        'Global variable
+        If Me.Var.GlobalVariable Then
+            PreText = "GV->"
+        End If
+
         'Doesn't check primary type
         Return PreText & Var.CompiledName
 
@@ -66,12 +71,17 @@ Class VariableNode
         'Get variable
         GetTarget(content)
 
+        'Global variable
+        If Me.Var.GlobalVariable Then
+            PreText = "GV->"
+        End If
+
         'Is a primary type
         If Var.ValueType.ParentClass.Primary Then
             For Each Method As FunctionNode In Var.ValueType.Methods
                 If Method.FunctionName = "clone" Then
                     Method.Compile(Nothing)
-                    Return Method.CompiledName & "(" & PreText & Var.CompiledName & ")"
+                    Return Method.CompiledName & "(GV, " & PreText & Var.CompiledName & ")"
                 End If
             Next
             ThrowNodeSyntaxException("VNC01", "Unable to find ""clone"" method.", Me)
@@ -201,9 +211,6 @@ Class VariableNode
         Next
 
         'Check Functions from imported files
-        If VariableName = "readfile" Then
-            Debugger.Break()
-        End If
         For Each ImportedFile As SourceFile In Me.ParentFile.ImportedFiles
             For Each fun As FunctionNode In ImportedFile.Functions
                 If fun.Export And fun.FunctionName = Me.VariableName Then
@@ -232,8 +239,8 @@ Class VariableNode
 
         'Compile the variable
         Compiled_Variables.Add(fun.MinimumFunctionType.CompiledName & " * " & NewVar.CompiledName & ";")
-        Compiled_Inits.Add(NewVar.CompiledName & " = " & fun.MinimumFunctionType.CompiledName & "_allocate();")
-        Compiled_Inits.Add(NewVar.CompiledName & "->target = " & fun.MinimumFunctionCompiledName & ";")
+        Compiled_Inits.Add("GV->" & NewVar.CompiledName & " = " & fun.MinimumFunctionType.CompiledName & "_allocate();")
+        Compiled_Inits.Add("GV->" & NewVar.CompiledName & "->target = " & fun.MinimumFunctionCompiledName & ";")
 
         'Return
         Return NewVar

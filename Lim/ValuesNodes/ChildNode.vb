@@ -84,7 +84,7 @@ Class ChildNode
                     For Each method As FunctionNode In var.ValueType.Methods
                         If method.FunctionName = "clone" Then
                             method.Compile(Nothing)
-                            Return method.CompiledName & "((" & Obj.Compile(content) & ")->" & var.CompiledName & ")"
+                            Return method.CompiledName & "(GV, (" & Obj.Compile(content) & ")->" & var.CompiledName & ")"
                         End If
                     Next
                     ThrowNodeSyntaxException("CNC03", "Unable to find ""clone"" method.", Me)

@@ -93,13 +93,13 @@ Class ForeachNode
         Dim Max As String = GetVariableCompiledName()
         Content.Add("")
         Content.Add(Target.ReturnType.CompiledName & " * " & CompiledTarget & " = " & Target.Compile(Content) & ";")
-        Content.Add("int " & Max & " = (" & Target.ReturnType.Iterators.Item2.CompiledName & "(" & CompiledTarget & "))->value;")
-        Content.Add("for (" & STD_int.CompiledName & " * " & TempVar & " = " & Target.ReturnType.Iterators.Item1.CompiledName & "(" & CompiledTarget & "); (" & TempVar & ")->value < " & Max & "; ++(" & TempVar & "->value)){")
+        Content.Add("int " & Max & " = (" & Target.ReturnType.Iterators.Item2.CompiledName & "(GV, " & CompiledTarget & "))->value;")
+        Content.Add("for (" & STD_int.CompiledName & " * " & TempVar & " = " & Target.ReturnType.Iterators.Item1.CompiledName & "(GV, " & CompiledTarget & "); (" & TempVar & ")->value < " & Max & "; ++(" & TempVar & "->value)){")
 
         'Compile variable
         Dim LoopVariable As New Variable(VariableName, Target.ReturnType.Iterators.Item3.ReturnType)
         Me.Variables.Add(LoopVariable)
-        Content.Add(vbTab & LoopVariable.ValueType.CompiledName & " * " & LoopVariable.CompiledName & " = " & Target.ReturnType.Iterators.Item3.CompiledName & "(" & CompiledTarget & ", " & TempVar & ");")
+        Content.Add(vbTab & LoopVariable.ValueType.CompiledName & " * " & LoopVariable.CompiledName & " = " & Target.ReturnType.Iterators.Item3.CompiledName & "(GV, " & CompiledTarget & ", " & TempVar & ");")
         If ExplicitVariableType IsNot Nothing Then
             If Not Target.ReturnType.Iterators.Item3.ReturnType = ExplicitVariableType.AssociateType Then
                 ThrowNodeTypeException("FENC04", "The """ & Target.ReturnType.ToString() & """ type iterator returns values of type """ & Target.ReturnType.Iterators.Item3.ReturnType.ToString() & """, but the explicit type is """ & ExplicitVariableType.AssociateType.ToString() & """.", ExplicitVariableType)

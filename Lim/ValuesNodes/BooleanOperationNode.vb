@@ -54,7 +54,33 @@ Class BooleanOperationNode
     '========== COMPILE ==========
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
-        Throw New NotImplementedException()
+
+        'Error
+        If Not Left.ReturnType = STD_bool Then
+            ThrowNodeTypeException("BONC01", "The value is of type """ & Left.ReturnType.ToString() & """ instead of ""bool"".", Left)
+        End If
+        If Not Right.ReturnType = STD_bool Then
+            ThrowNodeTypeException("BONC02", "The value is of type """ & Right.ReturnType.ToString() & """ instead of ""bool"".", Right)
+        End If
+
+        'Get operator
+        Dim C_Operator = ""
+        Select Case Me.Op.Type
+
+            Case TokenType.OP_AND
+                C_Operator = "&&"
+
+            Case TokenType.OP_OR
+                C_Operator = "||"
+
+            Case Else
+                Throw New NotImplementedException()
+
+        End Select
+
+        'Compile
+        Return "new_bool((" & Left.Compile(content) & ")->value " & C_Operator & " (" & Right.Compile(content) & ")->value)"
+
     End Function
 
     '=================================

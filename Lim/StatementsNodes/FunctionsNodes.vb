@@ -287,11 +287,12 @@ Class FunctionNode
             ParentType = DirectCast(Me.ParentNode, Type)
         End If
 
-        ' Argument
-        ' Code (for return type)
-        ' Return type
-        ' Header
-        ' Core
+        ' PLAN
+        '   Argument
+        '   Code (for return type)
+        '   Return type
+        '   Header
+        '   Core
 
         'Argument
         Dim Header As String
@@ -311,7 +312,7 @@ Class FunctionNode
             End If
 
             'HEADER - Arguments
-            Dim Arguments As String = If(ParentType IsNot Nothing And FunctionName = "new", "", "void * undefined_self")
+            Dim Arguments As String = If(ParentType IsNot Nothing And FunctionName = "new", "global_variables * GV", "global_variables * GV, void * undefined_self")
             For Each arg As FunctionArgumentNode In Me.FunctionArguments
 
                 'Add argument to header
@@ -322,9 +323,9 @@ Class FunctionNode
                 'Default value for optional argument
                 If arg.ArgumentDefaultValue IsNot Nothing Then
 
-                    If Not arg.ArgumentDefaultValue.IsConstant Then
-                        ThrowNodeTypeException("FNC01", "The default value of an argument must be a constant.", Me)
-                    End If
+                    'If Not arg.ArgumentDefaultValue.IsConstant Then
+                    '    ThrowNodeTypeException("FNC01", "The default value of an argument must be a constant.", Me)
+                    'End If
 
                     Dim IfContent As New List(Of String)
                     FunctionLines.Add("if (" & ArgumentVariable.CompiledName & " == NULL){")
@@ -507,16 +508,16 @@ Class FunctionArgumentNode
 
                 ElseIf ArgumentTypeNode Is Nothing And ArgumentDefaultValue IsNot Nothing Then
                     'name = bar
-                    If Not ArgumentDefaultValue.IsConstant Then
-                        ThrowNodeSyntaxException("FNFAN01", "The default value of an argument must be a constant value.", ArgumentDefaultValue)
-                    End If
+                    'If Not ArgumentDefaultValue.IsConstant Then
+                    '    ThrowNodeSyntaxException("FNFAN01", "The default value of an argument must be a constant value.", ArgumentDefaultValue)
+                    'End If
                     _ArgumentType = ArgumentDefaultValue.ReturnType
 
                 ElseIf ArgumentTypeNode IsNot Nothing And ArgumentDefaultValue IsNot Nothing Then
                     'name:foo = bar
-                    If Not ArgumentDefaultValue.IsConstant Then
-                        ThrowNodeSyntaxException("FNFAN02", "The default value of an argument must be a constant value.", ArgumentDefaultValue)
-                    End If
+                    'If Not ArgumentDefaultValue.IsConstant Then
+                    'ThrowNodeSyntaxException("FNFAN02", "The default value of an argument must be a constant value.", ArgumentDefaultValue)
+                    'End If
                     If Not ArgumentTypeNode.AssociateType = ArgumentDefaultValue.ReturnType Then
                         ThrowNodeSyntaxException("FNFAN03", "Argument type (" & ArgumentTypeNode.AssociateType.ToString() & ") does not match default value type (<" & ArgumentDefaultValue.ReturnType.ToString() & ">).", ArgumentDefaultValue)
                     End If

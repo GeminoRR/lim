@@ -119,9 +119,9 @@ Class DeclareVariableNode
         'Create variable
         Dim var As Variable
         If CustomVariableName Then
-            var = New Variable(Me.VariableName, Me.VariableType, False, Me.VariableName, Me.Export)
+            var = New Variable(Me.VariableName, Me.VariableType, False, Me.VariableName, Me.Export, False)
         Else
-            var = New Variable(Me.VariableName, Me.VariableType, False, Nothing, Me.Export)
+            var = New Variable(Me.VariableName, Me.VariableType, False, Nothing, Me.Export, False)
         End If
         Me.ParentScope.Variables.Add(var)
 
@@ -145,11 +145,15 @@ Class DeclareVariableNode
     Public Function CompileFor(ByVal Create As List(Of String), ByVal Init As List(Of String), Optional InitWithSelf As Boolean = False) As Variable
 
         'Create variable
+        Dim GlobalVariable As Boolean = False
+        If TypeOf Me.ParentNode Is SourceFile Then
+            GlobalVariable = True
+        End If
         Dim var As Variable
         If CustomVariableName Then
-            var = New Variable(Me.VariableName, Me.VariableType, False, Me.VariableName, Me.Export)
+            var = New Variable(Me.VariableName, Me.VariableType, False, Me.VariableName, Me.Export, GlobalVariable)
         Else
-            var = New Variable(Me.VariableName, Me.VariableType, False, Nothing, Me.Export)
+            var = New Variable(Me.VariableName, Me.VariableType, False, Nothing, Me.Export, GlobalVariable)
         End If
         Me.ParentScope.Variables.Add(var)
 
@@ -163,11 +167,16 @@ Class DeclareVariableNode
 
         'Compile
         Create.Add(Me.VariableType.CompiledName & " * " & var.CompiledName & ";")
-        If InitWithSelf Then
-            Init.Add("self->" & var.CompiledName & " = " & DefaultValue & ";")
+        If GlobalVariable Then
+            Init.Add("GV->" & var.CompiledName & " = " & DefaultValue & ";")
         Else
-            Init.Add(var.CompiledName & " = " & DefaultValue & ";")
+            If InitWithSelf Then
+                Init.Add("self->" & var.CompiledName & " = " & DefaultValue & ";")
+            Else
+                Init.Add(var.CompiledName & " = " & DefaultValue & ";")
+            End If
         End If
+
 
         'Return
         Return var

@@ -82,7 +82,7 @@ Class BracketSelectorNode
         GetRelation()
 
         'Return return type of relation
-        Return TargetedRelation.CompiledName & "((" & Target.Compile(content) & "), (" & Index.Compile(content) & "))"
+        Return TargetedRelation.CompiledName & "(GV, (" & Target.Compile(content) & "), (" & Index.Compile(content) & "))"
 
     End Function
 

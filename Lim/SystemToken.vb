@@ -83,6 +83,7 @@ Module TokenEnum
         KW_IF
         KW_ELSEIF
         KW_ELSE
+        KW_IN
 
         'Operators (OP)
         OP_LEFT_PARENTHESIS
@@ -97,7 +98,7 @@ Module TokenEnum
         OP_LESSTHANEQUAL
         OP_MORETHAN
         OP_MORETHANEQUAL
-        OP_IN
+        OP_HAS
 
         OP_PLUS
         OP_MINUS

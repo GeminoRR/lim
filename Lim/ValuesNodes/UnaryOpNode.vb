@@ -58,7 +58,7 @@ Class UnaryOpNode
         GetRelation()
 
         'Compile
-        Return TargetedRelation.CompiledName & "(" & Target.Compile(content) & ")"
+        Return TargetedRelation.CompiledName & "(GV, " & Target.Compile(content) & ")"
 
     End Function
 
@@ -93,8 +93,17 @@ Class UnaryOpNode
         End If
 
         'Find
+        Dim SearchedRelation As RelationOperator
+        Select Case Me.Op.Type
+            Case TokenType.OP_MINUS
+                SearchedRelation = RelationOperator.UNARY_MINUS
+            Case TokenType.OP_NOT
+                SearchedRelation = RelationOperator.UNARY_NOT
+            Case Else
+                Throw New NotImplementedException()
+        End Select
         For Each Relation As RelationNode In Target.ReturnType.Relations
-            If Relation.RelationOperator = RelationOperator.UNARY_MINUS Then
+            If Relation.RelationOperator = SearchedRelation Then
                 TargetedRelation = Relation
                 Exit Sub
             End If

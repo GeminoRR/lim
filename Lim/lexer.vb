@@ -129,6 +129,14 @@ Module Lexer
                     advance()
                 End While
 
+                If numberString.EndsWith(".") Then
+                    ContainerDot = False
+                    numberString = numberString.Substring(0, numberString.Length - 1)
+                    TotalCount -= 2
+                    _currentCharColumn -= 2
+                    advance()
+                End If
+
                 If ContainerDot Then
                     'Float
                     Try
@@ -245,8 +253,10 @@ Module Lexer
                         result.Add(New Token(TokenType.OP_OR, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "not"
                         result.Add(New Token(TokenType.OP_NOT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "has"
+                        result.Add(New Token(TokenType.OP_HAS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "in"
-                        result.Add(New Token(TokenType.OP_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                        result.Add(New Token(TokenType.KW_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case Else
                         result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, TrueKeyword))

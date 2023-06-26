@@ -108,11 +108,10 @@ func main
 
 ### Window Graphics
 ```swift
-import graphics
+import window
 
 func main
 	windowInit(200, 200)
 	while true
 		windowUpdate()
 ```
-![Example of an empty window](https://github.com/GeminoRR/Lim/blob/master/examples/graphics.png?raw=true)
