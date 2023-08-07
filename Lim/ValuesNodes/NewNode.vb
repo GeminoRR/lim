@@ -124,7 +124,7 @@ Class NewNode
         Next
 
         'No constructor, use allocate()
-        Return Me.TargetType.AssociateType.CompiledName & "_allocate()"
+        Return Me.TargetType.AssociateType.CompiledName & "_allocate(GV)"
 
     End Function
 

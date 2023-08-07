@@ -1,24 +1,25 @@
-﻿'========================================
-'========== NUMERIC VALUE NODE ==========
-'========================================
+﻿'==================================
+'========== BOOLEAN NODE ==========
+'==================================
 '
-' Represents a numeric value
-' (Integer / Floating Point)
+' Represents a boolean constant
+' (True / False)
 '
-Class NumericValueNode
+Class IsNode
     Inherits ValueNode
 
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public Value As Token
+    Public CheckedValue As ValueNode
+    Public CheckedType As TypeNode
 
     '===============================
     '========== DUPLICATE ==========
     '===============================
     Protected Overrides Function Duplicate() As Node
 
-        Dim Cloned As NumericValueNode = Me.MemberwiseClone()
+        Dim Cloned As BooleanNode = Me.MemberwiseClone()
         Return Cloned
 
     End Function
@@ -26,13 +27,16 @@ Class NumericValueNode
     '=================================
     '========== CONSTRUCTOR ==========
     '=================================
-    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal Value As Token)
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal CheckedValue As ValueNode, ByVal CheckedType As TypeNode)
 
         'Inherits
         MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
 
         'Properties
-        Me.Value = Value
+        Me.CheckedValue = CheckedValue
+        Me.CheckedValue.ParentNode = Me
+        Me.CheckedType = CheckedType
+        Me.CheckedType.ParentNode = Me
 
     End Sub
 
@@ -40,7 +44,7 @@ Class NumericValueNode
     '========== TO STRING ==========
     '===============================
     Public Overrides Function ToString() As String
-        Return Value.ToString()
+        Return "(" & CheckedValue.ToString() & " is " & CheckedType.ToString() & ")"
     End Function
 
     '=============================
@@ -48,11 +52,11 @@ Class NumericValueNode
     '=============================
     Public Overrides Function Compile(content As List(Of String)) As String
 
-        If Value.Type = TokenType.CT_INTEGER Then
-            Return "(new_int((int)" & Value.Value.ToString() & "))"
-        Else
-            Return "(new_float((double)" & Value.Value.ToString().Replace(",", ".") & "))"
+        If Not CheckedValue.ReturnType = STD_any Then
+            ThrowNodeTypeException("INC01", "The ""is"" operator can only have an ""any"" value to its left.", CheckedValue, "In this case the value is of type """ & CheckedValue.ReturnType.ToString() & """. This operation would therefore always return """ & (CheckedValue.ReturnType = CheckedType.AssociateType).ToString().ToLower() & """.")
         End If
+
+        Return "new_bool((" & CheckedValue.Compile(content) & ")->typeID == " & CheckedType.AssociateType.TypeID.ToString() & ")"
 
     End Function
 
@@ -60,20 +64,14 @@ Class NumericValueNode
     '========== IS CONSTANT ==========
     '=================================
     Protected Overrides Function CheckIsConstant() As Boolean
-        Return True
+        Return False
     End Function
 
     '=================================
     '========== RETURN TYPE ==========
     '=================================
     Protected Overrides Function NodeReturnType() As Type
-
-        If Value.Type = TokenType.CT_INTEGER Then
-            Return STD_int
-        Else
-            Return STD_float
-        End If
-
+        Return STD_bool
     End Function
 
 End Class

@@ -73,7 +73,7 @@ Class IfNode
 
         'Compile for header
         Content.Add("")
-        Content.Add("if ((" & MainCondition.Compile(Content) & ")->value){")
+        Content.Add("if (*(" & MainCondition.Compile(Content) & ")){")
 
         'Compile content
         Dim MainContent As New List(Of String)
@@ -94,7 +94,7 @@ Class IfNode
 
             'Compile
             Content.Add(vbTab)
-            Content.Add("} else if ((" & ElseIf_Statement.Item1.Compile(Content) & ")->value){")
+            Content.Add("} else if (*(" & ElseIf_Statement.Item1.Compile(Content) & ")){")
 
             'Compile content
             Dim ElseIfContent As New List(Of String)

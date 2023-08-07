@@ -108,7 +108,7 @@ Class ChildNode
                 Dim TempVar As String = GetVariableCompiledName()
 
                 'Compile the variable
-                content.Add(fun.MinimumFunctionType.CompiledName & " * " & TempVar & " = " & fun.MinimumFunctionType.CompiledName & "_allocate();")
+                content.Add(fun.MinimumFunctionType.CompiledName & " * " & TempVar & " = " & fun.MinimumFunctionType.CompiledName & "_allocate(GV);")
                 content.Add(TempVar & "->object = " & Obj.Compile(content) & ";")
                 content.Add(TempVar & "->target = " & fun.MinimumFunctionCompiledName & ";")
 

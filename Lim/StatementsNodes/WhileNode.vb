@@ -61,7 +61,7 @@ Class WhileNode
 
         'Compile for header
         Content.Add("")
-        Content.Add("while ((" & Condition.Compile(Content) & ")->value){")
+        Content.Add("while (*(" & Condition.Compile(Content) & ")){")
 
         'Compile content
         Dim LoopContent As New List(Of String)

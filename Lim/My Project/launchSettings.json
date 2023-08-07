@@ -2,7 +2,7 @@
   "profiles": {
     "Lim": {
       "commandName": "Project",
-      "commandLineArgs": "code.lim prog --keep -d",
+      "commandLineArgs": "code.lim -k -d",
       "workingDirectory": "C:\\Users\\gemin\\Documents\\Projets\\Applications\\Lim\\Lim\\debug"
     }
   }

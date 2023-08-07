@@ -14,12 +14,13 @@ Class ClassNode
     Public Arguments As New List(Of String)
     Public Export As Boolean
     Public Primary As Boolean
+    Public SoloType As String = Nothing
 
     Public DeclareVariables As New List(Of DeclareVariableNode)
     Public Methods As New List(Of FunctionNode)
     Public Relations As New List(Of RelationNode)
     Public AddSourcesDirectly As New List(Of AddSourceDirectlyStatementNode)
-    Private ClassID As Integer
+    Public ReadOnly ClassID As Integer
 
     '===============================
     '========== DUPLICATE ==========
@@ -39,11 +40,11 @@ Class ClassNode
         MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
 
         'Properties
+        ClassIDCounter += 1
+        Me.ClassID = ClassIDCounter
         Me.ClassName = ClassName
         Me.Export = Export
         Me.Primary = Primary
-        ClassCounter += 1
-        ClassID = ClassCounter
 
     End Sub
 

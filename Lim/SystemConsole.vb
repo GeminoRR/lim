@@ -14,7 +14,6 @@ Module SystemConsole
     Private files As New List(Of String)
     Public flags As New List(Of String)
     Public ShowDebug As Boolean
-    Public MegaDebug As Boolean
     Public CurentPlatform As Platform
     Public HideConsole As Boolean = False
 
@@ -135,7 +134,6 @@ Module SystemConsole
 
         'Debug
         ShowDebug = HasFlag("d", "debug")
-        MegaDebug = HasFlag("md", "megadebug")
         HideConsole = HasFlag("hc", "hideconsole")
 
         'Compile platform

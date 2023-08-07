@@ -281,97 +281,6 @@ Class AST
 
     End Function
 
-    '=========================
-    '========= CHILD =========
-    '=========================
-    Private Function GetChild() As ValueNode
-
-        Dim Value As ValueNode = GetFactor()
-
-        While CurrentToken.Type = TokenType.CODE_POINT
-
-            'Error
-            advance()
-            If Not CurrentToken.Type = TokenType.CODE_TERM Then
-                ThrowCoordinatesSyntaxLimException("ASTGC01", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
-            End If
-
-            'Create node
-            Value = New ChildNode(Value.PositionStartY, Value.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Value, CurrentToken.Value)
-            advance()
-
-        End While
-
-        Return Value
-
-    End Function
-
-    '=================================
-    '========= FUNCTION CALL =========
-    '=================================
-    Private Function GetFunctionCall() As ValueNode
-
-        Dim Value As ValueNode = GetChild()
-
-        While CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS
-
-            'Create node
-            Dim NewValue As New FunctionCallNode(Value.PositionStartY, Value.PositionStartX, 0, 0, Value)
-
-            'Arguments
-            advance()
-            If Not CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
-
-                'Get all arguments
-                While True
-
-                    'Get the node
-                    Dim Argument As ValueNode = GetTopValue()
-                    Argument.ParentNode = Value
-                    NewValue.PassedArguments.Add(Argument)
-
-                    'Continue loop
-                    If CurrentToken.Type = TokenType.OP_COMMA Then
-                        advance()
-                        Continue While
-                    ElseIf CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
-                        Exit While
-                    Else
-                        ThrowCoordinatesSyntaxLimException("ASTGFC01", "A comma or closing parenthesis was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
-                    End If
-
-                End While
-
-            End If
-
-            'Update Value
-            NewValue.PositionEndY = CurrentToken.PositionEndY
-            NewValue.PositionEndX = CurrentToken.PositionEndX
-            advance()
-            Value = NewValue
-
-            'Child of
-            While CurrentToken.Type = TokenType.CODE_POINT
-
-                'Error
-                advance()
-                If Not CurrentToken.Type = TokenType.CODE_TERM Then
-                    ThrowCoordinatesSyntaxLimException("ASTGFC02", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
-                End If
-
-                'Create node
-                Value = New ChildNode(Value.PositionStartY, Value.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Value, CurrentToken.Value)
-                advance()
-
-            End While
-
-
-        End While
-
-        Return Value
-
-    End Function
-
     '============================
     '========= NEW NODE =========
     '============================
@@ -418,25 +327,141 @@ Class AST
 
         End If
 
-        Return GetFunctionCall()
+        Return GetFactor()
 
     End Function
 
-    '====================================
-    '========= BRACKET SELECTOR =========
-    '====================================
+    '=========================
+    '========= CHILD =========
+    '=========================
+    Private Function GetChild() As ValueNode
+
+        Dim Value As ValueNode = GetNew()
+
+        While CurrentToken.Type = TokenType.CODE_POINT
+
+            'Error
+            advance()
+            If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                ThrowCoordinatesSyntaxLimException("ASTGC01", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+
+            'Create node
+            Value = New ChildNode(Value.PositionStartY, Value.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Value, CurrentToken.Value)
+            advance()
+
+        End While
+
+        Return Value
+
+    End Function
+
+    '=====================================================================
+    '========= FUNCTION CALL ================== BRACKET SELECTOR =========
+    '=====================================================================
+    Private Function GetFunctionCall() As ValueNode
+
+        Dim Value As ValueNode = GetChild()
+
+        While CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS Or CurrentToken.Type = TokenType.OP_LEFT_BRACKET
+
+            'Create node
+            Dim NewValueNode As ValueNode = Nothing
+
+            If CurrentToken.Type = TokenType.OP_LEFT_PARENTHESIS Then
+
+                'Create node
+                Dim NewValue As New FunctionCallNode(Value.PositionStartY, Value.PositionStartX, 0, 0, Value)
+
+                'Arguments
+                advance()
+                If Not CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
+
+                    'Get all arguments
+                    While True
+
+                        'Get the node
+                        Dim Argument As ValueNode = GetTopValue()
+                        Argument.ParentNode = Value
+                        NewValue.PassedArguments.Add(Argument)
+
+                        'Continue loop
+                        If CurrentToken.Type = TokenType.OP_COMMA Then
+                            advance()
+                            Continue While
+                        ElseIf CurrentToken.Type = TokenType.OP_RIGHT_PARENTHESIS Then
+                            Exit While
+                        Else
+                            ThrowCoordinatesSyntaxLimException("ASTGFC01", "A comma or closing parenthesis was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                        End If
+
+                    End While
+
+                End If
+
+                NewValueNode = NewValue
+
+            Else
+
+                advance()
+                Dim Index As ValueNode = GetTopValue()
+                If Not CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
+                    ThrowCoordinatesSyntaxLimException("ASTGBS01", "A closing bracket was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+                NewValueNode = New BracketSelectorNode(Value.PositionStartY, Value.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Value, Index)
+
+            End If
+
+            'Update Value
+            NewValueNode.PositionEndY = CurrentToken.PositionEndY
+            NewValueNode.PositionEndX = CurrentToken.PositionEndX
+            advance()
+            Value = NewValueNode
+
+            'Child of
+            While CurrentToken.Type = TokenType.CODE_POINT
+
+                'Error
+                advance()
+                If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                    ThrowCoordinatesSyntaxLimException("ASTGFC02", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+
+                'Create node
+                Value = New ChildNode(Value.PositionStartY, Value.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Value, CurrentToken.Value)
+                advance()
+
+            End While
+
+
+        End While
+
+        Return Value
+
+    End Function
+
+    '
     Private Function GetBracketSelector() As ValueNode
 
         Dim Left As ValueNode = GetNew()
         While CurrentToken.Type = TokenType.OP_LEFT_BRACKET
 
-            advance()
-            Dim Index As ValueNode = GetTopValue()
-            If Not CurrentToken.Type = TokenType.OP_RIGHT_BRACKET Then
-                ThrowCoordinatesSyntaxLimException("ASTGBS01", "A closing bracket was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
-            End If
-            Left = New BracketSelectorNode(Left.PositionStartY, Left.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Left, Index)
-            advance()
+
+
+            'Child of
+            While CurrentToken.Type = TokenType.CODE_POINT
+
+                'Error
+                advance()
+                If Not CurrentToken.Type = TokenType.CODE_TERM Then
+                    ThrowCoordinatesSyntaxLimException("ASTGBS02", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                End If
+
+                'Create node
+                Left = New ChildNode(Left.PositionStartY, Left.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Left, CurrentToken.Value)
+                advance()
+
+            End While
 
         End While
         Return Left
@@ -451,10 +476,10 @@ Class AST
         If CurrentToken.Type = TokenType.OP_MINUS Then
             Dim Tok As Token = CurrentToken
             advance()
-            Dim Target As Node = GetBracketSelector()
+            Dim Target As Node = GetFunctionCall()
             Return New UnaryOpNode(Tok.PositionStartY, Tok.PositionStartX, Target.PositionEndY, Target.PositionEndX, Tok, Target)
         Else
-            Return GetBracketSelector()
+            Return GetFunctionCall()
         End If
 
     End Function
@@ -522,18 +547,34 @@ Class AST
         Return Left
 
     End Function
+    '========================================
+    '========= TYPE COMPARISON (IS) =========
+    '========================================
+    Private Function GetIs() As ValueNode
+
+        Dim Left As ValueNode = GetComparison()
+        If CurrentToken.Type = TokenType.OP_IS Then
+
+            advance()
+            Dim Right As TypeNode = GetTypeNode()
+            Left = New IsNode(Left.PositionStartY, Left.PositionStartX, Right.PositionEndY, Right.PositionEndX, Left, Right)
+
+        End If
+        Return Left
+
+    End Function
 
     '=====================================
     '========= BOOLEAN OPERATION =========
     '=====================================
     Private Function GetBooleanOperation() As ValueNode
 
-        Dim Left As ValueNode = GetComparison()
+        Dim Left As ValueNode = GetIs()
         While {TokenType.OP_AND, TokenType.OP_OR}.Contains(CurrentToken.Type)
 
             Dim Op As Token = CurrentToken
             advance()
-            Dim Right As ValueNode = GetComparison()
+            Dim Right As ValueNode = GetIs()
             Left = New BooleanOperationNode(Left.PositionStartY, Left.PositionStartX, Right.PositionEndY, Right.PositionEndX, Left, Right, Op)
 
         End While
@@ -569,7 +610,9 @@ Class AST
 
                 advance()
                 If Not CurrentToken.Type = TokenType.CODE_TERM Then
-                    ThrowCoordinatesSyntaxLimException("ASTGL15", "A platform name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+                    recede(recedeIndex)
+                    Exit While
+                    'ThrowCoordinatesSyntaxLimException("ASTGL15", "A platform name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
                 End If
                 Dim TargetedPlatform As Platform = Nothing
                 Select Case DirectCast(CurrentToken.Value, String).ToLower()
@@ -1627,6 +1670,15 @@ Class AST
             End If
             advance()
 
+        ElseIf CurrentToken.Type = TokenType.CODE_DOLLAR Then
+
+            advance()
+            If Not CurrentToken.Type = TokenType.CT_STRING Then
+                ThrowCoordinatesSyntaxLimException("ASTGC10", "A string was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+            End If
+            ResultNode.SoloType = CurrentToken.Value
+            advance()
+
         End If
 
         'Content
@@ -1659,6 +1711,8 @@ Class AST
                         HasStr = True
                     Case "repr"
                         HasRepr = True
+                    Case "any"
+                        ThrowCoordinatesSyntaxLimException("ASTGC11", "The function name ""any"" is reserved.", ParentFile, LineResult.PositionStartY, LineResult.PositionStartX, LineResult.PositionEndY, LineResult.PositionEndX, "Use another name.")
                 End Select
             ElseIf TypeOf LineResult Is RelationNode Then
                 ResultNode.Relations.Add(LineResult)
@@ -1687,6 +1741,9 @@ Class AST
         If Not HasRepr Then
             ResultNode.Methods.Add(CreateMethod(ResultNode, "repr", "str", "return {{str()}};"))
         End If
+
+        'Any
+        ResultNode.Methods.Add(CreateMethod(ResultNode, "any", "any", ""))
 
         'Return
         Return ResultNode

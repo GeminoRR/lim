@@ -142,8 +142,11 @@ Class RelationNode
         '   Header
         '   Core
 
+
         'HEADER - Arguments
         Dim FunctionLines As New List(Of String)
+        FunctionLines.Add(vbTab & "")
+        FunctionLines.Add(vbTab & "//Null Object pointer")
         Dim Arguments As String = "global_variables * GV"
         For Each arg As FunctionArgumentNode In Me.RelationArguments
 
@@ -151,6 +154,11 @@ Class RelationNode
             Dim ArgumentVariable As New Variable(arg.ArgumentName, arg.ArgumentType)
             Me.Variables.Add(ArgumentVariable)
             Arguments &= ", " & arg.ArgumentType.CompiledName & " * " & ArgumentVariable.CompiledName
+
+            'Cast
+            FunctionLines.Add(vbTab & "if (" & ArgumentVariable.CompiledName & " == NULL){")
+            FunctionLines.Add(vbTab & vbTab & "ThrowRuntimeError(""The \""" & arg.ArgumentName & "\"" argument of the \""" & Me.RelationOperator.ToString() & "\"" relation of the \""" & DirectCast(Me.ParentNode, Type).ParentClass.ClassName & "\"" class was a null object."");")
+            FunctionLines.Add(vbTab & "}")
 
         Next
         Dim Header As String = Me.CompiledName & "(" & Arguments & ")"
@@ -167,7 +175,7 @@ Class RelationNode
             If Me.ReturnType Is Nothing Then
                 ThrowNodeTypeException("RNC02", "This relation must absolutely return a value, which is not the case here.", Me)
             End If
-            Header = Me.ReturnType.CompiledName & " * " & Header
+            Header = "inline " & Me.ReturnType.CompiledName & " * " & Header
         End If
 
         'Add header to prototypes

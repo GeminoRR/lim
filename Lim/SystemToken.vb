@@ -109,6 +109,8 @@ Module TokenEnum
         OP_OR
         OP_NOT
 
+        OP_IS
+
     End Enum
 
 End Module

@@ -161,7 +161,7 @@ Class VariableNode
                             Var = New Variable(method.FunctionName, method.MinimumFunctionType, True, GetFunctionCompiledName(), method.Export)
                             Me.ParentScope.Variables.Add(Var)
                             content.Add(method.MinimumFunctionType.CompiledName & " * " & Var.CompiledName & ";")
-                            content.Add(Var.CompiledName & " = " & method.MinimumFunctionType.CompiledName & "_allocate();")
+                            content.Add(Var.CompiledName & " = " & method.MinimumFunctionType.CompiledName & "_allocate(GV);")
                             content.Add(Var.CompiledName & "->target = " & method.MinimumFunctionCompiledName & ";")
                             content.Add(Var.CompiledName & "->object = self;")
                             Return Nothing
@@ -206,6 +206,7 @@ Class VariableNode
         For Each fun As FunctionNode In Me.ParentFile.Functions
             If fun.FunctionName = Me.VariableName Then
                 Var = FunctionToGlobalVariable(fun)
+                PreText = "GV->"
                 Return Var.ValueType
             End If
         Next
@@ -215,6 +216,7 @@ Class VariableNode
             For Each fun As FunctionNode In ImportedFile.Functions
                 If fun.Export And fun.FunctionName = Me.VariableName Then
                     Var = FunctionToGlobalVariable(fun)
+                    PreText = "GV->"
                     Return Var.ValueType
                 End If
             Next
@@ -239,7 +241,7 @@ Class VariableNode
 
         'Compile the variable
         Compiled_Variables.Add(fun.MinimumFunctionType.CompiledName & " * " & NewVar.CompiledName & ";")
-        Compiled_Inits.Add("GV->" & NewVar.CompiledName & " = " & fun.MinimumFunctionType.CompiledName & "_allocate();")
+        Compiled_Inits.Add("GV->" & NewVar.CompiledName & " = " & fun.MinimumFunctionType.CompiledName & "_allocate(GV);")
         Compiled_Inits.Add("GV->" & NewVar.CompiledName & "->target = " & fun.MinimumFunctionCompiledName & ";")
 
         'Return

@@ -17,6 +17,7 @@ Class Type
     Public ReadOnly Relations As New List(Of RelationNode)
     Public ReadOnly AddSourcesDirectly As New List(Of AddSourceDirectlyStatementNode)
     Public ReadOnly DeclareVariables As New List(Of DeclareVariableNode)
+    Public ReadOnly TypeID As Integer
 
     '=================================
     '========== CONSTRUCTOR ==========
@@ -24,10 +25,16 @@ Class Type
     Public Sub New(ByVal ParentClass As ClassNode, ByVal PassedArguments As List(Of Type), Optional CompileNow As Boolean = True)
 
         MyBase.New(ParentClass.PositionStartY, ParentClass.PositionStartX, ParentClass.PositionEndY, ParentClass.PositionEndX)
+        TypeIDCounter += 1
+        TypeID = TypeIDCounter
         Me.ParentClass = ParentClass
         Me.ParentNode = Me.ParentClass.ParentNode
         Me.PassedArguments = PassedArguments
-        Me.CompiledName = GetTypeCompiledName()
+        If Me.ParentClass.SoloType = Nothing Then
+            Me.CompiledName = GetTypeCompiledName()
+        Else
+            Me.CompiledName = Me.ParentClass.SoloType
+        End If
         For Each ASD As AddSourceDirectlyStatementNode In ParentClass.AddSourcesDirectly
             Me.AddSourcesDirectly.Add(ASD.Clone(Me))
         Next
@@ -109,9 +116,6 @@ Class Type
     '=============================
     Public Overrides Sub Compile(ByVal Content As List(Of String))
 
-        'Struct
-        Compiled_TypesPrototypes.Add("/* " & Me.ToString() & " */ typedef struct " & Me.CompiledName & " " & Me.CompiledName & ";")
-
         'Allocate
         Dim AllocateContent As New List(Of String)
         AllocateContent.Add("")
@@ -136,11 +140,11 @@ Class Type
             Me.Variables.Add(DeclareVariable.CompileFor(TypeDefContent, AllocateContent, True))
         Next
 
-        'Typedef for funr
+        'Typedef for functions
         If Me.ParentClass.ClassName = "fun" Then
 
             'Arguments
-            Dim FunArguments As String = "void*"
+            Dim FunArguments As String = "global_variables*, void*"
             For i As Integer = 1 To Me.PassedArguments.Count - 1
                 FunArguments &= ", " & Me.PassedArguments(i).CompiledName & "*"
             Next
@@ -166,21 +170,29 @@ Class Type
         AllocateContent.Add("return self;")
 
         'Compile typedef
-        Compiled_Types.Add("")
-        Compiled_Types.Add("")
-        Compiled_Types.Add("")
-        Compiled_Types.Add("//" & Me.ToString())
-        Compiled_Types.Add("typedef struct " & Me.CompiledName & "{")
-        For Each line As String In TypeDefContent
-            Compiled_Types.Add(vbTab & line)
-        Next
-        Compiled_Types.Add("} " & Me.CompiledName & ";")
+        If Me.ParentClass.SoloType = Nothing Then
+
+            'Typedef & Struct prototype
+            Compiled_TypesPrototypes.Add("/* " & Me.ToString() & " */ typedef struct " & Me.CompiledName & " " & Me.CompiledName & ";")
+
+            'Typedef & Struct
+            Compiled_Types.Add("")
+            Compiled_Types.Add("")
+            Compiled_Types.Add("")
+            Compiled_Types.Add("//" & Me.ToString())
+            Compiled_Types.Add("typedef struct " & Me.CompiledName & "{")
+            For Each line As String In TypeDefContent
+                Compiled_Types.Add(vbTab & line)
+            Next
+            Compiled_Types.Add("} " & Me.CompiledName & ";")
+
+        End If
 
         'Allocate
-        Compiled_FunctionsPrototypes.Add("/* " & Me.ToString() & " -> allocate */ " & Me.CompiledName & " * " & Me.CompiledName & "_allocate();")
+        Compiled_FunctionsPrototypes.Add("/* " & Me.ToString() & " -> allocate */ " & Me.CompiledName & " * " & Me.CompiledName & "_allocate(global_variables * GV);")
         Compiled_Types.Add("")
         Compiled_Types.Add("//Allocate")
-        Compiled_Types.Add(Me.CompiledName & " * " & Me.CompiledName & "_allocate(){")
+        Compiled_Types.Add(Me.CompiledName & " * " & Me.CompiledName & "_allocate(global_variables * GV){")
         For Each line As String In AllocateContent
             Compiled_Types.Add(vbTab & line)
         Next

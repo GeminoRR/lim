@@ -72,37 +72,14 @@ Module Lexer
         Dim TabIndentation As String = Nothing
         TotalCount = 0
 
-        'Debug
-        Dim MegaDebugProgressPos As Integer = 0
-        Dim TotalCharacters As Integer = 0
-        If MegaDebug Then
-            For Each line As String In lines
-                TotalCharacters += line.Length
-            Next
-            Dim message As String = "[LOG] """ & file.filename & """"
-            Console.Write(message)
-            MegaDebugProgressPos = message.Length + 1
-        End If
-
         'No lines ?
         If lines.Count < 1 Then
-            If MegaDebug Then
-                Console.SetCursorPosition(MegaDebugProgressPos, Console.CursorTop)
-                Console.Write("0/0")
-                Console.Write(Environment.NewLine)
-            End If
             Return result
         End If
 
         'For each character of the text
         advance()
         While Not currentChar = Nothing
-
-            'Mega Debug
-            If MegaDebug Then
-                Console.SetCursorPosition(MegaDebugProgressPos, Console.CursorTop)
-                Console.Write(TotalCount.ToString(StrDup(TotalCharacters.ToString().Length, "0")) & "/" & TotalCharacters.ToString())
-            End If
 
             'Get current char start positions
             Dim PositionStartY = currentCharLine
@@ -244,9 +221,11 @@ Module Lexer
                         result.Add(New Token(TokenType.KW_FROM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "to"
                         result.Add(New Token(TokenType.KW_TO, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-
+                    Case "in"
+                        result.Add(New Token(TokenType.KW_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "new"
                         result.Add(New Token(TokenType.KW_NEW, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+
                     Case "and"
                         result.Add(New Token(TokenType.OP_AND, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "or"
@@ -255,8 +234,8 @@ Module Lexer
                         result.Add(New Token(TokenType.OP_NOT, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "has"
                         result.Add(New Token(TokenType.OP_HAS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
-                    Case "in"
-                        result.Add(New Token(TokenType.KW_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "is"
+                        result.Add(New Token(TokenType.OP_IS, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case Else
                         result.Add(New Token(TokenType.CODE_TERM, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, TrueKeyword))
@@ -511,11 +490,6 @@ Module Lexer
         'Add empty line at the end
         If Not result(result.Count - 1).Type = TokenType.CODE_LINEINDENTATION Then
             result.Add(New Token(TokenType.CODE_LINEINDENTATION, file, 0, 0, 0, 0))
-        End If
-
-        'Finish mega debug
-        If MegaDebug Then
-            Console.Write(Environment.NewLine)
         End If
 
         'Return

@@ -1,4 +1,5 @@
-﻿Imports System.IO
+﻿Imports System.ComponentModel
+Imports System.IO
 '==============================
 '========== COMPILER ==========
 '==============================
@@ -29,8 +30,11 @@ Module Compiler
     Public AllImportedFiles As New List(Of SourceFile)
     Public MainFile As SourceFile
 
+    Public AllFiles As New List(Of String)
+
     Public DefinedTypes As New List(Of Type)
-    Public ClassCounter As Integer = 0
+    Public TypeIDCounter As Integer = 0
+    Public ClassIDCounter As Integer = 0
 
     Public STDClass_int As ClassNode = Nothing
     Public STD_int As Type = Nothing
@@ -86,6 +90,7 @@ Module Compiler
         'Add main file
         MainFile = New SourceFile(inputFile)
         AllImportedFiles.Add(MainFile)
+        Status("Files parsing: done")
 
         'Get main functions
         Dim MainFunction As FunctionNode = Nothing
@@ -99,7 +104,18 @@ Module Compiler
             ThrowSimpleLimException("CC02", "Missing function", "The <" & MainFile.filename & "> file does not contain an entry point (main function).")
         End If
         If MainFunction.FunctionArguments.Count > 0 Then
-            ThrowNodeSyntaxException("CC03", "The entry point cannot have any arguments.", MainFunction.FunctionArguments(0))
+            If MainFunction.FunctionArguments.Count > 1 Then
+                ThrowNodeSyntaxException("CC03", "The entry point can only have zero or one argument.", MainFunction.FunctionArguments(1))
+            End If
+            If Not MainFunction.FunctionArguments(0).ArgumentTypeNode.ClassName = "list" Then
+                ThrowNodeSyntaxException("CC13", "The ""main"" function has an array of type ""list<str>"" as its only argument.", MainFunction.FunctionArguments(0).ArgumentTypeNode)
+            End If
+            If Not MainFunction.FunctionArguments(0).ArgumentTypeNode.PassedArguments.Count = 1 Then
+                ThrowNodeSyntaxException("CC14", "The ""main"" function has an array of type ""list<str>"" as its only argument.", MainFunction.FunctionArguments(0).ArgumentTypeNode)
+            End If
+            If Not MainFunction.FunctionArguments(0).ArgumentTypeNode.PassedArguments(0).ClassName = "str" Then
+                ThrowNodeSyntaxException("CC15", "The ""main"" function has an array of type ""list<str>"" as its only argument.", MainFunction.FunctionArguments(0).ArgumentTypeNode.PassedArguments(0))
+            End If
         End If
         If MainFunction.ReturnTypeNode IsNot Nothing Then
             ThrowNodeSyntaxException("CC04", "The entry point cannot return a value.", MainFunction.ReturnTypeNode)
@@ -153,6 +169,7 @@ Module Compiler
 
             Next
         Next
+        Status("Extension handling: done")
 
         'Get Primary types
         If STDClass_int Is Nothing Then
@@ -197,6 +214,7 @@ Module Compiler
 
         'Compile main
         MainFunction.Compile(Nothing)
+        Status("Logic Compilation: done")
 
         'Compile ASD Variables & ASD Functions
         Dim Compiled_AddSourceDirectly As New List(Of String)
@@ -226,6 +244,23 @@ Module Compiler
                 Exit For
             End If
         Next
+
+        'Find new & add method of list<str>
+        Dim list_str As Type = Nothing
+        Dim list_str_new As FunctionNode = Nothing
+        Dim list_str_add As FunctionNode = Nothing
+        If MainFunction.FunctionArguments.Count > 0 Then
+            list_str = GetTypeFromClassAndArgs(Nothing, STDClass_list, {STD_str}.ToList())
+            For Each method As FunctionNode In list_str.Methods
+                If method.FunctionName = "new" Then
+                    list_str_new = method
+                    method.Compile(Nothing)
+                ElseIf method.FunctionName = "add" Then
+                    list_str_add = method
+                    method.Compile(Nothing)
+                End If
+            Next
+        End If
 
         'Generate final file
         File.WriteAllText(AppData & "/src/main.c", "", Text.Encoding.UTF8)
@@ -308,35 +343,62 @@ Module Compiler
             SW.WriteLine("/////////////////////////")
             SW.WriteLine("////// ENTRY POINT //////")
             SW.WriteLine("/////////////////////////")
-            SW.WriteLine("int main(int argc, char **argv){")
-            SW.WriteLine(vbTab & "")
-            SW.WriteLine(vbTab & "//Initialize the random")
-            SW.WriteLine(vbTab & "srand(time(NULL));")
-            SW.WriteLine(vbTab & "")
-            SW.WriteLine(vbTab & "//Start the garbage collector")
-            SW.WriteLine(vbTab & "tgc_start(&gc, &argc);")
-            SW.WriteLine(vbTab & "")
+            Dim SecondMain As String = GetFunctionCompiledName()
+            SW.WriteLine("void * " & SecondMain & "(int argc, char **argv){")
             If UseSDL Then
+                SW.WriteLine(vbTab & "")
                 SW.WriteLine(vbTab & "//Initialize SDL")
-                SW.WriteLine(vbTab & "if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0){")
+                SW.WriteLine(vbTab & "if (SDL_Init(SDL_INIT_VIDEO) != 0){")
                 SW.WriteLine(vbTab & "  ThrowRuntimeError(""SDL:  %s"", SDL_GetError());")
                 SW.WriteLine(vbTab & "}")
-                SW.WriteLine(vbTab & "")
             End If
-            SW.WriteLine(vbTab & "//Initialize global variable values")
+            SW.WriteLine(vbTab & "")
+            SW.WriteLine(vbTab & "//Initializing global variable values")
             SW.WriteLine(vbTab & "global_variables * GV = tgc_alloc(&gc, sizeof(global_variables));")
             For Each line As String In Compiled_Inits
                 SW.WriteLine(vbTab & line)
             Next
             SW.WriteLine(vbTab & "")
             SW.WriteLine(vbTab & "//Calls the ""main"" function")
-            SW.WriteLine(vbTab & MainFunction.CompiledName & "(GV, NULL);")
+            If MainFunction.FunctionArguments.Count > 0 Then
+                Dim list_str_name As String = GetVariableCompiledName()
+                SW.WriteLine(vbTab & list_str.CompiledName & " * " & list_str_name & " = " & list_str_new.CompiledName & " (GV);")
+                SW.WriteLine(vbTab & "for (int i = 0; i < argc; i++){")
+                SW.WriteLine(vbTab & vbTab & list_str_add.CompiledName & "(GV, " & list_str_name & ", new_str(argv[i]));")
+                SW.WriteLine(vbTab & "}")
+                SW.WriteLine(vbTab & MainFunction.CompiledName & "(GV, NULL, " & list_str_name & ");")
+            Else
+                SW.WriteLine(vbTab & MainFunction.CompiledName & "(GV, NULL);")
+            End If
+            SW.WriteLine(vbTab & "")
+            SW.WriteLine("}")
+
+            SW.WriteLine("")
+
+            SW.WriteLine("int main(int argc, char **argv){")
+            SW.WriteLine(vbTab & "")
+            SW.WriteLine(vbTab & "//Initializing random")
+            SW.WriteLine(vbTab & "srand(time(NULL));")
+            SW.WriteLine(vbTab & "")
+            SW.WriteLine(vbTab & "//Starting garbage collector")
+            SW.WriteLine(vbTab & "tgc_start(&gc, &argc);")
+            SW.WriteLine(vbTab & "")
+
+            SW.WriteLine(vbTab & "")
+            SW.WriteLine(vbTab & "//Calls the second main function")
+            SW.WriteLine(vbTab & "void * (*volatile entrypoint)(int, char**) = " & SecondMain & ";")
+            SW.WriteLine(vbTab & "entrypoint(argc, argv);")
             SW.WriteLine(vbTab & "")
             SW.WriteLine(vbTab & "//Stop the garbage collector")
             SW.WriteLine(vbTab & "tgc_stop(&gc);")
+            SW.WriteLine(vbTab & "")
+            SW.WriteLine(vbTab & "//Exit program")
+            SW.WriteLine(vbTab & "return 0;")
+            SW.WriteLine(vbTab & "")
             SW.WriteLine("}")
 
         End Using
+        Status("Assembly of main.c: done")
 
         '=== OLD CODE STOLEN FROM LAST RELEASE ===
 
@@ -383,12 +445,14 @@ Module Compiler
 
         'Get all files
         Dim FilesRef As String = ""
-        listFile(AppData & "/src", FilesRef)
+        For Each val As String In AllFiles
+            FilesRef &= " """ & val & """"
+        Next
 
         'Executalbe
         Dim gcc As New Process()
         gcc.StartInfo.FileName = executableDirectory & "/mingw64/bin/gcc.exe"
-        Dim CompileCommand As String = FilesRef & " -o ../bin/prog.exe " & resPath
+        Dim CompileCommand As String = AppData & "/src/main.c" & FilesRef & " -O2 -o ../bin/prog.exe " & resPath
         If UseSDL Then
             CompileCommand &= " -I""" & executableDirectory & "/SDL/include"" -L""" & executableDirectory & "/SDL/lib"" -lmingw32 -lSDL2main -lSDL2"
         End If
@@ -397,21 +461,23 @@ Module Compiler
         End If
         gcc.StartInfo.Arguments = CompileCommand
         gcc.StartInfo.WorkingDirectory = AppData & "/src"
-        gcc.StartInfo.ErrorDialog = False
+        gcc.StartInfo.UseShellExecute = False
+        gcc.StartInfo.RedirectStandardError = True
+        gcc.StartInfo.CreateNoWindow = True
         gcc.Start()
 
-        'Wait
-        Dim CursorPos As ValueTuple(Of Integer, Integer) = Nothing
-        Dim EndCursorPos As ValueTuple(Of Integer, Integer) = Nothing
         If ShowDebug Then
-            Console.Write("Compiling C to Bin [")
+
+            Console.CursorVisible = False
+            Dim CursorPos As ValueTuple(Of Integer, Integer) = Nothing
+            Dim EndCursorPos As ValueTuple(Of Integer, Integer) = Nothing
+            Console.Write("[LOGS] Compiling C to Bin [")
             CursorPos = Console.GetCursorPosition()
             Console.Write("-]" & Environment.NewLine)
             EndCursorPos = Console.GetCursorPosition()
-        End If
-        Dim LoadingState = 0
-        While Not gcc.HasExited
-            If ShowDebug Then
+            Dim LoadingState = 0
+
+            While Not gcc.HasExited
                 Console.SetCursorPosition(CursorPos.Item1, CursorPos.Item2)
                 LoadingState += 1
                 Select Case LoadingState
@@ -426,11 +492,22 @@ Module Compiler
                     Case Else
                         LoadingState = 0
                 End Select
-            End If
-            Threading.Thread.Sleep(10)
-        End While
-        If ShowDebug Then
+                Threading.Thread.Sleep(10)
+            End While
+
             Console.SetCursorPosition(EndCursorPos.Item1, EndCursorPos.Item2)
+            Console.CursorVisible = True
+
+        Else
+
+            gcc.WaitForExit()
+
+        End If
+        Dim output As String = gcc.StandardError.ReadToEnd()
+
+        'Create run.bat
+        If HasFlag("k", "keep") Then
+            File.WriteAllText(AppData & "/run.bat", "cd """ & gcc.StartInfo.WorkingDirectory & """" & Environment.NewLine & gcc.StartInfo.FileName & " " & gcc.StartInfo.Arguments & Environment.NewLine & "cd ..")
         End If
 
         'Move SDL dll
@@ -453,6 +530,7 @@ Module Compiler
         'File Compiled
         If gcc.ExitCode = 0 Then
 
+            Status("C file compilation: done")
             For Each file As String In Directory.GetFiles(AppData & "/bin")
                 If file.EndsWith(".exe") Then
                     Return file
@@ -462,26 +540,35 @@ Module Compiler
         End If
 
         'Error
+        Status("C file compilation: fail")
         Console.ForegroundColor = ConsoleColor.DarkRed
         Console.WriteLine("Compilation failed!")
         Console.ResetColor()
+        If ShowDebug Then
+            Console.WriteLine("GCC ERROR:")
+            Console.WriteLine(output)
+        End If
         EndApplication()
         Return Nothing
 
     End Function
 
-    '===============================
-    '========== LIST FILE ==========
-    '===============================
-    Private Sub listFile(ByVal path As String, ByRef FilesRef As String)
+    '=========================
+    '========== LOG ==========
+    '=========================
+    Friend Sub Log(ByVal message As String)
+        If ShowDebug Then
+            Console.WriteLine("[LOGS] " & message)
+        End If
+    End Sub
 
-        For Each filepath As String In Directory.GetFiles(path)
-            FilesRef &= " """ & filepath.Replace("\", "/") & """"
-        Next
-        For Each folder As String In Directory.GetDirectories(path)
-            listFile(folder, FilesRef)
-        Next
-
+    '===========================
+    '========== SATUS ==========
+    '===========================
+    Friend Sub Status(ByVal message As String)
+        If ShowDebug Then
+            Console.WriteLine("[STATUS] " & message)
+        End If
     End Sub
 
     '==============================

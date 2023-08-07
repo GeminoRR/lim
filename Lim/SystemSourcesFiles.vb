@@ -41,9 +41,7 @@ Class SourceFile
         End If
         filepath = Path.GetFullPath(filepath).Replace("\", "/")
         Me.filepath = filepath
-        If ShowDebug Then
-            Console.WriteLine("[LOGS] Importing """ & filepath & """")
-        End If
+        Log("Importing """ & filepath & """")
 
         'Read file
         Try
@@ -106,44 +104,45 @@ Class SourceFile
                 If Not tokens(2).Type = TokenType.CT_STRING Then
                     ThrowCoordinatesSyntaxLimException("SSFN05", "A string must follow the $ sign.", Me, tokens(1).PositionEndY, tokens(1).PositionEndX, tokens(2).PositionEndY, tokens(2).PositionEndX)
                 End If
-                If Not Compiler.Compiled_Imports.Contains("#include " & tokens(2).Value) Then
 
-                    Dim ObjectToImport As String = tokens(2).Value
-                    If Not (ObjectToImport.StartsWith("""") And ObjectToImport.EndsWith("""")) And Not (ObjectToImport.StartsWith("<") And ObjectToImport.EndsWith(">")) Then
+                Dim ObjectToImport As String = tokens(2).Value
+                If ObjectToImport.StartsWith("""") And ObjectToImport.EndsWith("""") Then
 
-                        'Include ressources in /src
+                    Dim IncludeHeader As String = Path.GetFullPath(ObjectToImport.Substring(1, ObjectToImport.Length - 2), Directory.GetParent(Me.filepath).FullName)
+                    If Not Compiler.Compiled_Imports.Contains("#include """ & IncludeHeader & """") Then
 
-                        Dim RessourcePath As String = Directory.GetParent(Me.filepath).FullName & "/" & ObjectToImport
-                        If Directory.Exists(RessourcePath) Then
+                        Compiler.Compiled_Imports.Add("#include """ & IncludeHeader & """")
+                    End If
 
-                            'Include folder
-                            Dim TargetDirectoy As String = AppData & "/src/" & Path.GetFileName(RessourcePath)
-                            If Not Directory.Exists(TargetDirectoy) Then
+                ElseIf ObjectToImport.StartsWith("<") And ObjectToImport.EndsWith(">") Then
 
-                                Directory.CreateDirectory(TargetDirectoy)
-                                Microsoft.VisualBasic.FileIO.FileSystem.CopyDirectory(RessourcePath, TargetDirectoy)
+                    If Not Compiler.Compiled_Imports.Contains("#include " & ObjectToImport) Then
+                        Compiler.Compiled_Imports.Add("#include " & ObjectToImport)
+                    End If
 
-                            End If
+                Else
 
-                        ElseIf File.Exists(RessourcePath) Then
+                    'Include ressources in AllFiles
 
-                            'Include file
-                            Dim TargetFile As String = AppData & "/src/" & Path.GetFileName(RessourcePath)
-                            If Not File.Exists(TargetFile) Then
-                                File.Copy(RessourcePath, TargetFile, True)
-                            End If
+                    Dim RessourcePath As String = Path.GetFullPath(Directory.GetParent(Me.filepath).FullName & "/" & ObjectToImport)
+                    If Directory.Exists(RessourcePath) Then
 
-                        Else
-                            ThrowSimpleLimException("SSFN07", "", "Unable to find the file/folder """ & Me.filepath & "/" & ObjectToImport & """.")
+                        'Include folder
+                        RecusriveFolderImport(RessourcePath)
+
+                    ElseIf File.Exists(RessourcePath) Then
+
+                        'Include file
+                        If Not AllFiles.Contains(RessourcePath) Then
+                            AllFiles.Add(Path.GetFullPath(RessourcePath, Me.filepath))
                         End If
+
                     Else
-
-                        'Normal include
-                        Compiler.Compiled_Imports.Add("#include " & tokens(2).Value)
-
+                        ThrowSimpleLimException("SSFN07", "", "Unable to find the file/folder """ & Me.filepath & "/" & ObjectToImport & """.")
                     End If
 
                 End If
+
                 tokens.RemoveAt(0)
 
 
@@ -214,6 +213,21 @@ Class SourceFile
         End If
 
     End Sub
+
+    'Import folder
+    Private Sub RecusriveFolderImport(ByVal folder As String)
+
+        For Each filepath As String In Directory.EnumerateFiles(folder)
+            If Not AllFiles.Contains(filepath) Then
+                AllFiles.Add(filepath)
+            End If
+        Next
+        For Each path As String In Directory.EnumerateDirectories(folder)
+            RecusriveFolderImport(path)
+        Next
+
+    End Sub
+
 
     'Sub import
     Private Sub SubImport(ByVal ListOfImportedFiles As List(Of SourceFile))

@@ -93,8 +93,8 @@ Class ForeachNode
         Dim Max As String = GetVariableCompiledName()
         Content.Add("")
         Content.Add(Target.ReturnType.CompiledName & " * " & CompiledTarget & " = " & Target.Compile(Content) & ";")
-        Content.Add("int " & Max & " = (" & Target.ReturnType.Iterators.Item2.CompiledName & "(GV, " & CompiledTarget & "))->value;")
-        Content.Add("for (" & STD_int.CompiledName & " * " & TempVar & " = " & Target.ReturnType.Iterators.Item1.CompiledName & "(GV, " & CompiledTarget & "); (" & TempVar & ")->value < " & Max & "; ++(" & TempVar & "->value)){")
+        Content.Add("int " & Max & " = *(" & Target.ReturnType.Iterators.Item2.CompiledName & "(GV, " & CompiledTarget & "));")
+        Content.Add("for (" & STD_int.CompiledName & " * " & TempVar & " = " & Target.ReturnType.Iterators.Item1.CompiledName & "(GV, " & CompiledTarget & "); (*" & TempVar & ") < " & Max & "; ++(*" & TempVar & ")){")
 
         'Compile variable
         Dim LoopVariable As New Variable(VariableName, Target.ReturnType.Iterators.Item3.ReturnType)

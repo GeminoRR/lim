@@ -79,7 +79,7 @@ Class BooleanOperationNode
         End Select
 
         'Compile
-        Return "new_bool((" & Left.Compile(content) & ")->value " & C_Operator & " (" & Right.Compile(content) & ")->value)"
+        Return "new_bool(*(" & Left.Compile(content) & ") " & C_Operator & " *(" & Right.Compile(content) & "))"
 
     End Function
 

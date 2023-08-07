@@ -365,7 +365,7 @@ Class FunctionNode
                     If Me.ReturnType IsNot Nothing Then
                         ThrowNodeSyntaxException("FNC02", "The constructor of a class cannot return a value.", Me.ReturnTypeNode)
                     End If
-                    FunctionLines.Insert(0, ParentType.CompiledName & " * self = " & ParentType.CompiledName & "_allocate();")
+                    FunctionLines.Insert(0, ParentType.CompiledName & " * self = " & ParentType.CompiledName & "_allocate(GV);")
                     FunctionLines.Insert(0, "// Allocate memory")
                     FunctionLines.Insert(0, "")
                     CompiledReturnType = ParentType.CompiledName & " * "
@@ -408,6 +408,12 @@ Class FunctionNode
                     If Not FunctionArguments.Count = 0 Then
                         ThrowNodeSyntaxException("FNC05", "The ""clone"" method cannot have parameters.", Me)
                     End If
+
+                Case "any"
+                    FunctionLines.Add(STD_any.CompiledName & " * result = " & STD_any.CompiledName & "_allocate(GV);")
+                    FunctionLines.Add("result->typeID = (int)" & ParentType.TypeID.ToString() & ";")
+                    FunctionLines.Add("result->value = (void*)self;")
+                    FunctionLines.Add("return result;")
 
             End Select
 

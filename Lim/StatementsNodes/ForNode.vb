@@ -97,11 +97,11 @@ Class ForNode
         Content.Add("")
         Dim Max As String = GetVariableCompiledName()
         Dim Iterator As String = GetVariableCompiledName()
-        Content.Add("int " & Max & " = (" & ToValue.Compile(Content) & ")->value;")
+        Content.Add("int " & Max & " = *(" & ToValue.Compile(Content) & ");")
         If FromValue Is Nothing Then
-            Content.Add("for (" & STD_int.CompiledName & " * " & Iterator & " = new_int(0); " & Iterator & "->value < " & Max & "; ++(" & Iterator & "->value)){")
+            Content.Add("for (" & STD_int.CompiledName & " * " & Iterator & " = new_int(0); *" & Iterator & "< " & Max & "; ++(*" & Iterator & ")){")
         Else
-            Content.Add("for (" & STD_int.CompiledName & " * " & Iterator & " = (" & FromValue.Compile(Content) & "); " & Iterator & "->value < " & Max & "; ++(" & Iterator & "->value)){")
+            Content.Add("for (" & STD_int.CompiledName & " * " & Iterator & " = (" & FromValue.Compile(Content) & "); *" & Iterator & " < " & Max & "; ++(*" & Iterator & ")){")
         End If
 
         'Add variable

@@ -1,49 +1,6 @@
-import window
-
-let playerX = 40
-let playerY = 250
-
-let bullets = new list<bullet>
-let canShot = 0
-
-class bullet
-	let x:int
-	let y:int
-
-	func new
-		x = playerX
-		y = playerY
-
-	func update(screen:image)
-		screen.fillRect(x - 3, y - 3, 6, 6, new color(255, 255, 255))
-		x = x + 5
-
 func main
-	canShot = 0
-	windowInit("Oh", 800, 500)
+    let test:list<str> = new list<str>
+    test = ["test", "bbob"]
 
-	while true
-		windowUpdate()
-		let img = new image(width, height)
-		img.reset(new color(0, 0, 0))
-		img.drawText(clock().str(), 10, 10, 2, new color(255, 255, 255))
-
-		if keyPressed("z")
-			playerY = playerY - 1
-		if keyPressed("s")
-			playerY = playerY + 1
-
-		if keyPressed(" ") and canShot < clock()
-			bullets.add(new bullet())
-			canShot = clock() + 50
-
-		let newBullets = new list<bullet>
-		for i in bullets
-			i.update(img)
-			if not i.x > width
-				newBullets.add(i)
-		bullets = newBullets
-		
-		img.fillRect(playerX - 10, playerY - 10, 20, 20, "#2D4ACA".color())
-
-		windowPresent(img)
+    for i in test
+        puts("hello")
