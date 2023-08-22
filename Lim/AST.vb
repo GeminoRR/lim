@@ -440,34 +440,6 @@ Class AST
 
     End Function
 
-    '
-    Private Function GetBracketSelector() As ValueNode
-
-        Dim Left As ValueNode = GetNew()
-        While CurrentToken.Type = TokenType.OP_LEFT_BRACKET
-
-
-
-            'Child of
-            While CurrentToken.Type = TokenType.CODE_POINT
-
-                'Error
-                advance()
-                If Not CurrentToken.Type = TokenType.CODE_TERM Then
-                    ThrowCoordinatesSyntaxLimException("ASTGBS02", "A property name was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
-                End If
-
-                'Create node
-                Left = New ChildNode(Left.PositionStartY, Left.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, Left, CurrentToken.Value)
-                advance()
-
-            End While
-
-        End While
-        Return Left
-
-    End Function
-
     '===================================
     '========= UNARY OPERATION =========
     '===================================
@@ -936,8 +908,11 @@ Class AST
 
             'Get condition
             advance()
-            ResultNode.MainCondition = GetTopValue()
-            ResultNode.MainCondition.ParentNode = ResultNode
+            ResultNode.if_section = New IfNodeSection(ResultNode.PositionStartY, ResultNode.PositionStartX, ResultNode.PositionEndY, ResultNode.PositionEndX, if_section_type.section_if) With {
+                .ParentNode = ResultNode,
+                .Condition = GetTopValue()
+            }
+            ResultNode.if_section.Condition.ParentNode = ResultNode.if_section
 
             'Content
             While True
@@ -954,13 +929,14 @@ Class AST
                 'Get content
                 advance()
                 Dim LineResult As Node = GetLine(LineIndentation)
-                LineResult.ParentNode = ResultNode
-                ResultNode.MainCodes.Add(LineResult)
+                LineResult.ParentNode = ResultNode.if_section
+                ResultNode.if_section.Content.Add(LineResult)
+                ResultNode.if_section.PositionEndY = LineResult.PositionEndY
+                ResultNode.if_section.PositionEndX = LineResult.PositionEndX
 
             End While
 
             'Else if
-            Dim elseif_statement As New List(Of Tuple(Of ValueNode, List(Of StatementNode)))
             While CurrentToken.Type = TokenType.CODE_LINEINDENTATION
 
                 'Advance
@@ -974,14 +950,13 @@ Class AST
                     recede(TokenIndex - 1)
                     Exit While
                 End If
+                Dim elseif_section As New IfNodeSection(CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, if_section_type.section_elseif)
                 advance()
 
                 'Get condition
-                Dim elseif_condition As ValueNode = GetTopValue()
-                elseif_condition.ParentNode = ResultNode
-
-                'Get if lines
-                Dim elseif_lines As New List(Of StatementNode)
+                elseif_section.Condition = GetTopValue()
+                elseif_section.Condition.ParentNode = elseif_section
+                elseif_section.ParentNode = ResultNode
 
                 'Content
                 While True
@@ -998,18 +973,19 @@ Class AST
                     'Get content
                     advance()
                     Dim LineResult As Node = GetLine(LineIndentation)
-                    LineResult.ParentNode = ResultNode
-                    elseif_lines.Add(LineResult)
+                    LineResult.ParentNode = elseif_section
+                    elseif_section.Content.Add(LineResult)
+                    elseif_section.PositionEndY = LineResult.PositionEndY
+                    elseif_section.PositionEndX = LineResult.PositionEndX
 
                 End While
 
                 'Add
-                elseif_statement.Add((elseif_condition, elseif_lines).ToTuple())
+                ResultNode.elseif_sections.Add(elseif_section)
 
             End While
-            ResultNode.ElseIfs = elseif_statement
 
-            'Else
+            'Else (save for recede)
             Dim recedeIndex As Integer = TokenIndex
             If Not CurrentToken.Type = TokenType.CODE_LINEINDENTATION Then
                 ThrowCoordinatesSyntaxLimException("ASTGL13", "A new line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
@@ -1020,8 +996,14 @@ Class AST
             advance()
 
             'Else
-            Dim else_statement As New List(Of StatementNode)
             If CurrentToken.Type = TokenType.KW_ELSE Then
+
+                'Create node
+                ResultNode.else_section = New IfNodeSection(CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, if_section_type.esction_else) With {
+                    .ParentNode = ResultNode,
+                    .Condition = GetTopValue()
+                }
+                ResultNode.else_section.Condition.ParentNode = ResultNode.else_section
 
                 'Advance
                 advance()
@@ -1041,13 +1023,16 @@ Class AST
                     'Get content
                     advance()
                     Dim LineResult As Node = GetLine(LineIndentation)
-                    LineResult.ParentNode = ResultNode
-                    ResultNode.ElseCodes.Add(LineResult)
+                    LineResult.ParentNode = ResultNode.else_section
+                    ResultNode.else_section.Content.Add(LineResult)
+                    ResultNode.else_section.PositionEndY = LineResult.PositionEndY
+                    ResultNode.else_section.PositionEndX = LineResult.PositionEndX
 
                 End While
 
             Else
 
+                ResultNode.else_section = Nothing
                 recede(recedeIndex)
 
             End If

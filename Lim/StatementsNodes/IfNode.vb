@@ -5,17 +5,14 @@
 ' Represents a if statement
 '
 Class IfNode
-    Inherits ScopeNode
+    Inherits StatementNode
 
     '===============================
     '========== VARIABLES ==========
     '===============================
-    Public MainCondition As ValueNode
-    Public MainCodes As New List(Of StatementNode)
-
-    Public ElseIfs As List(Of Tuple(Of ValueNode, List(Of StatementNode)))
-
-    Public ElseCodes As New List(Of StatementNode)
+    Public if_section As IfNodeSection
+    Public elseif_sections As New List(Of IfNodeSection)
+    Public else_section As IfNodeSection
 
     '===============================
     '========== DUPLICATE ==========
@@ -23,23 +20,18 @@ Class IfNode
     Protected Overrides Function Duplicate() As Node
 
         Dim Cloned As IfNode = Me.MemberwiseClone()
-        Cloned.MainCondition = Cloned.MainCondition.Clone(Cloned)
-        Cloned.MainCodes = New List(Of StatementNode)
-        For Each i As StatementNode In Me.MainCodes
-            Cloned.MainCodes.Add(i.Clone(Cloned))
+
+        Cloned.if_section = Cloned.if_section.Clone(Cloned)
+
+        Cloned.elseif_sections = New List(Of IfNodeSection)
+        For i As Integer = 0 To Me.elseif_sections.Count - 1
+            Cloned.elseif_sections.Add(Me.elseif_sections(i).Clone(Cloned))
         Next
-        Cloned.ElseIfs = New List(Of Tuple(Of ValueNode, List(Of StatementNode)))
-        For Each i As Tuple(Of ValueNode, List(Of StatementNode)) In Me.ElseIfs
-            Dim ClonedList As New List(Of StatementNode)
-            For Each j As StatementNode In i.Item2
-                ClonedList.Add(j.Clone(Me))
-            Next
-            Cloned.ElseIfs.Add((DirectCast(i.Item1.Clone(Cloned), ValueNode), ClonedList).ToTuple())
-        Next
-        Cloned.ElseCodes = New List(Of StatementNode)
-        For Each i As StatementNode In Me.ElseCodes
-            Cloned.ElseCodes.Add(i.Clone(Cloned))
-        Next
+
+        If Cloned.else_section IsNot Nothing Then
+            Cloned.else_section = Cloned.else_section.Clone(Cloned)
+        End If
+
         Return Cloned
 
     End Function
@@ -66,68 +58,103 @@ Class IfNode
     '=============================
     Public Overrides Sub Compile(Content As List(Of String))
 
-        'Main condition
-        If Not MainCondition.ReturnType = STD_bool Then
-            ThrowNodeTypeException("INC01", "A value of type ""bool"" was expected instead of """ & MainCondition.ReturnType.ToString() & """.", MainCondition)
-        End If
-
-        'Compile for header
+        'Add new line
         Content.Add("")
-        Content.Add("if (*(" & MainCondition.Compile(Content) & ")){")
 
-        'Compile content
-        Dim MainContent As New List(Of String)
-        For Each line As StatementNode In Me.MainCodes
-            line.Compile(MainContent)
-        Next
-        For Each line As String In MainContent
-            Content.Add(vbTab & line)
-        Next
+        'Compile main if section
+        if_section.Compile(Content)
 
         'Compile elseif
-        For Each ElseIf_Statement As Tuple(Of ValueNode, List(Of StatementNode)) In ElseIfs
-
-            'Error
-            If Not ElseIf_Statement.Item1.ReturnType = STD_bool Then
-                ThrowNodeTypeException("INC02", "A value of type ""bool"" was expected instead of """ & ElseIf_Statement.Item1.ReturnType.ToString() & """.", ElseIf_Statement.Item1)
-            End If
-
-            'Compile
-            Content.Add(vbTab)
-            Content.Add("} else if (*(" & ElseIf_Statement.Item1.Compile(Content) & ")){")
-
-            'Compile content
-            Dim ElseIfContent As New List(Of String)
-            For Each line As StatementNode In ElseIf_Statement.Item2
-                line.Compile(ElseIfContent)
-            Next
-            For Each line As String In ElseIfContent
-                Content.Add(vbTab & line)
-            Next
-
+        For Each elseif_section In elseif_sections
+            elseif_section.Compile(Content)
         Next
 
-        'Else
-        If ElseCodes.Count > 0 Then
-
-            'Compile
-            Content.Add(vbTab)
-            Content.Add("} else {")
-
-            'Compile content
-            Dim ElseContent As New List(Of String)
-            For Each line As StatementNode In ElseCodes
-                line.Compile(ElseContent)
-            Next
-            For Each line As String In ElseContent
-                Content.Add(vbTab & line)
-            Next
-
+        'Compile else
+        If else_section IsNot Nothing Then
+            else_section.Compile(Content)
         End If
-
-        'Compile end of if statement
-        Content.Add("}")
 
     End Sub
 
 End Class
+
+Class IfNodeSection
+    Inherits ScopeNode
+
+    Public Condition As ValueNode
+    Public Content As New List(Of StatementNode)
+    Public type As if_section_type
+
+    '=================================
+    '========== CONSTRUCTOR ==========
+    '=================================
+    Public Sub New(ByVal PositionStartY As Integer, ByVal PositionStartX As Integer, ByVal PositionEndY As Integer, ByVal PositionEndX As Integer, ByVal type As if_section_type)
+
+        'Inherits
+        MyBase.New(PositionStartY, PositionStartX, PositionEndY, PositionEndX)
+
+        'Variables
+        Me.type = type
+
+    End Sub
+
+    '=============================
+    '========== COMPILE ==========
+    '=============================
+    Public Overrides Sub Compile(content As List(Of String))
+
+        'Main condition
+        If Not Condition.ReturnType = STD_bool Then
+            ThrowNodeTypeException("INS01", "A value of type ""bool"" was expected instead of """ & Condition.ReturnType.ToString() & """.", Condition)
+        End If
+
+        'Compile for header
+        Select Case type
+            Case if_section_type.section_if
+                content.Add("if (*(" & Condition.Compile(content) & ")){")
+
+            Case if_section_type.section_elseif
+                content.Add("else if (*(" & Condition.Compile(content) & ")){")
+
+            Case if_section_type.esction_else
+                content.Add("else {")
+
+            Case Else
+                Throw New NotImplementedException
+        End Select
+
+        'Compile content
+        Dim MainContent As New List(Of String)
+        For Each line As StatementNode In Me.Content
+            line.Compile(MainContent)
+        Next
+        For Each line As String In MainContent
+            content.Add(vbTab & line)
+        Next
+        content.Add("}")
+
+    End Sub
+
+    '===============================
+    '========== DUPLICATE ==========
+    '===============================
+    Protected Overrides Function Duplicate() As Node
+
+        Dim Cloned As IfNodeSection = Me.MemberwiseClone()
+        If Cloned.Condition IsNot Nothing Then
+            Cloned.Condition = Cloned.Condition.Clone(Cloned)
+        End If
+        Cloned.Content = New List(Of StatementNode)
+        For i As Integer = 0 To Me.Content.Count - 1
+            Cloned.Content.Add(Me.Content(i).Clone(Cloned))
+        Next
+        Return Cloned
+
+    End Function
+
+End Class
+Enum if_section_type
+    section_if
+    section_elseif
+    esction_else
+End Enum

@@ -1,6 +1,61 @@
-func main
-    let test:list<str> = new list<str>
-    test = ["test", "bbob"]
+import window
 
-    for i in test
-        puts("hello")
+class ball
+    let x:int
+    let y:int
+    let c:color
+    let velX:int
+    let velY:int
+
+    func new(_x:int, _y:int, _velX:int, _velY:int, _c:color)
+        x = _x
+        y = _y
+        velX = _velX
+        velY = _velY
+        c = _c
+
+    func render(screen:image)
+        screen.fillEllipse(x, y, ballRadius, c)
+    
+    func move
+        velY = velY + gravity
+
+        if y >= height - halfBallRadius
+            y = height - halfBallRadius
+            velY = 0
+
+        if x < halfBallRadius
+            x = halfBallRadius
+            velX = -velX
+        if x > width - halfBallRadius
+            x = width - halfBallRadius
+            velX = -velX
+
+        x = x + velX
+        y = y + velY
+
+let ballRadius = 10
+let halfBallRadius = (ballRadius / 2).int()
+let balls = new list<ball>
+let gravity = 1
+
+func main
+
+    windowInit("Physique test", 800, 800)
+
+    let screen = new image(width, height)
+    let screenBackgroundColor = new color(0, 0, 0)
+
+    while windowLoop()
+        screen.reset(screenBackgroundColor)
+
+        while balls.len() < 50
+            balls.add(new ball(10, 10, randint(5, 10), randint(10, 5), new color(randint(100, 200), randint(100, 200), randint(100, 200))))
+        
+        for i in balls
+            i.move()
+        
+        for i in balls
+            i.render(screen)
+
+        windowPresent(screen)
