@@ -104,8 +104,10 @@ Class IfNodeSection
     Public Overrides Sub Compile(content As List(Of String))
 
         'Main condition
-        If Not Condition.ReturnType = STD_bool Then
-            ThrowNodeTypeException("INS01", "A value of type ""bool"" was expected instead of """ & Condition.ReturnType.ToString() & """.", Condition)
+        If Condition IsNot Nothing Then
+            If Not Condition.ReturnType = STD_bool Then
+                ThrowNodeTypeException("INS01", "A value of type ""bool"" was expected instead of """ & Condition.ReturnType.ToString() & """.", Condition)
+            End If
         End If
 
         'Compile for header

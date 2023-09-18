@@ -217,6 +217,10 @@ Class AST
             advance()
             Return New StringNode(tok.PositionStartY, tok.PositionStartX, tok.PositionEndY, tok.PositionEndX, tok.Value)
 
+        ElseIf tok.Type = TokenType.CT_FSTRING Then
+            advance()
+            Return New StringNode(tok.PositionStartY, tok.PositionStartX, tok.PositionEndY, tok.PositionEndX, tok.Value, True)
+
         ElseIf tok.Type = TokenType.CT_TRUE Then
             advance()
             Return New BooleanNode(tok.PositionStartY, tok.PositionStartX, tok.PositionEndY, tok.PositionEndX, True)
@@ -231,7 +235,7 @@ Class AST
 
         ElseIf tok.Type = TokenType.CODE_DOLLAR Then
             advance()
-            If Not CurrentToken.Type = TokenType.CT_STRING Then
+            If Not (CurrentToken.Type = TokenType.CT_STRING Or CurrentToken.Type = TokenType.CT_FSTRING) Then
                 ThrowCoordinatesSyntaxLimException("ASTGF03", "The ""$"" sign must be followed by a string representing the code to be inserted.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, "It is important to be familiar with the Lim runtime to use this feature.")
             End If
             Dim ValueToken As Token = CurrentToken
@@ -276,7 +280,7 @@ Class AST
 
         End If
 
-        ThrowCoordinatesSyntaxLimException("ASTGFA01", "A value was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
+        ThrowCoordinatesSyntaxLimException("ASTGFA01", "A value or a line was expected here.", ParentFile, CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX)
         Return Nothing
 
     End Function
@@ -1001,9 +1005,8 @@ Class AST
                 'Create node
                 ResultNode.else_section = New IfNodeSection(CurrentToken.PositionStartY, CurrentToken.PositionStartX, CurrentToken.PositionEndY, CurrentToken.PositionEndX, if_section_type.esction_else) With {
                     .ParentNode = ResultNode,
-                    .Condition = GetTopValue()
+                    .Condition = Nothing
                 }
-                ResultNode.else_section.Condition.ParentNode = ResultNode.else_section
 
                 'Advance
                 advance()

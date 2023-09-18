@@ -101,7 +101,7 @@ Class SourceFile
                 If Not tokens.Count > 2 Then
                     ThrowCoordinatesSyntaxLimException("SSFN06", "A string must follow the $ sign.", Me, tokens(1).PositionEndY, tokens(1).PositionEndX, tokens(1).PositionEndY, tokens(1).PositionEndX)
                 End If
-                If Not tokens(2).Type = TokenType.CT_STRING Then
+                If Not (tokens(2).Type = TokenType.CT_STRING Or tokens(2).Type = TokenType.CT_FSTRING) Then
                     ThrowCoordinatesSyntaxLimException("SSFN05", "A string must follow the $ sign.", Me, tokens(1).PositionEndY, tokens(1).PositionEndX, tokens(2).PositionEndY, tokens(2).PositionEndX)
                 End If
 

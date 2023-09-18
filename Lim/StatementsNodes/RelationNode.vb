@@ -175,7 +175,7 @@ Class RelationNode
             If Me.ReturnType Is Nothing Then
                 ThrowNodeTypeException("RNC02", "This relation must absolutely return a value, which is not the case here.", Me)
             End If
-            Header = "inline " & Me.ReturnType.CompiledName & " * " & Header
+            Header = "static inline " & Me.ReturnType.CompiledName & " * " & Header
         End If
 
         'Add header to prototypes

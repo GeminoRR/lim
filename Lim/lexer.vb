@@ -137,30 +137,52 @@ Module Lexer
             End If
 
             'String
-            If {"""", "'"}.Contains(currentChar) Then
+            If currentChar = """" Then
 
-                Dim EndCharacter As Char = currentChar
                 Dim Value As String = ""
-                Dim SpecialChar As Boolean = False
                 advance()
 
-                While Not ((currentChar = EndCharacter And Not SpecialChar) Or currentChar = Nothing)
-                    If currentChar = "\" And Not SpecialChar And EndCharacter = "'" Then
-                        SpecialChar = True
+                While Not (currentChar = """" Or currentChar = Nothing)
+                    Value &= currentChar
+                    advance()
+                End While
+
+                If currentChar = Nothing Then
+                    ThrowCoordinatesSyntaxLimException("LLP03", "The character "" was expected to terminate the string.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
+                End If
+
+                result.Add(New Token(TokenType.CT_STRING, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Value))
+                advance()
+
+            End If
+
+            'String
+            If currentChar = "'" Then
+
+                Dim Value As String = ""
+                advance()
+
+                While Not (currentChar = "'" Or currentChar = Nothing)
+                    If currentChar = "\" Then
+                        advance()
+                        If currentChar = Nothing Then
+                            Exit While
+                        ElseIf currentChar = "'" Then
+                            Value &= "'"
+                        Else
+                            Value &= "\" & currentChar
+                        End If
                     Else
                         Value &= currentChar
-                        If SpecialChar Then
-                            SpecialChar = False
-                        End If
                     End If
                     advance()
                 End While
 
                 If currentChar = Nothing Then
-                    ThrowCoordinatesSyntaxLimException("LLP03", "The character " & EndCharacter & " was expected to terminate the string.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
+                    ThrowCoordinatesSyntaxLimException("LLP03", "The character ' was expected to terminate the string.", file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn)
                 End If
 
-                result.Add(New Token(TokenType.CT_STRING, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Value))
+                result.Add(New Token(TokenType.CT_FSTRING, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn, Value))
                 advance()
 
             End If

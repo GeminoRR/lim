@@ -54,6 +54,7 @@ Module TokenEnum
         CT_INTEGER
         CT_FLOAT
         CT_STRING
+        CT_FSTRING 'Formated string
         CT_TRUE
         CT_FALSE
         CT_NULL
