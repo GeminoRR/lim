@@ -68,7 +68,7 @@ Module Compiler
     '=============================
     '========== COMPILE ==========
     '=============================
-    Public Function compile(ByVal inputFile As String) As String
+    Public Function compile(ByVal inputFile As String, Optional ByVal GCC_Optimization As Boolean = False) As String
 
         'Reset build environment
         Try
@@ -452,7 +452,10 @@ Module Compiler
         'Executalbe
         Dim gcc As New Process()
         gcc.StartInfo.FileName = executableDirectory & "/mingw64/bin/gcc.exe"
-        Dim CompileCommand As String = AppData & "/src/main.c" & FilesRef & " -O2 -o ../bin/prog.exe " & resPath
+        Dim CompileCommand As String = AppData & "/src/main.c" & FilesRef & " -o ../bin/prog.exe " & resPath
+        If GCC_Optimization Then
+            CompileCommand &= " -O2"
+        End If
         If UseSDL Then
             CompileCommand &= " -I""" & executableDirectory & "/SDL/include"" -L""" & executableDirectory & "/SDL/lib"" -lmingw32 -lSDL2main -lSDL2"
         End If

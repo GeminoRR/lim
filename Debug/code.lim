@@ -1,4 +1,6 @@
 func main
-    let name = "Bob"
-    puts("Hello " + name + "!")
-    puts('Hello {name}!')
+	for i to 10
+		puts(i.str())
+		continue
+		puts('{i}2')
+	puts('fin')

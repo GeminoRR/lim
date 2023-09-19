@@ -85,6 +85,8 @@ Module TokenEnum
         KW_ELSEIF
         KW_ELSE
         KW_IN
+        KW_BREAK
+        KW_CONTINUE
 
         'Operators (OP)
         OP_LEFT_PARENTHESIS

@@ -146,6 +146,8 @@ Module SystemConsole
         'Compile
         If files.Count = 1 Then
 
+            'Compile & run on console
+
             'Get current dir
             Dim CurrentDir As String = Path.GetFullPath(files(0)).Replace("\", "/")
             If CurrentDir.Contains("/") Then
@@ -180,6 +182,8 @@ Module SystemConsole
 
         Else
 
+            'Compile to executable
+
             'Fix
             If Not files(1).EndsWith(".exe") Then
                 files(1) = files(1) & ".exe"
@@ -187,7 +191,7 @@ Module SystemConsole
 
             'Compile
 #If DEBUG Then
-            File.Move(Compiler.compile(files(0)), files(1), True)
+            File.Move(Compiler.compile(files(0), True), files(1), True)
             For Each CompiledFile As String In Directory.GetFiles(AppData & "/bin")
                 CompiledFile = CompiledFile.Replace("\", "/")
                 File.Move(CompiledFile, Directory.GetParent(files(1)).FullName & "/" & CompiledFile.Substring(CompiledFile.LastIndexOf("/") + 1), True)

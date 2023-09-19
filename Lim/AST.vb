@@ -625,6 +625,18 @@ Class AST
 
         End While
 
+        'Break
+        If CurrentToken.Type = TokenType.KW_BREAK Then
+            advance()
+            Return New BreakNode(tok.PositionStartY, tok.PositionStartX, tok.PositionEndY, tok.PositionEndX)
+        End If
+
+        'Continue
+        If CurrentToken.Type = TokenType.KW_CONTINUE Then
+            advance()
+            Return New ContinueNode(tok.PositionStartY, tok.PositionStartX, tok.PositionEndY, tok.PositionEndX)
+        End If
+
         'Export (for declare variable)
         Dim Export As Boolean = False
         If CurrentToken.Type = TokenType.KW_EXPORT Then

@@ -247,6 +247,10 @@ Module Lexer
                         result.Add(New Token(TokenType.KW_IN, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
                     Case "new"
                         result.Add(New Token(TokenType.KW_NEW, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "break"
+                        result.Add(New Token(TokenType.KW_BREAK, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
+                    Case "continue"
+                        result.Add(New Token(TokenType.KW_CONTINUE, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
 
                     Case "and"
                         result.Add(New Token(TokenType.OP_AND, file, PositionStartY, PositionStartX, currentCharLine, currentCharColumn - 1, Keyword))
